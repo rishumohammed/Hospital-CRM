@@ -79,4 +79,29 @@ This log records design decisions, assumptions, and architectural trade-offs mad
 - **Decision:** Phone numbers are normalized to E.164 (`mobileNorm` and `altMobileNorm`). The quick create endpoint and duplicate check endpoint query for active leads matching either field. If found and `overrideDuplicate !== true`, the API rejects with 409 Conflict returning the existing lead's details (`id`, masked mobile, name, status, owner). If `overrideDuplicate === true` and `overrideReason` is supplied, creation proceeds and the override rationale is captured in the audit log.
 - **Rationale:** Prevents fragmented duplicate records for the same patient while accommodating legitimate multi-patient family lines sharing a single household phone.
 
+---
+
+### Decision 012: Atomic Call Interaction Logging & Mandatory Next Action Protocol
+- **Date:** 2026-11-01
+- **Context:** Acceptance Test 4 mandates that an open lead cannot be saved or have a call logged without a next action and due time (unless closing with a reason or converting).
+- **Decision:** Combined call outcome logging and next action task creation into an atomic transactional endpoint (`POST /api/v1/interactions/call`). If a call log request omits `nextAction` on an open lead and does not trigger an auto-cadence outcome (or specify a closure reason), the API rejects the request with HTTP 400 `NEXT_ACTION_REQUIRED`.
+- **Rationale:** Prevents telecallers from leaving open leads without an active follow-up commitment, ensuring zero leads fall through the cracks.
+
+---
+
+### Decision 013: Event-Driven Cadence Transition & Automatic Task Cancellation
+- **Date:** 2026-11-01
+- **Context:** Acceptance Test 5 requires that logging outcome `Interested Not Ready` creates tasks at day 2, 7, 14, and 30, and subsequent appointment booking cancels those tasks and creates appointment reminders (24h, 2h) plus missed recovery (+1h).
+- **Decision:** Implemented a unified Cadence Engine (`applyCadence` and `cancelOpenCadenceTasks`). Transitioning a cadence or booking an appointment automatically cancels all existing open tasks linked to that lead/case before generating the new cadence steps. Day offsets are computed relative to `Asia/Kolkata` local time, standardizing follow-up calls to 10:00 AM IST.
+- **Rationale:** Prevents duplicate or conflicting tasks from piling up when patient intent progresses through the funnel.
+
+---
+
+### Decision 014: Soft Contact Rules & Calling Hours Preflight Checks
+- **Date:** 2026-11-01
+- **Context:** Acceptance Test 6 requires warning telecallers when placing a second call on the same day or a fourth attempt in a cycle, enforcing a saved `overrideReason`. Calling outside business hours (09:00–20:00 local) also requires an override reason.
+- **Decision:** Provided `GET /api/v1/interactions/check-limits` for real-time frontend alert banners and enforced validation in `logCallInteraction`. If limits are exceeded without a non-empty `overrideReason`, the API responds with HTTP 422 `OVERRIDE_REASON_REQUIRED`. When supplied, the reason is persisted in `interactions.override_reason`.
+- **Rationale:** Protects patient goodwill and privacy from over-calling while providing operational flexibility when patients explicitly request immediate callbacks.
+
+
 

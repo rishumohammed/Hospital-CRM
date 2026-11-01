@@ -139,7 +139,7 @@ export const emergencyRedirectSchema = z.object({
 export const bookAppointmentSchema = z.object({
   leadId: z.number().int().positive().optional().nullable(),
   caseId: z.number().int().positive().optional().nullable(),
-  branchId: z.number().int().positive(),
+  branchId: z.number().int().positive().optional(),
   doctorName: z.string().min(1, 'Doctor name is required').max(100),
   startsAt: z.string().datetime({ message: 'Valid ISO datetime required' }),
   note: z.string().max(500).optional(),

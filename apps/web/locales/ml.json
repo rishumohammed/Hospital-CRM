@@ -40,5 +40,20 @@
     "priority": "മുൻഗണന",
     "branch": "ബ്രാഞ്ച്",
     "actions": "നടപടികൾ"
+  },
+  "tasks": {
+    "title": "ചുമതലകൾ",
+    "next_action": "അടുത്ത നടപടി",
+    "due_at": "പൂർത്തിയാക്കേണ്ട സമയം",
+    "call_outcome": "കോൾ ഫലം",
+    "select_outcome": "ഫലം തിരഞ്ഞെടുക്കുക",
+    "override_reason": "പ്രത്യേക കാരണം (Override Reason)",
+    "override_reason_required": "പ്രത്യേക കാരണം നൽകേണ്ടതുണ്ട്",
+    "book_appointment": "അപ്പോയിന്റ്മെന്റ് ബുക്ക് ചെയ്യുക",
+    "doctor_name": "ഡോക്ടറുടെ പേര്",
+    "starts_at": "അപ്പോയിന്റ്മെന്റ് സമയം",
+    "no_tasks": "ഈ ലിസ്റ്റിൽ ചുമതലകൾ ഒന്നുമില്ല",
+    "complete": "പൂർത്തിയായി",
+    "snooze": "നീട്ടിവെക്കുക"
   }
 }

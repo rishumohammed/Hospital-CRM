@@ -3,6 +3,7 @@ import { UserContext, scopeWhere } from '../rbac/scope';
 import { normalizePhoneNumber, maskPhoneNumber } from '@hospital-crm/shared';
 import { recordAuditLog } from '../audit/audit.service';
 import { getSetting } from '../settings/settings.service';
+import { cancelOpenCadenceTasks, calculateStepDueAt } from '../cadences/cadence.service';
 
 export interface CreateLeadInput {
   name: string;
@@ -747,3 +748,126 @@ export async function emergencyRedirectLead(
     dutyNursesNotified: dutyNurses.length,
   };
 }
+
+/**
+ * Books an appointment for a lead, cancels open previous cadence tasks,
+ * schedules 24h & 2h reminder tasks, and schedules +1h missed-recovery task.
+ */
+export async function bookAppointmentForLead(
+  leadId: number,
+  input: {
+    doctorName: string;
+    startsAt: string;
+    branchId?: number;
+    note?: string;
+  },
+  user: UserContext,
+  ip?: string,
+  userAgent?: string
+) {
+  const lead = await getLeadById(leadId, user);
+  const appointmentTime = new Date(input.startsAt);
+  const branchId = input.branchId || lead.branchId;
+
+  const result = await prisma.$transaction(async (tx) => {
+    // 1. Create Appointment record
+    const appointment = await tx.appointment.create({
+      data: {
+        leadId: lead.id,
+        branchId,
+        doctorName: input.doctorName,
+        startsAt: appointmentTime,
+        status: 'booked',
+        createdBy: user.id,
+      },
+    });
+
+    // 2. Update Lead status to 'appointment_booked'
+    const updatedLead = await tx.lead.update({
+      where: { id: lead.id },
+      data: {
+        status: 'appointment_booked',
+        priority: 'hot', // appointment requested leads are 'hot'
+      },
+    });
+
+    // 3. Cancel open tasks from previous cadence (Acceptance Test 5 requirement!)
+    await cancelOpenCadenceTasks(tx, 'lead', lead.id);
+
+    // 4. Create reminder tasks
+    // 24h before
+    const due24h = calculateStepDueAt(appointmentTime, 'hours', -24);
+    await tx.task.create({
+      data: {
+        type: 'reminder',
+        title: `Appointment Reminder (24h before): ${lead.name} with Dr. ${input.doctorName}`,
+        dueAt: due24h,
+        priority: 'hot',
+        ownerId: lead.ownerId ?? user.id,
+        leadId: lead.id,
+        cadenceKey: 'appointment.reminders',
+        cadenceStep: 1,
+        status: 'open',
+      },
+    });
+
+    // 2h before
+    const due2h = calculateStepDueAt(appointmentTime, 'hours', -2);
+    await tx.task.create({
+      data: {
+        type: 'reminder',
+        title: `Appointment Reminder (2h before): ${lead.name} with Dr. ${input.doctorName}`,
+        dueAt: due2h,
+        priority: 'hot',
+        ownerId: lead.ownerId ?? user.id,
+        leadId: lead.id,
+        cadenceKey: 'appointment.reminders',
+        cadenceStep: 2,
+        status: 'open',
+      },
+    });
+
+    // 5. Create missed-appointment recovery task (+1h after)
+    const dueMissed = calculateStepDueAt(appointmentTime, 'hours', 1);
+    await tx.task.create({
+      data: {
+        type: 'call',
+        title: `Missed Appointment Recovery (+1h): Check attendance for ${lead.name}`,
+        dueAt: dueMissed,
+        priority: 'hot',
+        ownerId: lead.ownerId ?? user.id,
+        leadId: lead.id,
+        cadenceKey: 'appointment.missed',
+        cadenceStep: 1,
+        status: 'open',
+      },
+    });
+
+    // 6. Record interaction
+    await tx.interaction.create({
+      data: {
+        type: 'status_change',
+        direction: 'outbound',
+        userId: user.id,
+        leadId: lead.id,
+        note: `Appointment booked with Dr. ${input.doctorName} at ${input.startsAt}. ${input.note ? 'Note: ' + input.note : ''}`,
+        occurredAt: new Date(),
+      },
+    });
+
+    return { appointment, lead: updatedLead };
+  });
+
+  await recordAuditLog({
+    userId: user.id,
+    action: 'LEAD_APPOINTMENT_BOOKED',
+    entity: 'lead',
+    entityId: lead.id,
+    after: { appointmentId: result.appointment.id, startsAt: input.startsAt, doctorName: input.doctorName },
+    ip,
+    userAgent,
+  });
+
+  return result;
+}
+

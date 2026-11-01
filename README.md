@@ -100,3 +100,20 @@ Run TypeScript verification:
 ```bash
 pnpm typecheck
 ```
+
+---
+
+## Milestone Progress
+
+| Milestone | Description | Status |
+|---|---|---|
+| **M0** | Monorepo, Fastify, Nuxt 3, MySQL 8 Prisma baseline, PII redaction | ✅ Complete |
+| **M1** | Auth, Argon2id, Session Cookies, RBAC with `scopeWhere`, Audit Logs | ✅ Complete |
+| **M2** | Picklists (Depts, Sources, Outcomes), Settings, Phone Normalization | ✅ Complete |
+| **M3** | Support Desk: Leads, Duplicates, Round-Robin, SLA, Intake API | ✅ Complete |
+| **M4** | Tasks, Interactions, Cadences, My Work Dashboard, Appointments, Cron | ✅ Complete |
+| **M5** | Conversion & Patient Cases ("Mark Visited", Consultation Outcome) | ⏳ Next |
+| **M6** | Admission Desk (In-Patient queue, Estimate Counseling, Deposit Gate) | ⏳ Pending |
+| **M7** | Aftercare Desk (Post-treatment Cadences, Call Form, Doctor Escalations) | ⏳ Pending |
+| **M8** | Reports, Watermarked CSV Exports, PWA & Final Polish | ⏳ Pending |
+

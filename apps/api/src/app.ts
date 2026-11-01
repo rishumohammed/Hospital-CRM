@@ -16,6 +16,9 @@ import { auditRoutes } from './modules/audit/audit.routes';
 import { leadRoutes } from './modules/leads/lead.routes';
 import { picklistRoutes } from './modules/picklists/picklist.routes';
 import { settingsRoutes } from './modules/settings/settings.routes';
+import { taskRoutes } from './modules/tasks/task.routes';
+import { interactionRoutes } from './modules/interactions/interaction.routes';
+import { notificationRoutes } from './modules/notifications/notification.routes';
 
 export async function buildApp() {
   const isTest = process.env.NODE_ENV === 'test';
@@ -134,6 +137,9 @@ export async function buildApp() {
   await fastify.register(leadRoutes, { prefix: '/api/v1' });
   await fastify.register(picklistRoutes, { prefix: '/api/v1' });
   await fastify.register(settingsRoutes, { prefix: '/api/v1' });
+  await fastify.register(taskRoutes, { prefix: '/api/v1/tasks' });
+  await fastify.register(interactionRoutes, { prefix: '/api/v1/interactions' });
+  await fastify.register(notificationRoutes, { prefix: '/api/v1/notifications' });
 
   return fastify;
 }

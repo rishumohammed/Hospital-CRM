@@ -40,5 +40,20 @@
     "priority": "Priority",
     "branch": "Branch",
     "actions": "Actions"
+  },
+  "tasks": {
+    "title": "Tasks",
+    "next_action": "Next Action",
+    "due_at": "Due Date & Time",
+    "call_outcome": "Call Outcome",
+    "select_outcome": "Select Outcome",
+    "override_reason": "Override Reason",
+    "override_reason_required": "Override reason is required",
+    "book_appointment": "Book Appointment",
+    "doctor_name": "Doctor Name",
+    "starts_at": "Appointment Time",
+    "no_tasks": "No tasks in this queue",
+    "complete": "Complete",
+    "snooze": "Snooze"
   }
 }

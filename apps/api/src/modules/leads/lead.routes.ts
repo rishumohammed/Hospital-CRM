@@ -6,6 +6,7 @@ import {
   assignLeadSchema,
   closeLeadSchema,
   emergencyRedirectSchema,
+  bookAppointmentSchema,
   intakeLeadSchema,
   importLeadsPreviewSchema,
   importLeadsCommitSchema,
@@ -20,6 +21,7 @@ import {
   assignLead,
   closeLead,
   emergencyRedirectLead,
+  bookAppointmentForLead,
   checkDuplicateLead,
   calculateFirstResponseDue,
   assignLeadRoundRobin,
@@ -422,6 +424,41 @@ export const leadRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) =
           req.headers['user-agent']
         );
         return reply.send(result);
+      }
+    );
+
+    // 8b. Book Appointment
+    authGroup.post(
+      '/leads/:id/book-appointment',
+      { preHandler: [requirePermission(Permissions.LEAD_EDIT, 'lead')] },
+      async (req, reply) => {
+        const { id } = req.params as { id: string };
+        const leadId = parseInt(id, 10);
+        if (isNaN(leadId)) {
+          return reply.status(400).send({
+            error: { code: 'INVALID_ID', message: 'Lead ID must be an integer' },
+          });
+        }
+
+        const parseResult = bookAppointmentSchema.safeParse(req.body);
+        if (!parseResult.success) {
+          return reply.status(400).send({
+            error: {
+              code: 'VALIDATION_ERROR',
+              message: 'Invalid appointment payload',
+              details: parseResult.error.format(),
+            },
+          });
+        }
+
+        const result = await bookAppointmentForLead(
+          leadId,
+          parseResult.data,
+          req.user!,
+          req.ip,
+          req.headers['user-agent']
+        );
+        return reply.status(201).send(result);
       }
     );
 

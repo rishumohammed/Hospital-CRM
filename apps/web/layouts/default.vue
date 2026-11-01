@@ -96,6 +96,81 @@
             </button>
           </div>
 
+          <!-- Notification Bell Icon & Dropdown -->
+          <div v-if="authStore.user" class="relative">
+            <button
+              type="button"
+              class="relative p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors min-h-[40px] min-w-[40px] flex items-center justify-center"
+              @click="isNotifOpen = !isNotifOpen"
+            >
+              <span class="text-lg">🔔</span>
+              <span
+                v-if="unreadNotifCount > 0"
+                class="absolute top-1 right-1 px-1.5 py-0.5 text-[10px] font-extrabold rounded-full bg-rose-600 text-white shadow-sm animate-pulse"
+              >
+                {{ unreadNotifCount > 9 ? '9+' : unreadNotifCount }}
+              </span>
+            </button>
+
+            <!-- Notifications Popover -->
+            <div
+              v-if="isNotifOpen"
+              class="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 z-50 overflow-hidden"
+            >
+              <div class="p-3 border-b border-slate-100 dark:border-slate-700/60 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50">
+                <span class="text-xs font-bold text-slate-800 dark:text-slate-200">
+                  Notifications ({{ unreadNotifCount }} unread)
+                </span>
+                <button
+                  v-if="unreadNotifCount > 0"
+                  type="button"
+                  class="text-[11px] font-semibold text-teal-600 dark:text-teal-400 hover:underline"
+                  @click="markAllRead"
+                >
+                  Mark all read
+                </button>
+              </div>
+
+              <div class="max-h-80 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-700/40">
+                <div v-if="notifications.length === 0" class="p-6 text-center text-xs text-slate-400">
+                  No notifications
+                </div>
+                <div
+                  v-for="notif in notifications"
+                  :key="notif.id"
+                  :class="[
+                    'p-3 text-xs transition-colors hover:bg-slate-50 dark:hover:bg-slate-700/40',
+                    !notif.readAt ? 'bg-teal-50/30 dark:bg-teal-950/20' : ''
+                  ]"
+                >
+                  <div class="flex items-start justify-between gap-2">
+                    <NuxtLink
+                      :to="notif.link || '#'"
+                      class="font-bold text-slate-900 dark:text-slate-100 hover:text-teal-600"
+                      @click="isNotifOpen = false; markRead(notif.id)"
+                    >
+                      {{ notif.title }}
+                    </NuxtLink>
+                    <button
+                      v-if="!notif.readAt"
+                      type="button"
+                      class="text-[10px] text-teal-600 font-semibold"
+                      @click="markRead(notif.id)"
+                    >
+                      ✓
+                    </button>
+                  </div>
+                  <p class="text-[11px] text-slate-600 dark:text-slate-400 mt-1">
+                    {{ notif.body }}
+                  </p>
+                  <p class="text-[9px] text-slate-400 mt-1">
+                    {{ new Date(notif.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Auth Status & Logout / Login -->
           <div v-if="authStore.user" class="flex items-center space-x-2">
             <span class="hidden sm:inline-block text-xs font-semibold px-2.5 py-1 rounded-lg bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300">
@@ -177,14 +252,67 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n';
-import { onMounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { useAuthStore } from '../stores/auth';
 
 const { t, locale, setLocale } = useI18n();
 const authStore = useAuthStore();
+const config = useRuntimeConfig();
+const apiBase = config.public.apiBase || 'http://localhost:3001';
+
+const isNotifOpen = ref(false);
+const notifications = ref<any[]>([]);
+const unreadNotifCount = ref(0);
+let notifPollTimer: any = null;
+
+const fetchNotifications = async () => {
+  if (!authStore.token) return;
+  try {
+    const res = await fetch(`${apiBase}/api/v1/notifications`, {
+      headers: { Authorization: `Bearer ${authStore.token}` },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      notifications.value = data.data || [];
+      unreadNotifCount.value = data.unreadCount || 0;
+    }
+  } catch (err) {
+    // Silent catch on poll
+  }
+};
+
+const markRead = async (id: number) => {
+  try {
+    await fetch(`${apiBase}/api/v1/notifications/${id}/read`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${authStore.token}` },
+    });
+    fetchNotifications();
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+const markAllRead = async () => {
+  try {
+    await fetch(`${apiBase}/api/v1/notifications/read-all`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${authStore.token}` },
+    });
+    fetchNotifications();
+  } catch (err) {
+    console.error(err);
+  }
+};
 
 onMounted(() => {
   authStore.fetchMe();
+  fetchNotifications();
+  notifPollTimer = setInterval(fetchNotifications, 30000);
+});
+
+onUnmounted(() => {
+  if (notifPollTimer) clearInterval(notifPollTimer);
 });
 
 const switchLocale = (newLocale: string) => {

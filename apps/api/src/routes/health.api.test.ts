@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { FastifyInstance } from 'fastify';
-import { buildApp } from '../app';
+import { buildApp } from '../app.js';
 
 describe('Health API Endpoint', () => {
   let app: FastifyInstance;

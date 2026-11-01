@@ -56,6 +56,26 @@
           <span>WhatsApp</span>
         </button>
 
+        <!-- Log Call Button -->
+        <button
+          type="button"
+          @click="showLogCallDrawer = true"
+          class="min-h-[44px] px-4 py-2 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs flex items-center space-x-1.5 shadow-sm"
+        >
+          <span>📝</span>
+          <span>{{ $i18n.locale === 'ml' ? 'കോൾ രേഖപ്പെടുത്തുക' : 'Log Call' }}</span>
+        </button>
+
+        <!-- Book Appointment Button -->
+        <button
+          type="button"
+          @click="showBookApptModal = true"
+          class="min-h-[44px] px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs flex items-center space-x-1.5 shadow-sm shadow-sky-500/20"
+        >
+          <span>📅</span>
+          <span>{{ $i18n.locale === 'ml' ? 'അപ്പോയിന്റ്മെന്റ്' : 'Book Appt' }}</span>
+        </button>
+
         <!-- Emergency Redirect Button -->
         <button
           type="button"
@@ -312,19 +332,40 @@
         </div>
       </div>
     </div>
+
+    <!-- Log Call Drawer -->
+    <LogCallDrawer
+      :is-open="showLogCallDrawer"
+      :lead="lead"
+      @close="showLogCallDrawer = false"
+      @call-logged="fetchLead"
+    />
+
+    <!-- Book Appointment Modal -->
+    <BookAppointmentModal
+      :is-open="showBookApptModal"
+      :lead="lead"
+      @close="showBookApptModal = false"
+      @booked="fetchLead"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
+import LogCallDrawer from '~/components/interaction/LogCallDrawer.vue';
+import BookAppointmentModal from '~/components/lead/BookAppointmentModal.vue';
 
 const route = useRoute();
 const config = useRuntimeConfig();
-const apiBase = config.public.apiBase || 'http://localhost:4000/api/v1';
+const apiBase = config.public.apiBase ? `${config.public.apiBase}/api/v1` : 'http://localhost:3001/api/v1';
 
 const lead = ref<any | null>(null);
 const isLoading = ref(true);
+
+const showLogCallDrawer = ref(false);
+const showBookApptModal = ref(false);
 
 const showEmergencyModal = ref(false);
 const emergencyNote = ref('');

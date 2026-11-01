@@ -1,6 +1,7 @@
 import { prisma } from './client';
 import { hashPassword } from '../modules/auth/password';
 import { Roles, Teams, Scopes, Permissions } from '@hospital-crm/shared';
+import { ensureDefaultCadences } from '../modules/cadences/cadence.service';
 
 export async function seedDatabase() {
   console.log('--- Starting Database Seed ---');
@@ -554,6 +555,8 @@ export async function seedDatabase() {
     });
   }
   console.log('✓ System Settings (calling hours, SLA, contact rules, quiet hours) seeded');
+  await ensureDefaultCadences(prisma);
+  console.log('✓ 9 Default Cadences & Steps seeded');
 
   // 12. Seed 40 Synthetic Leads
   const t1 = seededUsers['telecaller1@hospital.test'];
