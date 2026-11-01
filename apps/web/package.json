@@ -1,0 +1,38 @@
+{
+  "name": "@hospital-crm/web",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev --port 3000",
+    "build": "nuxt build",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare && node scripts/fix-nitro-paths.mjs",
+    "typecheck": "node scripts/fix-nitro-paths.mjs && vue-tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@hospital-crm/shared": "workspace:*",
+    "@nuxt/ui": "^2.15.2",
+    "@nuxtjs/i18n": "^8.2.0",
+    "@pinia/nuxt": "^0.5.1",
+    "date-fns": "^3.6.0",
+    "lucide-vue-next": "^0.364.0",
+    "nuxt": "^3.11.1",
+    "pinia": "^2.1.7",
+    "vue": "^3.4.21",
+    "vue-i18n": "^9.14.5",
+    "vue-router": "^4.3.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.4",
+    "@vue/test-utils": "^2.4.5",
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.3",
+    "typescript": "^5.4.5",
+    "vitest": "^1.4.0",
+    "vue-tsc": "^2.0.7"
+  }
+}

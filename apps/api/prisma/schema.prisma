@@ -1,0 +1,603 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Branch {
+  id            Int            @id @default(autoincrement()) @db.UnsignedInt
+  code          String         @unique @db.VarChar(50)
+  name          String         @db.VarChar(100)
+  type          String         @default("own") @db.VarChar(20) // own | partner
+  businessHours Json?          @map("business_hours")
+  timezone      String         @default("Asia/Kolkata") @db.VarChar(50)
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+  archivedAt    DateTime?      @map("archived_at")
+
+  userBranches  UserBranch[]
+  leads         Lead[]
+  patients      Patient[]
+  cases         Case[]
+  appointments  Appointment[]
+
+  @@map("branches")
+}
+
+model User {
+  id             Int               @id @default(autoincrement()) @db.UnsignedInt
+  name           String            @db.VarChar(100)
+  email          String            @unique @db.VarChar(191)
+  mobile         String            @db.VarChar(20)
+  passwordHash   String            @map("password_hash") @db.VarChar(255)
+  roleId         Int               @map("role_id") @db.UnsignedInt
+  language       String            @default("en") @db.VarChar(10)
+  status         String            @default("active") @db.VarChar(20) // active | inactive
+  mfaSecret      String?           @map("mfa_secret") @db.VarChar(100)
+  available      Boolean           @default(true)
+  workingHours   Json?             @map("working_hours")
+  dutyNurse      Boolean           @default(false) @map("duty_nurse")
+  dutyDoctor     Boolean           @default(false) @map("duty_doctor")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+  archivedAt     DateTime?         @map("archived_at")
+
+  role           Role              @relation(fields: [roleId], references: [id])
+  userBranches   UserBranch[]
+  userTeams      UserTeam[]
+  permissionGrants PermissionGrant[] @relation("GrantedToUser")
+  givenGrants    PermissionGrant[]   @relation("GrantedByUser")
+  ownedLeads     Lead[]            @relation("LeadOwner")
+  ownedCases     Case[]            @relation("CaseOwner")
+  doctorCases    Case[]            @relation("DoctorTreating")
+  tasks          Task[]            @relation("TaskOwner")
+  completedTasks Task[]            @relation("TaskCompletedBy")
+  interactions   Interaction[]
+  raisedEscalations Escalation[]   @relation("EscalationRaisedBy")
+  assignedEscalations Escalation[] @relation("EscalationDoctor")
+  decidedEscalations Escalation[]  @relation("EscalationDecidedBy")
+  notifications  Notification[]
+  auditLogs      AuditLog[]
+  imports        Import[]
+
+  @@index([roleId])
+  @@index([status])
+  @@index([available])
+  @@map("users")
+}
+
+model UserBranch {
+  id        Int      @id @default(autoincrement()) @db.UnsignedInt
+  userId    Int      @map("user_id") @db.UnsignedInt
+  branchId  Int      @map("branch_id") @db.UnsignedInt
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  branch    Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, branchId])
+  @@map("user_branches")
+}
+
+model Team {
+  id        Int        @id @default(autoincrement()) @db.UnsignedInt
+  code      String     @unique @db.VarChar(50) // support | admission | aftercare
+  name      String     @db.VarChar(100)
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+
+  userTeams UserTeam[]
+
+  @@map("teams")
+}
+
+model UserTeam {
+  id        Int      @id @default(autoincrement()) @db.UnsignedInt
+  userId    Int      @map("user_id") @db.UnsignedInt
+  teamId    Int      @map("team_id") @db.UnsignedInt
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, teamId])
+  @@map("user_teams")
+}
+
+model Role {
+  id          Int              @id @default(autoincrement()) @db.UnsignedInt
+  code        String           @unique @db.VarChar(50)
+  name        String           @db.VarChar(100)
+  maskPhone   Boolean          @default(false) @map("mask_phone")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+
+  users       User[]
+  permissions RolePermission[]
+
+  @@map("roles")
+}
+
+model RolePermission {
+  id         Int      @id @default(autoincrement()) @db.UnsignedInt
+  roleId     Int      @map("role_id") @db.UnsignedInt
+  permission String   @db.VarChar(100)
+  scope      String   @default("own") @db.VarChar(20) // own | team | branch | all
+
+  role       Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permission])
+  @@map("role_permissions")
+}
+
+model PermissionGrant {
+  id         Int       @id @default(autoincrement()) @db.UnsignedInt
+  userId     Int       @map("user_id") @db.UnsignedInt
+  permission String    @db.VarChar(100)
+  scope      String    @db.VarChar(20)
+  reason     String    @db.Text
+  startsAt   DateTime  @default(now()) @map("starts_at")
+  endsAt     DateTime  @map("ends_at")
+  grantedBy  Int       @map("granted_by") @db.UnsignedInt
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  user       User      @relation("GrantedToUser", fields: [userId], references: [id], onDelete: Cascade)
+  granter    User      @relation("GrantedByUser", fields: [grantedBy], references: [id])
+
+  @@index([userId, endsAt])
+  @@map("permission_grants")
+}
+
+// Picklist Tables
+model Source {
+  id        Int      @id @default(autoincrement()) @db.UnsignedInt
+  code      String   @unique @db.VarChar(50)
+  labelEn   String   @map("label_en") @db.VarChar(100)
+  labelMl   String   @map("label_ml") @db.VarChar(100)
+  active    Boolean  @default(true)
+  sort      Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  leads     Lead[]
+
+  @@map("sources")
+}
+
+model Department {
+  id        Int      @id @default(autoincrement()) @db.UnsignedInt
+  code      String   @unique @db.VarChar(50)
+  labelEn   String   @map("label_en") @db.VarChar(100)
+  labelMl   String   @map("label_ml") @db.VarChar(100)
+  active    Boolean  @default(true)
+  sort      Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  leads     Lead[]
+  cases     Case[]
+
+  @@map("departments")
+}
+
+model CallOutcome {
+  id           Int           @id @default(autoincrement()) @db.UnsignedInt
+  code         String        @unique @db.VarChar(50)
+  labelEn      String        @map("label_en") @db.VarChar(100)
+  labelMl      String        @map("label_ml") @db.VarChar(100)
+  active       Boolean       @default(true)
+  sort         Int           @default(0)
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  interactions Interaction[]
+
+  @@map("call_outcomes")
+}
+
+model LostReason {
+  id        Int      @id @default(autoincrement()) @db.UnsignedInt
+  code      String   @unique @db.VarChar(50)
+  labelEn   String   @map("label_en") @db.VarChar(100)
+  labelMl   String   @map("label_ml") @db.VarChar(100)
+  active    Boolean  @default(true)
+  sort      Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  leads     Lead[]
+
+  @@map("lost_reasons")
+}
+
+model DeclineReason {
+  id        Int      @id @default(autoincrement()) @db.UnsignedInt
+  code      String   @unique @db.VarChar(50)
+  labelEn   String   @map("label_en") @db.VarChar(100)
+  labelMl   String   @map("label_ml") @db.VarChar(100)
+  active    Boolean  @default(true)
+  sort      Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  cases     Case[]
+
+  @@map("decline_reasons")
+}
+
+model ClosureCode {
+  id        Int      @id @default(autoincrement()) @db.UnsignedInt
+  code      String   @unique @db.VarChar(50)
+  labelEn   String   @map("label_en") @db.VarChar(100)
+  labelMl   String   @map("label_ml") @db.VarChar(100)
+  active    Boolean  @default(true)
+  sort      Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  cases     Case[]
+
+  @@map("closure_codes")
+}
+
+// Core CRM Entities
+model Lead {
+  id                  Int          @id @default(autoincrement()) @db.UnsignedInt
+  name                String       @db.VarChar(100)
+  mobile              String       @db.VarChar(25)
+  mobileNorm          String       @map("mobile_norm") @db.VarChar(20)
+  altMobile           String?      @map("alt_mobile") @db.VarChar(25)
+  altMobileNorm       String?      @map("alt_mobile_norm") @db.VarChar(20)
+  language            String       @default("en") @db.VarChar(10)
+  concern             String?      @db.Text
+  departmentId        Int          @map("department_id") @db.UnsignedInt
+  sourceId            Int          @map("source_id") @db.UnsignedInt
+  campaignText        String?      @map("campaign_text") @db.VarChar(100)
+  referrerText        String?      @map("referrer_text") @db.VarChar(100)
+  status              String       @default("new") @db.VarChar(30)
+  priority            String       @default("warm") @db.VarChar(10)
+  ownerId             Int?         @map("owner_id") @db.UnsignedInt
+  branchId            Int          @map("branch_id") @db.UnsignedInt
+  consentCalls        Boolean      @default(true) @map("consent_calls")
+  consentWhatsapp     Boolean      @default(false) @map("consent_whatsapp")
+  consentSms          Boolean      @default(false) @map("consent_sms")
+  consentDate         DateTime?    @map("consent_date")
+  consentSource       String?      @map("consent_source") @db.VarChar(100)
+  doNotContact        Boolean      @default(false) @map("do_not_contact")
+  emergencyFlag       Boolean      @default(false) @map("emergency_flag")
+  firstResponseDueAt  DateTime?    @map("first_response_due_at")
+  firstResponseAt     DateTime?    @map("first_response_at")
+  slaBreached         Boolean      @default(false) @map("sla_breached")
+  closedReasonId      Int?         @map("closed_reason_id") @db.UnsignedInt
+  closedAt            DateTime?    @map("closed_at")
+  convertedPatientId  Int?         @map("converted_patient_id") @db.UnsignedInt
+  createdAt           DateTime     @default(now()) @map("created_at")
+  updatedAt           DateTime     @updatedAt @map("updated_at")
+  archivedAt          DateTime?    @map("archived_at")
+
+  department          Department   @relation(fields: [departmentId], references: [id])
+  source              Source       @relation(fields: [sourceId], references: [id])
+  owner               User?        @relation("LeadOwner", fields: [ownerId], references: [id])
+  branch              Branch       @relation(fields: [branchId], references: [id])
+  closedReason        LostReason?  @relation(fields: [closedReasonId], references: [id])
+  convertedPatient    Patient?     @relation("ConvertedLead", fields: [convertedPatientId], references: [id])
+
+  cases               Case[]
+  appointments        Appointment[]
+  tasks               Task[]
+  interactions        Interaction[]
+
+  @@index([mobileNorm])
+  @@index([altMobileNorm])
+  @@index([status])
+  @@index([priority])
+  @@index([branchId])
+  @@index([ownerId])
+  @@index([firstResponseDueAt])
+  @@index([archivedAt])
+  @@map("leads")
+}
+
+model Patient {
+  id          Int          @id @default(autoincrement()) @db.UnsignedInt
+  patientCode String       @unique @map("patient_code") @db.VarChar(50)
+  name        String       @db.VarChar(100)
+  mobileNorm  String       @map("mobile_norm") @db.VarChar(20)
+  language    String       @default("en") @db.VarChar(10)
+  branchId    Int          @map("branch_id") @db.UnsignedInt
+  dateOfBirth DateTime?    @map("date_of_birth") @db.Date
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  archivedAt  DateTime?    @map("archived_at")
+
+  branch      Branch       @relation(fields: [branchId], references: [id])
+  leads       Lead[]       @relation("ConvertedLead")
+  cases       Case[]
+
+  @@index([mobileNorm])
+  @@index([branchId])
+  @@map("patients")
+}
+
+model Case {
+  id                     Int            @id @default(autoincrement()) @db.UnsignedInt
+  patientId              Int            @map("patient_id") @db.UnsignedInt
+  leadId                 Int?           @map("lead_id") @db.UnsignedInt
+  branchId               Int            @map("branch_id") @db.UnsignedInt
+  stage                  String         @default("visited") @db.VarChar(30)
+  careType               String         @default("consultation_only") @map("care_type") @db.VarChar(30)
+  departmentId           Int            @map("department_id") @db.UnsignedInt
+  treatingDoctorId       Int?           @map("treating_doctor_id") @db.UnsignedInt
+  consultationCompletedAt DateTime?     @map("consultation_completed_at")
+  advisedAdmission       Boolean        @default(false) @map("advised_admission")
+  estimatedAmount        Decimal?       @map("estimated_amount") @db.Decimal(12, 2)
+  estimateSharedAt       DateTime?      @map("estimate_shared_at")
+  depositReceived        Boolean        @default(false) @map("deposit_received")
+  depositAmount          Decimal?       @map("deposit_amount") @db.Decimal(12, 2)
+  expectedAdmissionDate  DateTime?      @map("expected_admission_date")
+  admissionDate          DateTime?      @map("admission_date")
+  dischargeDate          DateTime?      @map("discharge_date")
+  treatmentCompletedAt   DateTime?      @map("treatment_completed_at")
+  emergencyAdmission     Boolean        @default(false) @map("emergency_admission")
+  emergencyReason        String?        @map("emergency_reason") @db.Text
+  notStartedReasonId     Int?           @map("not_started_reason_id") @db.UnsignedInt
+  closureCodeId          Int?           @map("closure_code_id") @db.UnsignedInt
+  ownerId                Int?           @map("owner_id") @db.UnsignedInt
+  team                   String         @default("admission") @db.VarChar(30)
+  createdAt              DateTime       @default(now()) @map("created_at")
+  updatedAt              DateTime       @updatedAt @map("updated_at")
+  archivedAt             DateTime?      @map("archived_at")
+
+  patient                Patient        @relation(fields: [patientId], references: [id])
+  lead                   Lead?          @relation(fields: [leadId], references: [id])
+  branch                 Branch         @relation(fields: [branchId], references: [id])
+  department             Department     @relation(fields: [departmentId], references: [id])
+  treatingDoctor         User?          @relation("DoctorTreating", fields: [treatingDoctorId], references: [id])
+  owner                  User?          @relation("CaseOwner", fields: [ownerId], references: [id])
+  notStartedReason       DeclineReason? @relation(fields: [notStartedReasonId], references: [id])
+  closureCode            ClosureCode?   @relation(fields: [closureCodeId], references: [id])
+
+  appointments           Appointment[]
+  tasks                  Task[]
+  interactions           Interaction[]
+  escalations            Escalation[]
+
+  @@index([patientId])
+  @@index([leadId])
+  @@index([stage])
+  @@index([branchId])
+  @@index([ownerId])
+  @@index([team])
+  @@map("cases")
+}
+
+model Appointment {
+  id         Int       @id @default(autoincrement()) @db.UnsignedInt
+  leadId     Int?      @map("lead_id") @db.UnsignedInt
+  caseId     Int?      @map("case_id") @db.UnsignedInt
+  branchId   Int       @map("branch_id") @db.UnsignedInt
+  doctorName String    @map("doctor_name") @db.VarChar(100)
+  startsAt   DateTime  @map("starts_at")
+  status     String    @default("booked") @db.VarChar(20) // booked | visited | missed | cancelled
+  createdBy  Int?      @map("created_by") @db.UnsignedInt
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  lead       Lead?     @relation(fields: [leadId], references: [id])
+  case       Case?     @relation(fields: [caseId], references: [id])
+  branch     Branch    @relation(fields: [branchId], references: [id])
+
+  @@index([leadId])
+  @@index([caseId])
+  @@index([startsAt])
+  @@index([status])
+  @@map("appointments")
+}
+
+model Task {
+  id           Int       @id @default(autoincrement()) @db.UnsignedInt
+  type         String    @db.VarChar(30) // call | whatsapp | reminder | review | escalation_callback
+  title        String    @db.VarChar(200)
+  dueAt        DateTime  @map("due_at")
+  priority     String    @default("warm") @db.VarChar(10) // hot | warm | cold
+  ownerId      Int       @map("owner_id") @db.UnsignedInt
+  leadId       Int?      @map("lead_id") @db.UnsignedInt
+  caseId       Int?      @map("case_id") @db.UnsignedInt
+  cadenceKey   String?   @map("cadence_key") @db.VarChar(100)
+  cadenceStep  Int?      @map("cadence_step")
+  status       String    @default("open") @db.VarChar(20) // open | done | cancelled | snoozed
+  snoozeCount  Int       @default(0) @map("snooze_count")
+  completedAt  DateTime? @map("completed_at")
+  completedBy  Int?      @map("completed_by") @db.UnsignedInt
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  archivedAt   DateTime? @map("archived_at")
+
+  owner        User      @relation("TaskOwner", fields: [ownerId], references: [id])
+  completedUser User?    @relation("TaskCompletedBy", fields: [completedBy], references: [id])
+  lead         Lead?     @relation(fields: [leadId], references: [id])
+  case         Case?     @relation(fields: [caseId], references: [id])
+
+  @@index([ownerId])
+  @@index([leadId])
+  @@index([caseId])
+  @@index([status])
+  @@index([dueAt])
+  @@index([cadenceKey])
+  @@map("tasks")
+}
+
+model Interaction {
+  id              Int          @id @default(autoincrement()) @db.UnsignedInt
+  type            String       @db.VarChar(30) // call | whatsapp_manual | note | status_change | visit | aftercare_call
+  direction       String       @default("outbound") @db.VarChar(10) // inbound | outbound
+  userId          Int          @map("user_id") @db.UnsignedInt
+  leadId          Int?         @map("lead_id") @db.UnsignedInt
+  caseId          Int?         @map("case_id") @db.UnsignedInt
+  outcomeId       Int?         @map("outcome_id") @db.UnsignedInt
+  durationSeconds Int?         @map("duration_seconds")
+  note            String?      @db.Text
+  details         Json?
+  overrideReason  String?      @map("override_reason") @db.VarChar(500)
+  occurredAt      DateTime     @default(now()) @map("occurred_at")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  archivedAt      DateTime?    @map("archived_at")
+
+  user            User         @relation(fields: [userId], references: [id])
+  lead            Lead?        @relation(fields: [leadId], references: [id])
+  case            Case?        @relation(fields: [caseId], references: [id])
+  outcome         CallOutcome? @relation(fields: [outcomeId], references: [id])
+
+  @@index([leadId])
+  @@index([caseId])
+  @@index([userId])
+  @@index([occurredAt])
+  @@map("interactions")
+}
+
+model Escalation {
+  id               Int       @id @default(autoincrement()) @db.UnsignedInt
+  caseId           Int       @map("case_id") @db.UnsignedInt
+  raisedBy         Int       @map("raised_by") @db.UnsignedInt
+  reason           String    @db.Text
+  assignedDoctorId Int?      @map("assigned_doctor_id") @db.UnsignedInt
+  decision         String?   @db.Text
+  decidedBy        Int?      @map("decided_by") @db.UnsignedInt
+  decidedAt        DateTime? @map("decided_at")
+  dueAt            DateTime  @map("due_at")
+  status           String    @default("pending") @db.VarChar(20) // pending | decided | cancelled
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  case             Case      @relation(fields: [caseId], references: [id])
+  raisedUser       User      @relation("EscalationRaisedBy", fields: [raisedBy], references: [id])
+  assignedDoctor   User?     @relation("EscalationDoctor", fields: [assignedDoctorId], references: [id])
+  decidedUser      User?     @relation("EscalationDecidedBy", fields: [decidedBy], references: [id])
+
+  @@index([caseId])
+  @@index([assignedDoctorId])
+  @@index([status])
+  @@index([dueAt])
+  @@map("escalations")
+}
+
+model Cadence {
+  id        Int           @id @default(autoincrement()) @db.UnsignedInt
+  key       String        @unique @db.VarChar(100)
+  name      String        @db.VarChar(150)
+  active    Boolean       @default(true)
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+
+  steps     CadenceStep[]
+
+  @@map("cadences")
+}
+
+model CadenceStep {
+  id            Int      @id @default(autoincrement()) @db.UnsignedInt
+  cadenceId     Int      @map("cadence_id") @db.UnsignedInt
+  stepNo        Int      @map("step_no")
+  offsetUnit    String   @map("offset_unit") @db.VarChar(20) // minutes | hours | days
+  offsetValue   Int      @map("offset_value")
+  taskType      String   @default("call") @map("task_type") @db.VarChar(30)
+  titleTemplate String   @map("title_template") @db.VarChar(200)
+  assigneeRule  String   @default("owner") @map("assignee_rule") @db.VarChar(50) // owner | team_round_robin
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  cadence       Cadence  @relation(fields: [cadenceId], references: [id], onDelete: Cascade)
+
+  @@unique([cadenceId, stepNo])
+  @@map("cadence_steps")
+}
+
+model AssignmentRule {
+  id              Int      @id @default(autoincrement()) @db.UnsignedInt
+  name            String   @db.VarChar(100)
+  resource        String   @db.VarChar(50) // lead | case_admission | case_aftercare
+  priorityOrder   Int      @default(0) @map("priority_order")
+  conditions      Json     // branch, language, department, source
+  targetTeam      String   @map("target_team") @db.VarChar(50)
+  maxOpenPerUser  Int      @default(50) @map("max_open_per_user")
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([resource, active])
+  @@map("assignment_rules")
+}
+
+model Notification {
+  id        Int       @id @default(autoincrement()) @db.UnsignedInt
+  userId    Int       @map("user_id") @db.UnsignedInt
+  type      String    @db.VarChar(50)
+  title     String    @db.VarChar(200)
+  body      String    @db.Text
+  link      String?   @db.VarChar(255)
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id         Int      @id @default(autoincrement()) @db.UnsignedInt
+  userId     Int?     @map("user_id") @db.UnsignedInt
+  action     String   @db.VarChar(100)
+  entity     String   @db.VarChar(50)
+  entityId   Int?     @map("entity_id") @db.UnsignedInt
+  before     Json?
+  after      Json?
+  ip         String?  @db.VarChar(50)
+  userAgent  String?  @map("user_agent") @db.VarChar(255)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([entity, entityId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model Import {
+  id        Int      @id @default(autoincrement()) @db.UnsignedInt
+  userId    Int      @map("user_id") @db.UnsignedInt
+  filename  String   @db.VarChar(255)
+  status    String   @default("pending") @db.VarChar(30)
+  counts    Json?
+  errors    Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("imports")
+}
+
+model Setting {
+  id        Int      @id @default(autoincrement()) @db.UnsignedInt
+  key       String   @unique @db.VarChar(100)
+  value     Json
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("settings")
+}
+
+model OutboxEvent {
+  id          Int       @id @default(autoincrement()) @db.UnsignedInt
+  eventType   String    @map("event_type") @db.VarChar(100)
+  payload     Json
+  publishedAt DateTime? @map("published_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([publishedAt])
+  @@map("outbox_events")
+}

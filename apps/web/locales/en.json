@@ -1,0 +1,44 @@
+{
+  "app_name": "Hospital CRM",
+  "tagline": "Telecalling Module",
+  "nav": {
+    "my_work": "My Work",
+    "support_desk": "Support Desk",
+    "admission_desk": "Admission Desk",
+    "aftercare_desk": "Aftercare Desk",
+    "leads": "Leads",
+    "cases": "Cases",
+    "doctor_view": "Doctor View",
+    "reports": "Reports",
+    "admin": "Admin",
+    "login": "Login",
+    "logout": "Logout"
+  },
+  "desks": {
+    "support_title": "Support Desk (New Leads)",
+    "support_desc": "Rapid response, lead qualification, and appointment booking",
+    "admission_title": "Admission Desk",
+    "admission_desc": "In-patient counseling, estimate follow-ups, and deposit tracking",
+    "aftercare_title": "Aftercare Desk",
+    "aftercare_desc": "Post-treatment reviews, recovery monitoring, and doctor escalations"
+  },
+  "common": {
+    "call": "Call",
+    "whatsapp": "WhatsApp",
+    "log_call": "Log Call",
+    "overdue": "Overdue",
+    "today": "Today",
+    "upcoming": "Upcoming",
+    "quick_create_lead": "Quick Create Lead",
+    "search": "Search by name or phone...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "loading": "Loading...",
+    "language": "Language",
+    "status": "Status",
+    "priority": "Priority",
+    "branch": "Branch",
+    "actions": "Actions"
+  }
+}
