@@ -63,7 +63,7 @@ export async function assignCaseRoundRobin(branchId: number): Promise<number | n
     return fallback ? fallback.id : null;
   }
 
-  specialists.sort((a, b) => {
+  specialists.sort((a: any, b: any) => {
     const countDiff = a._count.ownedCases - b._count.ownedCases;
     if (countDiff !== 0) return countDiff;
 
@@ -161,7 +161,7 @@ export async function listCases(
   ]);
 
   // Mask phone numbers if user role requires it
-  const sanitizedCases = cases.map((c) => {
+  const sanitizedCases = cases.map((c: any) => {
     if (user.maskPhone && c.patient?.mobileNorm) {
       return {
         ...c,
@@ -712,7 +712,7 @@ export async function assignAftercareRoundRobin(branchId: number): Promise<numbe
     return fallback ? fallback.id : null;
   }
 
-  executives.sort((a, b) => {
+  executives.sort((a: any, b: any) => {
     const countDiff = a._count.ownedCases - b._count.ownedCases;
     if (countDiff !== 0) return countDiff;
 
