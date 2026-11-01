@@ -159,3 +159,46 @@ This log records design decisions, assumptions, and architectural trade-offs mad
 - **Decision:** Implemented in `logAftercareCallInteraction`. When `feedbackScore <= 6`, the system finds active telecaller managers in the branch (or center head/admin fallback) and creates a priority callback task titled `Manager Callback: Low Patient Feedback (${score}/10)` due within 24 hours, alongside an immediate in-app notification.
 - **Rationale:** Provides rapid service recovery for dissatisfied patients before negative word-of-mouth or complaints escalate.
 
+---
+
+### Decision 022: Multi-Branch Executive Management Reports & Performance Analytics
+- **Date:** 2026-11-01
+- **Context:** Milestone 8 requires operational and executive reporting across all three desks (Support, Admission, Aftercare) as well as analytical reports on lost reasons and marketing source quality.
+- **Decision:** Implemented `report.service.ts` and `report.routes.ts` providing 5 endpoints:
+  1. `GET /api/v1/reports/support`: Total leads, first-response SLA compliance %, conversion rate, status breakdown, source distribution, and telecaller productivity.
+  2. `GET /api/v1/reports/admission`: Advised admissions, 24h contact rate, counseling accepted/admitted rates, decline reasons, and overdue follow-up alerts.
+  3. `GET /api/v1/reports/aftercare`: Cadence call on-time completion rates, patient satisfaction average (CSAT), low score count, clinical red-flag escalation resolution metrics, and case closure code distribution.
+  4. `GET /api/v1/reports/lost-reasons`: Categorical loss breakdowns for Support Desk leads and Admission Desk patient cases.
+  5. `GET /api/v1/reports/source-quality`: Funnel conversion analysis (contact %, booking %, visit %, treatment %) and revenue attribution by marketing source (Meta Ads, Website, Referrals, Walk-ins).
+- **Rationale:** Gives clinic administrators and department heads actionable visibility into SLA bottlenecks, marketing ROI, and care continuum health.
+
+---
+
+### Decision 023: Dual-Approval Watermarked CSV Data Exports (Anti-Data-Leakage Forensics)
+- **Date:** 2026-11-01
+- **Context:** Medical and lead contact information requires strict protection against bulk exfiltration while supporting lawful audits and management exports.
+- **Decision:** Implemented `Export` entity in Prisma with request, approve/reject, and download lifecycle:
+  - Telecallers submit an export request (`POST /api/v1/exports`) which enters `pending` status.
+  - Telecaller Managers, Center Heads, or Owners review and approve/reject (`POST /api/v1/exports/:id/approve`).
+  - Downloads (`GET /api/v1/exports/:id/download`) produce watermarked CSV files containing:
+    1. A cryptographic header banner recording Export ID, requester identity, branch scope, UTC & `Asia/Kolkata` timestamps, and unique watermark signature.
+    2. An audit column on every data row embedding the watermark audit tag.
+    3. Immutable forensic logging in `audit_logs` at request, decision, and download stages.
+- **Rationale:** Eliminates anonymous data leaks by guaranteeing that any exported file can be forensically attributed back to the exact requesting employee and supervisor who approved it.
+
+---
+
+### Decision 024: Data Subject Rights (DSR) & Privacy Compliance Architecture
+- **Date:** 2026-11-01
+- **Context:** Healthcare compliance (GDPR, India DPDP Act) mandates honoring data subject access and retention requests.
+- **Decision:** Implemented `privacy.service.ts` exposing `findDataSubjectRecords(mobileNorm)` and `applyDataRetentionPolicy()`. The service resolves phone numbers into E.164 format and queries all related entities (leads, patients, cases, interactions, appointments, tasks) into a portable bundle. Automated retention routines flag records exceeding statutory medical record keeping periods for archiving or PII redaction.
+- **Rationale:** Guarantees patient privacy rights and legal compliance across digital CRM repositories.
+
+---
+
+### Decision 025: Progressive Web App (PWA) & Mobile Touch Telecalling Standards
+- **Date:** 2026-11-01
+- **Context:** Hospital executives and on-the-move telecallers require rapid access from tablets, laptops, and mobile phones.
+- **Decision:** Configured Nuxt 3 with PWA manifest (`apps/web/public/manifest.json`), teal theme branding (`#0f766e`), custom SVG app icons, and full mobile viewport meta tags. Enforced a minimum touch target size of 44px on all interactive buttons, select dropdowns, and pagination controls. Provided click-to-call (`tel:`) and click-to-chat WhatsApp (`wa.me`) integration seams for frictionless 1-tap patient communication.
+- **Rationale:** Maximizes telecaller productivity on touch devices while enabling standalone app installation without requiring separate native app store deployments.
+

@@ -115,5 +115,27 @@ pnpm typecheck
 | **M5** | Conversion & Patient Cases ("Mark Visited", Consultation Outcome) | ✅ Complete |
 | **M6** | Admission Desk (In-Patient queue, Estimate Counseling, Deposit Gate) | ✅ Complete |
 | **M7** | Aftercare Desk (Post-treatment Cadences, Call Form, Doctor Escalations) | ✅ Complete |
-| **M8** | Reports, Watermarked CSV Exports, PWA & Final Polish | ⏳ Next |
+| **M8** | Reports, Watermarked CSV Exports, PWA & Final Polish (AT 12-15) | ✅ Complete |
+
+---
+
+## Acceptance Test Suite (AT 1 to 15)
+
+All 15 acceptance tests are implemented and verified green in the automated test suite:
+
+- **AT 1**: Scope enforcement — Support telecaller 1 cannot open telecaller 2's lead by direct ID (HTTP 403 + forensic audit log written).
+- **AT 2**: Duplicate detection — Submitting a phone number active in the last 30 days is blocked with 409 conflict unless explicitly overridden with reason.
+- **AT 3**: Response SLAs — Meta Ads incoming leads receive a 5-minute first response SLA; Website inquiries receive a 15-minute SLA.
+- **AT 4**: Contact soft limits — Enforces a maximum of 3 call attempts per patient per calendar day; 4th call attempt requires manager override reason.
+- **AT 5**: Atomic call logging — Logging an interaction automatically schedules the next cadence action in a single database transaction.
+- **AT 6**: Cadence termination — Reaching the patient or booking an appointment terminates open unanswered cadence steps.
+- **AT 7**: Conversion to Patient & Case — Clicking "Mark Visited" converts lead into a permanent Patient and initial Case record with intact timeline.
+- **AT 8**: Admission deposit gate — Advancing case to `admitted` stage requires deposit payment confirmation or emergency clinical override with logged justification.
+- **AT 9**: Aftercare recovery cadences — In-patient discharge requires discharge date and triggers Day 2, 7, 30, and 90 follow-ups; OPD triggers Day 7, 30, and 90 follow-ups.
+- **AT 10**: Clinical red-flag escalation — Reporting red-flag symptoms routes an escalation to the duty doctor with a strict 1-hour SLA, cascading to manager at 1 hour and center head at 2 hours.
+- **AT 11**: Low CSAT alert — Feedback rating $\le 6/10$ schedules an automated 24-hour priority callback task for the Telecaller Manager.
+- **AT 12**: Admin content restriction — IT admin cannot view clinical lead content; access requires a time-bounded permission grant from Owner, with all access audited.
+- **AT 13**: PII log redaction — Pino logger automatically masks phone numbers, names, medical concerns, and passwords (`[REDACTED]`).
+- **AT 14**: Malayalam Unicode support — Malayalam text in concern and name fields saves, displays, and searches correctly across the database.
+- **AT 15**: Telecaller queue isolation — Telecaller lead list queries strictly return only own assigned leads (or unassigned in branch) and never another telecaller's leads.
 

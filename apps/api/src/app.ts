@@ -22,6 +22,7 @@ import { notificationRoutes } from './modules/notifications/notification.routes'
 import { caseRoutes } from './modules/cases/case.routes';
 import { reportRoutes } from './modules/reports/report.routes';
 import { escalationRoutes } from './modules/escalations/escalation.routes';
+import { exportRoutes } from './modules/exports/export.routes';
 
 export async function buildApp() {
   const isTest = process.env.NODE_ENV === 'test';
@@ -146,6 +147,7 @@ export async function buildApp() {
   await fastify.register(caseRoutes, { prefix: '/api/v1' });
   await fastify.register(reportRoutes, { prefix: '/api/v1' });
   await fastify.register(escalationRoutes, { prefix: '/api/v1/escalations' });
+  await fastify.register(exportRoutes, { prefix: '/api/v1' });
 
   return fastify;
 }

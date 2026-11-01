@@ -10,6 +10,8 @@
     "cases": "Cases",
     "doctor_view": "Doctor View",
     "reports": "Reports",
+    "exports": "Exports",
+    "audit_logs": "Audit Logs",
     "admin": "Admin",
     "login": "Login",
     "logout": "Logout"
@@ -135,5 +137,39 @@
     "record_decision": "Record Doctor Decision",
     "decision": "Clinical Decision",
     "doctor_instructions": "Instructions for Aftercare Executive"
+  },
+  "reports": {
+    "title": "Reports & Analytics",
+    "support_tab": "Support Desk",
+    "admission_tab": "Admission Desk",
+    "aftercare_tab": "Aftercare Desk",
+    "lost_reasons_tab": "Lost Reasons",
+    "source_quality_tab": "Source Quality",
+    "request_export": "Request Secure Export",
+    "sla_compliance": "First-Response SLA Compliance",
+    "avg_response_time": "Avg Response Time",
+    "booking_rate": "Appointment Booking Rate",
+    "conversion_rate": "Visit Conversion Rate"
+  },
+  "exports": {
+    "title": "Secure Data Exports",
+    "request_new": "Request New Export",
+    "resource": "Data Resource",
+    "watermark_notice": "All exported CSVs are watermarked with user ID, role, branch, and timestamp.",
+    "status": "Export Status",
+    "approved": "Approved",
+    "pending": "Pending Approval",
+    "rejected": "Rejected",
+    "download": "Download Watermarked CSV",
+    "requested_by": "Requested By",
+    "download_count": "Downloads"
+  },
+  "audit": {
+    "title": "System Audit Logs",
+    "action": "Action",
+    "entity": "Entity",
+    "user": "User",
+    "timestamp": "Timestamp",
+    "ip": "IP Address"
   }
 }

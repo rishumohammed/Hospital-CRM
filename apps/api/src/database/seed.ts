@@ -132,6 +132,7 @@ export async function seedDatabase() {
         { permission: Permissions.ESCALATION_CREATE, scope: Scopes.ALL },
         { permission: Permissions.REPORT_VIEW, scope: Scopes.BRANCH },
         { permission: Permissions.EXPORT_REQUEST, scope: Scopes.BRANCH },
+        { permission: Permissions.EXPORT_APPROVE, scope: Scopes.BRANCH },
         { permission: Permissions.CADENCE_MANAGE, scope: Scopes.BRANCH },
         { permission: Permissions.ASSIGNMENT_RULE_MANAGE, scope: Scopes.BRANCH },
       ],
@@ -150,6 +151,7 @@ export async function seedDatabase() {
         { permission: Permissions.INTERACTION_CREATE, scope: Scopes.OWN },
         { permission: Permissions.ESCALATION_CREATE, scope: Scopes.ALL },
         { permission: Permissions.REPORT_VIEW, scope: Scopes.OWN },
+        { permission: Permissions.EXPORT_REQUEST, scope: Scopes.OWN },
       ],
     },
     // 6. Admission Specialist: own cases & tasks
@@ -163,6 +165,7 @@ export async function seedDatabase() {
         { permission: Permissions.INTERACTION_CREATE, scope: Scopes.OWN },
         { permission: Permissions.ESCALATION_CREATE, scope: Scopes.ALL },
         { permission: Permissions.REPORT_VIEW, scope: Scopes.OWN },
+        { permission: Permissions.EXPORT_REQUEST, scope: Scopes.OWN },
       ],
     },
     // 7. Aftercare Executive: own cases & tasks
@@ -176,6 +179,7 @@ export async function seedDatabase() {
         { permission: Permissions.INTERACTION_CREATE, scope: Scopes.OWN },
         { permission: Permissions.ESCALATION_CREATE, scope: Scopes.ALL },
         { permission: Permissions.REPORT_VIEW, scope: Scopes.OWN },
+        { permission: Permissions.EXPORT_REQUEST, scope: Scopes.OWN },
       ],
     },
     // 8. Doctor: own cases, notes, escalation decision
@@ -199,6 +203,7 @@ export async function seedDatabase() {
         { permission: Permissions.TASK_VIEW, scope: Scopes.ALL },
         { permission: Permissions.REPORT_VIEW, scope: Scopes.ALL },
         { permission: Permissions.AUDIT_VIEW, scope: Scopes.ALL },
+        { permission: Permissions.EXPORT_REQUEST, scope: Scopes.ALL },
       ],
     },
   ];

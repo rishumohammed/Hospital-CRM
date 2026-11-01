@@ -23,6 +23,7 @@ model Branch {
   patients      Patient[]
   cases         Case[]
   appointments  Appointment[]
+  exports       Export[]
 
   @@map("branches")
 }
@@ -62,6 +63,8 @@ model User {
   notifications  Notification[]
   auditLogs      AuditLog[]
   imports        Import[]
+  exports        Export[]          @relation("ExportUser")
+  approvedExports Export[]         @relation("ExportApprover")
 
   @@index([roleId])
   @@index([status])
@@ -600,4 +603,32 @@ model OutboxEvent {
 
   @@index([publishedAt])
   @@map("outbox_events")
+}
+
+model Export {
+  id               Int       @id @default(autoincrement()) @db.UnsignedInt
+  userId           Int       @map("user_id") @db.UnsignedInt
+  branchId         Int?      @map("branch_id") @db.UnsignedInt
+  resource         String    @db.VarChar(50) // "leads" | "cases" | "interactions" | "audit_logs"
+  filterJson       Json?     @map("filter_json")
+  format           String    @default("csv") @db.VarChar(10)
+  status           String    @default("pending") @db.VarChar(30) // "pending" | "approved" | "rejected" | "completed"
+  requestedAt      DateTime  @default(now()) @map("requested_at")
+  approvedBy       Int?      @map("approved_by") @db.UnsignedInt
+  approvedAt       DateTime? @map("approved_at")
+  downloadCount    Int       @default(0) @map("download_count")
+  lastDownloadedAt DateTime? @map("last_downloaded_at")
+  rejectionReason  String?   @map("rejection_reason") @db.VarChar(255)
+  fileKey          String?   @map("file_key") @db.VarChar(255)
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  user             User      @relation("ExportUser", fields: [userId], references: [id])
+  branch           Branch?   @relation(fields: [branchId], references: [id])
+  approver         User?     @relation("ExportApprover", fields: [approvedBy], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([branchId])
+  @@map("exports")
 }

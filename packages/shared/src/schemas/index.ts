@@ -345,3 +345,21 @@ export const createUserSchema = z.object({
 export const updateUserSchema = createUserSchema.partial().omit({ password: true }).extend({
   password: z.string().min(8).optional(),
 });
+
+// Export Schemas
+export const requestExportSchema = z.object({
+  resource: z.enum(['leads', 'cases', 'interactions', 'audit_logs']),
+  branchId: z.number().int().positive().optional(),
+  format: z.enum(['csv']).default('csv'),
+  filters: z.record(z.any()).optional(),
+});
+
+export type RequestExportInput = z.infer<typeof requestExportSchema>;
+
+export const approveExportSchema = z.object({
+  approved: z.boolean(),
+  rejectionReason: z.string().max(255).optional(),
+});
+
+export type ApproveExportInput = z.infer<typeof approveExportSchema>;
+
