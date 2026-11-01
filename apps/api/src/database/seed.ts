@@ -84,6 +84,7 @@ export async function seedDatabase() {
         { permission: Permissions.ROLE_MANAGE, scope: Scopes.ALL },
         { permission: Permissions.CADENCE_MANAGE, scope: Scopes.ALL },
         { permission: Permissions.ASSIGNMENT_RULE_MANAGE, scope: Scopes.ALL },
+        { permission: Permissions.IMPORT_RUN, scope: Scopes.ALL },
         { permission: Permissions.AUDIT_VIEW, scope: Scopes.ALL },
       ],
     },
@@ -312,6 +313,7 @@ export async function seedDatabase() {
     },
   ];
 
+  const seededUsers: Record<string, any> = {};
   for (const du of demoUsers) {
     const role = seededRoles[du.roleCode];
     const user = await prisma.user.upsert({
@@ -338,6 +340,7 @@ export async function seedDatabase() {
         available: true,
       },
     });
+    seededUsers[du.email] = user;
 
     // Link user to MAIN branch
     await prisma.userBranch.upsert({
@@ -551,6 +554,96 @@ export async function seedDatabase() {
     });
   }
   console.log('✓ System Settings (calling hours, SLA, contact rules, quiet hours) seeded');
+
+  // 12. Seed 40 Synthetic Leads
+  const t1 = seededUsers['telecaller1@hospital.test'];
+  const t2 = seededUsers['telecaller2@hospital.test'];
+
+  const depts = await prisma.department.findMany();
+  const sources = await prisma.source.findMany();
+
+  const syntheticLeadDefs = [
+    { name: 'ഫാത്തിമ റഹ്മാൻ', mobile: '+919800000010', lang: 'ml', concern: 'മുട്ടുവേദനയും നടുവേദനയും കാരണം നടക്കാൻ പ്രയാസപ്പെടുന്നു. ആയുർവേദ ചികിത്സ താല്പര്യപ്പെടുന്നു.', deptCode: 'ayurveda', sourceCode: 'META_ADS', status: 'new', priority: 'hot', ownerId: t1.id },
+    { name: 'Rajesh Nair', mobile: '+919800000011', lang: 'en', concern: 'Chronic lower back pain L4-L5 disc bulge inquiry for Marma alignment', deptCode: 'marma', sourceCode: 'GOOGLE_ADS', status: 'new', priority: 'hot', ownerId: t2.id },
+    { name: 'Mary Varghese', mobile: '+919800000012', lang: 'en', concern: 'Varicose veins laser/leech therapy consultation needed for severe swelling', deptCode: 'varicose', sourceCode: 'WEBSITE', status: 'contacted', priority: 'warm', ownerId: t1.id },
+    { name: 'മുഹമ്മദ് ആഷിഖ്', mobile: '+919800000013', lang: 'ml', concern: 'കഠിനമായ മൈഗ്രേൻ തലവേദനയ്ക്ക് ഹിജാമ (കപ്പിംഗ്) തെറാപ്പി അന്വേഷിക്കുന്നു', deptCode: 'hijama', sourceCode: 'META_ADS', status: 'qualified', priority: 'hot', ownerId: t2.id },
+    { name: 'Lakshmi Pillai', mobile: '+919800000014', lang: 'en', concern: 'Post-natal care package inquiry for newborn and mother rehabilitation', deptCode: 'post_natal', sourceCode: 'PATIENT_REFERRAL', status: 'appointment_booked', priority: 'hot', ownerId: t1.id },
+    { name: 'അബ്ദുൾ ഖാദർ', mobile: '+919800000015', lang: 'ml', concern: 'പ്രമേഹ രോഗികൾക്കുള്ള കാലിലെ പഴുപ്പ് ചികിത്സയും പഞ്ചകർമ്മ തെറാപ്പിയും', deptCode: 'varicose', sourceCode: 'DOCTOR_REFERRAL', status: 'contacted', priority: 'warm', ownerId: t2.id },
+    { name: 'Anjali Menon', mobile: '+919800000016', lang: 'en', concern: 'Fertility and PCOS natural therapy package inquiry', deptCode: 'infertility', sourceCode: 'GOOGLE_ADS', status: 'new', priority: 'hot', ownerId: t1.id },
+    { name: 'തോമസ് മാത്യു', mobile: '+919800000017', lang: 'ml', concern: 'സ്ട്രോക്കിന് ശേഷമുള്ള ഫിസിയോതെറാപ്പിയും ആയുർവേദ പുനരധിവാസവും', deptCode: 'physiotherapy', sourceCode: 'PHONE_CALL', status: 'qualified', priority: 'warm', ownerId: t2.id },
+    { name: 'Deepa Krishnan', mobile: '+919800000018', lang: 'en', concern: 'Chronic anxiety, sleep disorders and stress relief counseling', deptCode: 'counseling', sourceCode: 'WEBSITE', status: 'new', priority: 'warm', ownerId: t1.id },
+    { name: 'ഷാജി സലീം', mobile: '+919800000019', lang: 'ml', concern: 'പുകവലി, മദ്യപാന വിമുക്തി ചികിത്സയ്ക്കായുള്ള കൗൺസിലിംഗ് അന്വേഷണം', deptCode: 'deaddiction', sourceCode: 'META_ADS', status: 'contacted', priority: 'warm', ownerId: t2.id },
+    { name: 'Sanjay Varma', mobile: '+919800000020', lang: 'en', concern: 'Full body rejuvenation Panchakarma 14 days wellness retreat pricing', deptCode: 'panchakarma', sourceCode: 'WEBSITE', status: 'qualified', priority: 'warm', ownerId: t1.id },
+    { name: 'സുജാത മേനോൻ', mobile: '+919800000021', lang: 'ml', concern: 'തൈറോയ്ഡ്, അമിതവണ്ണ നിയന്ത്രണത്തിനായുള്ള യോഗയും പ്രകൃതിചികിത്സയും', deptCode: 'yoga', sourceCode: 'WALK_IN', status: 'appointment_booked', priority: 'warm', ownerId: t2.id },
+    { name: 'Kavitha R', mobile: '+919800000022', lang: 'en', concern: 'Skin pigmentation and cosmetic acupuncture options', deptCode: 'infertility', sourceCode: 'META_ADS', status: 'new', priority: 'hot', ownerId: t1.id },
+    { name: 'ഹരിദാസ് കെ.പി', mobile: '+919800000023', lang: 'ml', concern: 'കഴുത്ത് തിരിക്കാൻ പറ്റാത്ത വിധം വേദന (സെർവിക്കൽ സ്പോണ്ടിലോസിസ്)', deptCode: 'marma', sourceCode: 'GOOGLE_ADS', status: 'new', priority: 'hot', ownerId: t2.id },
+    { name: 'George Mathew', mobile: '+919800000024', lang: 'en', concern: 'Routine executive health checkup lab packages and ultrasounds', deptCode: 'labs', sourceCode: 'PHONE_CALL', status: 'contacted', priority: 'cold', ownerId: t1.id },
+    { name: 'ആയിഷ ബീവി', mobile: '+919800000025', lang: 'ml', concern: 'കുഞ്ഞിന്റെ സുന്നത്ത് (സർക്കംസിഷൻ) സർജറി സംബന്ധിച്ച വിവരങ്ങൾ', deptCode: 'circumcision', sourceCode: 'DOCTOR_REFERRAL', status: 'qualified', priority: 'warm', ownerId: t2.id },
+    { name: 'Pradeep Kumar', mobile: '+919800000026', lang: 'en', concern: 'Knee ligament tear post-accident physiotherapy rehabilitation', deptCode: 'physiotherapy', sourceCode: 'WALK_IN', status: 'appointment_booked', priority: 'warm', ownerId: t1.id },
+    { name: 'ജയശ്രീ പിള്ള', mobile: '+919800000027', lang: 'ml', concern: 'വിട്ടുമാറാത്ത സോറിയാസിസ് ത്വക്ക് രോഗത്തിന് പരമ്പരാഗത ആയുർവേദം', deptCode: 'ayurveda', sourceCode: 'PATIENT_REFERRAL', status: 'contacted', priority: 'warm', ownerId: t2.id },
+    { name: 'Naveen Joseph', mobile: '+919800000028', lang: 'en', concern: 'Electro-homeopathy medicine consultation for chronic sinusitis', deptCode: 'electro_homeo', sourceCode: 'WEBSITE', status: 'new', priority: 'warm', ownerId: t1.id },
+    { name: 'നൂർജഹാൻ എം', mobile: '+919800000029', lang: 'ml', concern: 'ഗർഭധാരണത്തിന് മുൻപുള്ള പ്രീ-കൺസെപ്ഷൻ ആയുർവേദ കെയർ', deptCode: 'infertility', sourceCode: 'META_ADS', status: 'qualified', priority: 'hot', ownerId: t2.id },
+    { name: 'Ajith Balakrishnan', mobile: '+919800000030', lang: 'en', concern: 'Shoulder dislocation physiotherapy after cricket injury', deptCode: 'physiotherapy', sourceCode: 'GOOGLE_ADS', status: 'new', priority: 'hot', ownerId: t1.id },
+    { name: 'വിനോദ് കുമാർ', mobile: '+919800000031', lang: 'ml', concern: 'നടുവേദന കാരണം ഡ്രൈവ് ചെയ്യാൻ ബുദ്ധിമുട്ട്. മർമ്മ ചികിത്സ താല്പര്യം', deptCode: 'marma', sourceCode: 'WEBSITE', status: 'new', priority: 'warm', ownerId: t2.id },
+    { name: 'Bhavana Das', mobile: '+919800000032', lang: 'en', concern: 'Post-covid fatigue syndrome integrated medicine consultation', deptCode: 'integrated', sourceCode: 'DOCTOR_REFERRAL', status: 'contacted', priority: 'warm', ownerId: t1.id },
+    { name: 'സൈനുദ്ദീൻ വി.പി', mobile: '+919800000033', lang: 'ml', concern: 'വെരിക്കോസ് വെയിൻ കാരണം കാലുകളിൽ വ്രണങ്ങളും കറുത്ത പാടുകളും', deptCode: 'varicose', sourceCode: 'META_ADS', status: 'new', priority: 'hot', ownerId: t2.id },
+    { name: 'Geetha Raman', mobile: '+919800000034', lang: 'en', concern: 'Yoga therapy classes for elderly hypertension management', deptCode: 'yoga', sourceCode: 'CAMP_EVENT', status: 'qualified', priority: 'warm', ownerId: t1.id },
+    { name: 'പ്രശാന്ത് പി', mobile: '+919800000035', lang: 'ml', concern: 'കായികതാരങ്ങൾക്കായുള്ള സ്പോർട്സ് മസാജും പഞ്ചകർമ്മ തൈലങ്ങളും', deptCode: 'panchakarma', sourceCode: 'PHONE_CALL', status: 'contacted', priority: 'cold', ownerId: t2.id },
+    { name: 'Laila Kabeer', mobile: '+919800000036', lang: 'en', concern: 'Neonatal circumcision slot booking and pediatrician consultation', deptCode: 'circumcision', sourceCode: 'DOCTOR_REFERRAL', status: 'appointment_booked', priority: 'hot', ownerId: t1.id },
+    { name: 'മനോജ് നമ്പൂതിരി', mobile: '+919800000037', lang: 'ml', concern: 'മാനസിക സമ്മർദ്ദവും ഡിപ്രഷനും കാരണമുള്ള കൗൺസിലിംഗ് സെഷൻ', deptCode: 'counseling', sourceCode: 'WEBSITE', status: 'new', priority: 'warm', ownerId: t2.id },
+    { name: 'Divya Unnikrishnan', mobile: '+919800000038', lang: 'en', concern: 'Post-pregnancy back pain relief and herbal dietary advice', deptCode: 'post_natal', sourceCode: 'META_ADS', status: 'new', priority: 'hot', ownerId: t1.id },
+    { name: 'റാഫി മുഹമ്മദ്', mobile: '+919800000039', lang: 'ml', concern: 'ഷുഗർ കൂടിയതുകാരണം ഉണ്ടായ കാൽ മരവിപ്പിന് റിഫ്ലെക്സോളജി', deptCode: 'deaddiction', sourceCode: 'GOOGLE_ADS', status: 'qualified', priority: 'hot', ownerId: t2.id },
+    { name: 'Arun Chandran', mobile: '+919800000040', lang: 'en', concern: 'Acupuncture therapy for facial nerve paralysis (Bells palsy)', deptCode: 'hijama', sourceCode: 'PATIENT_REFERRAL', status: 'contacted', priority: 'warm', ownerId: t1.id },
+    { name: 'സാവിത്രി അമ്മ', mobile: '+919800000041', lang: 'ml', concern: 'മുട്ടിലെ തേയ്മാനം മൂലം ഇരിക്കാനും എഴുന്നേൽക്കാനും പ്രയാസം', deptCode: 'ayurveda', sourceCode: 'WALK_IN', status: 'appointment_booked', priority: 'warm', ownerId: t2.id },
+    { name: 'Rahul V.S', mobile: '+919800000042', lang: 'en', concern: 'Comprehensive blood scan panel and thyroid profile booking', deptCode: 'labs', sourceCode: 'PHONE_CALL', status: 'new', priority: 'warm', ownerId: t1.id },
+    { name: 'മുജീബ് റഹ്മാൻ', mobile: '+919800000043', lang: 'ml', concern: 'കാലിലെ വെരിക്കോസ് ഞരമ്പുകൾ മുഴച്ചുനിൽക്കുന്നത് നീക്കം ചെയ്യാൻ', deptCode: 'varicose', sourceCode: 'META_ADS', status: 'new', priority: 'hot', ownerId: t2.id },
+    { name: 'Suma Cherian', mobile: '+919800000044', lang: 'en', concern: 'Weight loss yoga and natural detox diet package inquiry', deptCode: 'yoga', sourceCode: 'WEBSITE', status: 'contacted', priority: 'cold', ownerId: t1.id },
+    { name: 'ഗിരീഷ് ബാബു', mobile: '+919800000045', lang: 'ml', concern: 'തോൾ സന്ധിയിലെ വേദന (ഫ്രോസൺ ഷോൾഡർ) ഫിസിയോതെറാപ്പി', deptCode: 'physiotherapy', sourceCode: 'GOOGLE_ADS', status: 'qualified', priority: 'hot', ownerId: t2.id },
+    { name: 'Anita Philip', mobile: '+919800000046', lang: 'en', concern: 'Post-delivery traditional massage and rejuvenation package', deptCode: 'post_natal', sourceCode: 'DOCTOR_REFERRAL', status: 'new', priority: 'warm', ownerId: t1.id },
+    { name: 'ഹസ്സൻ കുട്ടി', mobile: '+919800000047', lang: 'ml', concern: 'മദ്യപാനം നിർത്തുന്നതിനായുള്ള കൗൺസിലിംഗും ഡി-അഡിക്ഷൻ ചികിത്സയും', deptCode: 'deaddiction', sourceCode: 'PHONE_CALL', status: 'new', priority: 'warm', ownerId: t2.id },
+    { name: 'Siddharth M', mobile: '+919800000048', lang: 'en', concern: 'Lower back marma therapy for sciatica nerve compression', deptCode: 'marma', sourceCode: 'META_ADS', status: 'new', priority: 'hot', ownerId: t1.id },
+    { name: 'സുബൈദ ബീഗം', mobile: '+919800000049', lang: 'ml', concern: 'തലവേദനയ്ക്കും പിരടിവേദനയ്ക്കും ഡ്രൈ കപ്പിംഗ് (ഹിജാമ) ചികിത്സ', deptCode: 'hijama', sourceCode: 'WEBSITE', status: 'new', priority: 'warm', ownerId: t2.id },
+  ];
+
+  for (const sLead of syntheticLeadDefs) {
+    const dept = depts.find((d) => d.code === sLead.deptCode) || depts[0];
+    const src = sources.find((s) => s.code === sLead.sourceCode) || sources[0];
+
+    // SLA calculation: Ad leads get 5m, others get 15m
+    const isAd = src.code === 'META_ADS' || src.code === 'GOOGLE_ADS';
+    const slaMin = isAd ? 5 : 15;
+    const firstResponseDueAt = new Date(Date.now() + slaMin * 60 * 1000);
+
+    await prisma.lead.upsert({
+      where: { id: parseInt(sLead.mobile.slice(-4), 10) },
+      update: {
+        name: sLead.name,
+        concern: sLead.concern,
+        status: sLead.status,
+        priority: sLead.priority,
+        ownerId: sLead.ownerId,
+      },
+      create: {
+        id: parseInt(sLead.mobile.slice(-4), 10),
+        name: sLead.name,
+        mobile: sLead.mobile,
+        mobileNorm: sLead.mobile,
+        language: sLead.lang,
+        concern: sLead.concern,
+        departmentId: dept.id,
+        sourceId: src.id,
+        branchId: mainBranch.id,
+        status: sLead.status,
+        priority: sLead.priority,
+        ownerId: sLead.ownerId,
+        firstResponseDueAt,
+        consentCalls: true,
+        consentSource: 'seed_synthetic',
+        consentDate: new Date(),
+      },
+    });
+  }
+  console.log(`✓ ${syntheticLeadDefs.length} Synthetic Leads seeded with bilingual concerns`);
 
   console.log('--- Database Seed Complete ---');
 }

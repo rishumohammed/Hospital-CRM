@@ -58,3 +58,25 @@ This log records design decisions, assumptions, and architectural trade-offs mad
 - **Decision:** Picklists are stored in dedicated Prisma models with `code`, `labelEn`, `labelMl`, `sort`, and `isActive` flags. System settings are stored as JSON blobs in a `Setting` table, accessed via a typed service with hardcoded fallback constants. Any setting changes by admins are recorded in `AuditLog` with `SETTING_UPDATED`.
 - **Rationale:** Guarantees uptime even if a setting row is temporarily missing, gives admins full autonomy to configure operational parameters, and maintains an unalterable audit trail.
 
+---
+
+### Decision 009: Round-Robin Lead Assignment & Telecaller Attribution
+- **Context:** New leads arriving via website forms, ad forms (Meta/Google), or CSV imports must be evenly distributed among available support team telecallers in the corresponding branch without burdening management roles.
+- **Decision:** Round-robin selection filters strictly for users with `status: 'active'`, `available: true`, and role `support_telecaller` linked to the branch. Selection chooses the user with the lowest count of open leads (`_count.ownedLeads`), breaking ties by the user whose last lead assignment was least recent. When an active telecaller uses the Quick Create Lead drawer directly, they are assigned ownership directly since they are already engaged with the caller.
+- **Rationale:** Prevents managerial roles (Owner, Admin, Center Head) from receiving telecalling queues and ensures equitable load balancing among frontline telecallers.
+
+---
+
+### Decision 010: First-Response SLA Business Hours Calculation
+- **Context:** Acceptance Test 3 dictates that Meta Ads leads receive a 5-minute first-response SLA and Website/other leads receive a 15-minute SLA, calculated strictly during branch business hours.
+- **Decision:** The calculation evaluates creation time in `Asia/Kolkata` (UTC+05:30) against branch calling hours (default 09:00 - 20:00). If created during business hours, the timer is set to `createdAt + SLA minutes`. If created after closing or before opening, the timer begins at 09:00 AM on the next business day plus SLA minutes.
+- **Rationale:** Protects telecallers from SLA penalties outside legitimate operating hours while guaranteeing immediate compliance alarms during active shifts.
+
+---
+
+### Decision 011: E.164 Duplicate Detection & Override Mechanics
+- **Context:** Acceptance Test 2 requires that creating a lead with an existing mobile number (in any format, e.g. `98765 43210` or `+919876543210`) returns the duplicate and prevents creating a second lead without an explicit override reason.
+- **Decision:** Phone numbers are normalized to E.164 (`mobileNorm` and `altMobileNorm`). The quick create endpoint and duplicate check endpoint query for active leads matching either field. If found and `overrideDuplicate !== true`, the API rejects with 409 Conflict returning the existing lead's details (`id`, masked mobile, name, status, owner). If `overrideDuplicate === true` and `overrideReason` is supplied, creation proceeds and the override rationale is captured in the audit log.
+- **Rationale:** Prevents fragmented duplicate records for the same patient while accommodating legitimate multi-patient family lines sharing a single household phone.
+
+

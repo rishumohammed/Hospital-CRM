@@ -77,6 +77,55 @@ export const leadFilterSchema = z.object({
   search: z.string().optional(),
 });
 
+export const updateLeadSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  altMobile: optionalPhoneSchema,
+  language: z.enum(['en', 'ml']).optional(),
+  concern: z.string().max(1000).optional(),
+  departmentId: z.number().int().positive().optional(),
+  priority: z.enum(['hot', 'warm', 'cold']).optional(),
+  consentCalls: z.boolean().optional(),
+  consentWhatsapp: z.boolean().optional(),
+  consentSms: z.boolean().optional(),
+  doNotContact: z.boolean().optional(),
+});
+
+export const assignLeadSchema = z.object({
+  ownerId: z.number().int().positive('Owner ID is required'),
+});
+
+export const intakeLeadSchema = z.object({
+  name: z.string().min(1).max(100),
+  mobile: phoneSchema,
+  altMobile: optionalPhoneSchema,
+  language: z.enum(['en', 'ml']).default('en'),
+  concern: z.string().max(1000).optional().default(''),
+  departmentCode: z.string().optional(),
+  branchCode: z.string().default('MAIN'),
+  campaignText: z.string().max(100).optional().nullable(),
+  referrerText: z.string().max(100).optional().nullable(),
+});
+
+export const importLeadRowSchema = z.object({
+  name: z.string().min(1).max(100),
+  mobile: z.string(),
+  altMobile: z.string().optional().nullable(),
+  language: z.string().optional().default('en'),
+  concern: z.string().optional().default(''),
+  departmentCode: z.string().optional(),
+  sourceCode: z.string().optional(),
+  branchCode: z.string().optional().default('MAIN'),
+  priority: z.enum(['hot', 'warm', 'cold']).optional().default('warm'),
+});
+
+export const importLeadsPreviewSchema = z.object({
+  rows: z.array(importLeadRowSchema),
+});
+
+export const importLeadsCommitSchema = z.object({
+  rows: z.array(importLeadRowSchema),
+});
+
 export const closeLeadSchema = z.object({
   closedReasonId: z.number().int().positive('Closed reason is required'),
   note: z.string().max(500).optional(),

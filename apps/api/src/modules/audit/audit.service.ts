@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { FastifyRequest } from 'fastify';
 import { logger } from '../../logger/index';
+import { prisma as defaultPrisma } from '../../database/client';
 
 export interface LogAuditOptions {
   userId?: number | null;
@@ -39,3 +40,8 @@ export async function logAudit(
     return null;
   }
 }
+
+export async function recordAuditLog(options: LogAuditOptions) {
+  return logAudit(defaultPrisma, options);
+}
+
