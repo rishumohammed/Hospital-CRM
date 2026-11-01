@@ -662,3 +662,266 @@ export async function advanceCaseStage(
 
   return result;
 }
+
+/**
+ * Assigns a case via round-robin to an active aftercare executive in the branch.
+ */
+export async function assignAftercareRoundRobin(branchId: number): Promise<number | null> {
+  const executives = await prisma.user.findMany({
+    where: {
+      status: 'active',
+      available: true,
+      role: { code: 'aftercare_executive' },
+      userBranches: { some: { branchId } },
+      userTeams: { some: { team: { code: 'aftercare' } } },
+    },
+    select: {
+      id: true,
+      _count: {
+        select: {
+          ownedCases: {
+            where: {
+              stage: 'aftercare_follow_up',
+              archivedAt: null,
+            },
+          },
+        },
+      },
+      ownedCases: {
+        where: { archivedAt: null },
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+        select: { createdAt: true },
+      },
+    },
+  });
+
+  if (executives.length === 0) {
+    // Fallback: any active user in aftercare team or role aftercare_executive
+    const fallback = await prisma.user.findFirst({
+      where: {
+        status: 'active',
+        available: true,
+        OR: [
+          { role: { code: 'aftercare_executive' } },
+          { userTeams: { some: { team: { code: 'aftercare' } } } },
+        ],
+      },
+      select: { id: true },
+    });
+    return fallback ? fallback.id : null;
+  }
+
+  executives.sort((a, b) => {
+    const countDiff = a._count.ownedCases - b._count.ownedCases;
+    if (countDiff !== 0) return countDiff;
+
+    const aTime = a.ownedCases[0]?.createdAt.getTime() || 0;
+    const bTime = b.ownedCases[0]?.createdAt.getTime() || 0;
+    return aTime - bTime;
+  });
+
+  return executives[0].id;
+}
+
+/**
+ * Marks treatment completed for a case, transitions to aftercare_follow_up,
+ * and schedules the appropriate aftercare cadence (in-patient vs OPD/procedure).
+ * Acceptance Test 9: Day 2, 7, 30, 90 post-discharge for in-patients.
+ */
+export async function markTreatmentCompleted(
+  user: UserContext,
+  caseId: number,
+  input: {
+    treatmentCompletedAt: string | Date;
+    dischargeDate?: string | Date | null;
+    note?: string;
+  },
+  ip?: string,
+  userAgent?: string
+) {
+  const patientCase = await prisma.case.findFirst({
+    where: {
+      id: caseId,
+      archivedAt: null,
+    },
+    include: {
+      patient: true,
+      branch: true,
+    },
+  });
+
+  if (!patientCase) {
+    const err = new Error('Case not found');
+    (err as any).statusCode = 404;
+    (err as any).code = 'NOT_FOUND';
+    throw err;
+  }
+
+  // Acceptance Test 9 validation: In-patient requires dischargeDate
+  const isInPatient = patientCase.careType === CareTypes.IN_PATIENT || patientCase.advisedAdmission;
+  if (isInPatient && !input.dischargeDate) {
+    const err = new Error('Discharge date is required for in-patient treatment completion');
+    (err as any).statusCode = 400;
+    (err as any).code = 'DISCHARGE_DATE_REQUIRED';
+    throw err;
+  }
+
+  const treatmentCompletedDate = new Date(input.treatmentCompletedAt);
+  const dischargeDate = input.dischargeDate ? new Date(input.dischargeDate) : null;
+  const now = new Date();
+
+  // Round-robin assign to aftercare team member
+  const newOwnerId = (await assignAftercareRoundRobin(patientCase.branchId)) || patientCase.ownerId;
+
+  const result = await prisma.$transaction(async (tx: any) => {
+    const updated = await tx.case.update({
+      where: { id: caseId },
+      data: {
+        stage: CaseStages.AFTERCARE_FOLLOW_UP,
+        treatmentCompletedAt: treatmentCompletedDate,
+        dischargeDate: dischargeDate,
+        team: 'aftercare',
+        ownerId: newOwnerId,
+        updatedAt: now,
+      },
+      include: {
+        patient: true,
+        department: true,
+        branch: true,
+        owner: { select: { id: true, name: true, email: true } },
+        treatingDoctor: { select: { id: true, name: true, email: true } },
+      },
+    });
+
+    // Acceptance Test 9: Create aftercare cadence tasks
+    // For in-patient: case.aftercare_inpatient (days 2, 7, 30, 90 post-discharge)
+    // For OPD/procedure: case.aftercare_opd (days 7, 30, 90 post-treatment)
+    const cadenceKey = isInPatient ? 'case.aftercare_inpatient' : 'case.aftercare_opd';
+    const baseDate = isInPatient ? dischargeDate! : treatmentCompletedDate;
+
+    await applyCadence(tx, 'case', caseId, cadenceKey, baseDate, {
+      ownerId: newOwnerId || undefined,
+      priority: 'warm',
+    });
+
+    // Record status change interaction
+    await tx.interaction.create({
+      data: {
+        type: 'status_change',
+        direction: 'inbound',
+        userId: user.id,
+        caseId,
+        note: `Treatment marked completed (${treatmentCompletedDate.toISOString().split('T')[0]})${dischargeDate ? ' with discharge on ' + dischargeDate.toISOString().split('T')[0] : ''}. Transitioned to Aftercare Desk.${input.note ? ' Note: ' + input.note : ''}`,
+        occurredAt: now,
+      },
+    });
+
+    return updated;
+  });
+
+  await recordAuditLog({
+    userId: user.id,
+    action: 'CASE_TREATMENT_COMPLETED',
+    entity: 'case',
+    entityId: caseId,
+    before: { stage: patientCase.stage, treatmentCompletedAt: patientCase.treatmentCompletedAt },
+    after: { stage: result.stage, treatmentCompletedAt: result.treatmentCompletedAt, dischargeDate: result.dischargeDate },
+    ip,
+    userAgent,
+  });
+
+  return result;
+}
+
+/**
+ * Closes an active case with a closure code from picklists and cancels any open tasks.
+ */
+export async function closeCase(
+  user: UserContext,
+  caseId: number,
+  input: {
+    closureCodeId: number;
+    note?: string;
+  },
+  ip?: string,
+  userAgent?: string
+) {
+  const patientCase = await prisma.case.findFirst({
+    where: {
+      id: caseId,
+      archivedAt: null,
+    },
+    include: {
+      closureCode: true,
+    },
+  });
+
+  if (!patientCase) {
+    const err = new Error('Case not found');
+    (err as any).statusCode = 404;
+    (err as any).code = 'NOT_FOUND';
+    throw err;
+  }
+
+  // Validate closure code exists
+  const closureCode = await prisma.closureCode.findUnique({
+    where: { id: input.closureCodeId },
+  });
+  if (!closureCode) {
+    const err = new Error('Invalid closure code');
+    (err as any).statusCode = 400;
+    (err as any).code = 'INVALID_CLOSURE_CODE';
+    throw err;
+  }
+
+  const now = new Date();
+
+  const result = await prisma.$transaction(async (tx: any) => {
+    const updated = await tx.case.update({
+      where: { id: caseId },
+      data: {
+        stage: CaseStages.COMPLETED,
+        closureCodeId: input.closureCodeId,
+        updatedAt: now,
+      },
+      include: {
+        patient: true,
+        department: true,
+        branch: true,
+        closureCode: true,
+        owner: { select: { id: true, name: true, email: true } },
+      },
+    });
+
+    // Cancel all open cadence tasks on the case
+    await cancelOpenCadenceTasks(tx, 'case', caseId);
+
+    // Record status change interaction
+    await tx.interaction.create({
+      data: {
+        type: 'status_change',
+        direction: 'inbound',
+        userId: user.id,
+        caseId,
+        note: `Case closed with outcome: ${closureCode.labelEn} (${closureCode.code}).${input.note ? ' Note: ' + input.note : ''}`,
+        occurredAt: now,
+      },
+    });
+
+    return updated;
+  });
+
+  await recordAuditLog({
+    userId: user.id,
+    action: 'CASE_CLOSED',
+    entity: 'case',
+    entityId: caseId,
+    before: { stage: patientCase.stage, closureCodeId: patientCase.closureCodeId },
+    after: { stage: result.stage, closureCodeId: result.closureCodeId },
+    ip,
+    userAgent,
+  });
+
+  return result;
+}

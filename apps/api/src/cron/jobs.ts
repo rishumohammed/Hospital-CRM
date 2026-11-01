@@ -184,3 +184,118 @@ export async function updateLeadPriorities(prisma: PrismaClient, now = new Date(
     coldUpdated: coldResult.count,
   };
 }
+
+/**
+ * Checks for unanswered clinical escalations:
+ * Acceptance Test 10:
+ * - With no decision after 1 hour: notifies the Telecaller Manager of the branch.
+ * - With no decision after 2 hours: notifies the Center Head of the branch.
+ */
+export async function checkUnansweredEscalations(prisma: PrismaClient, now = new Date()) {
+  const pendingEscalations = await prisma.escalation.findMany({
+    where: {
+      status: 'pending',
+    },
+    include: {
+      case: {
+        include: {
+          patient: true,
+          branch: true,
+        },
+      },
+    },
+  });
+
+  let notificationsSent = 0;
+  const twoHoursAgo = subHours(now, 2);
+
+  for (const esc of pendingEscalations) {
+    const isOverdue1h = new Date(esc.dueAt) <= now;
+    const isOverdue2h = new Date(esc.createdAt) <= twoHoursAgo;
+
+    // 1. Alert Center Head after 2 hours
+    if (isOverdue2h) {
+      const centerHeads = await prisma.user.findMany({
+        where: {
+          role: { code: 'center_head' },
+          status: 'active',
+          userBranches: { some: { branchId: esc.case.branchId } },
+        },
+      });
+
+      const targets =
+        centerHeads.length > 0
+          ? centerHeads
+          : await prisma.user.findMany({
+              where: { role: { code: 'admin' }, status: 'active' },
+              take: 2,
+            });
+
+      for (const ch of targets) {
+        const existing = await prisma.notification.findFirst({
+          where: {
+            userId: ch.id,
+            type: 'escalation_unanswered_centerhead',
+            body: { contains: `Escalation #${esc.id}` },
+          },
+        });
+
+        if (!existing) {
+          await prisma.notification.create({
+            data: {
+              userId: ch.id,
+              type: 'escalation_unanswered_centerhead',
+              title: `🚨 CRITICAL: Unanswered Clinical Escalation (>2h)`,
+              body: `Escalation #${esc.id} for patient ${esc.case.patient?.name || 'Patient'} at ${esc.case.branch.name} has had no doctor decision for over 2 hours.`,
+              link: `/doctor`,
+            },
+          });
+          notificationsSent++;
+        }
+      }
+    }
+    // 2. Alert Telecaller Manager after 1 hour (if dueAt <= now)
+    else if (isOverdue1h) {
+      const managers = await prisma.user.findMany({
+        where: {
+          role: { code: 'telecaller_manager' },
+          status: 'active',
+          userBranches: { some: { branchId: esc.case.branchId } },
+        },
+      });
+
+      const targets =
+        managers.length > 0
+          ? managers
+          : await prisma.user.findMany({
+              where: { role: { code: 'admin' }, status: 'active' },
+              take: 2,
+            });
+
+      for (const mgr of targets) {
+        const existing = await prisma.notification.findFirst({
+          where: {
+            userId: mgr.id,
+            type: 'escalation_unanswered_manager',
+            body: { contains: `Escalation #${esc.id}` },
+          },
+        });
+
+        if (!existing) {
+          await prisma.notification.create({
+            data: {
+              userId: mgr.id,
+              type: 'escalation_unanswered_manager',
+              title: `⚠️ Unanswered Clinical Escalation (>1h)`,
+              body: `Escalation #${esc.id} for patient ${esc.case.patient?.name || 'Patient'} has had no doctor decision for over 1 hour.`,
+              link: `/doctor`,
+            },
+          });
+          notificationsSent++;
+        }
+      }
+    }
+  }
+
+  return { pendingCount: pendingEscalations.length, notificationsSent };
+}

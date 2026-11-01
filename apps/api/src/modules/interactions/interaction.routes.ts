@@ -1,10 +1,11 @@
 import { FastifyPluginAsync } from 'fastify';
-import { Permissions, logCallInteractionSchema } from '@hospital-crm/shared';
+import { Permissions, logCallInteractionSchema, logAftercareCallSchema } from '@hospital-crm/shared';
 import { requirePermission } from '../auth/auth.middleware';
 import {
   checkCallLimits,
   logCallInteraction,
   logNoteInteraction,
+  logAftercareCallInteraction,
   getUnifiedTimeline,
 } from './interaction.service';
 import { z } from 'zod';
@@ -69,6 +70,33 @@ export const interactionRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       const result = await logCallInteraction(parseResult.data as any, request.user!);
+      return reply.status(201).send(result);
+    }
+  );
+
+  // Aftercare call logging endpoint
+  fastify.post(
+    '/aftercare-call',
+    {
+      preHandler: [requirePermission(Permissions.INTERACTION_CREATE, 'case')],
+      schema: {
+        description: 'Log an aftercare questionnaire call interaction with automated triggers',
+        tags: ['Interactions'],
+      },
+    },
+    async (request, reply) => {
+      const parseResult = logAftercareCallSchema.safeParse(request.body);
+      if (!parseResult.success) {
+        return reply.status(400).send({
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Invalid aftercare call payload',
+            details: parseResult.error.format(),
+          },
+        });
+      }
+
+      const result = await logAftercareCallInteraction(parseResult.data as any, request.user!);
       return reply.status(201).send(result);
     }
   );

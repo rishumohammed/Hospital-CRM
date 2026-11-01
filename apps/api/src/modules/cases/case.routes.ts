@@ -4,6 +4,8 @@ import {
   updateCaseSchema,
   consultationOutcomeSchema,
   advanceCaseStageSchema,
+  treatmentCompletedSchema,
+  closeCaseSchema,
   Permissions,
 } from '@hospital-crm/shared';
 import {
@@ -12,6 +14,8 @@ import {
   updateCase,
   recordConsultationOutcome,
   advanceCaseStage,
+  markTreatmentCompleted,
+  closeCase,
 } from './case.service';
 import { authenticate, requirePermission } from '../auth/auth.middleware';
 
@@ -162,6 +166,76 @@ export const caseRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) =
           caseId,
           parseResult.data,
           req.user!,
+          req.ip,
+          req.headers['user-agent']
+        );
+        return reply.send(result);
+      }
+    );
+
+    // 6. Mark Treatment Completed
+    authGroup.post(
+      '/cases/:id/treatment-completed',
+      { preHandler: [requirePermission(Permissions.CASE_EDIT, 'case')] },
+      async (req, reply) => {
+        const { id } = req.params as { id: string };
+        const caseId = parseInt(id, 10);
+        if (isNaN(caseId)) {
+          return reply.status(400).send({
+            error: { code: 'INVALID_ID', message: 'Case ID must be an integer' },
+          });
+        }
+
+        const parseResult = treatmentCompletedSchema.safeParse(req.body);
+        if (!parseResult.success) {
+          return reply.status(400).send({
+            error: {
+              code: 'VALIDATION_ERROR',
+              message: 'Invalid treatment completed payload',
+              details: parseResult.error.format(),
+            },
+          });
+        }
+
+        const result = await markTreatmentCompleted(
+          req.user!,
+          caseId,
+          parseResult.data,
+          req.ip,
+          req.headers['user-agent']
+        );
+        return reply.send(result);
+      }
+    );
+
+    // 7. Close Case with Closure Code
+    authGroup.post(
+      '/cases/:id/close',
+      { preHandler: [requirePermission(Permissions.CASE_EDIT, 'case')] },
+      async (req, reply) => {
+        const { id } = req.params as { id: string };
+        const caseId = parseInt(id, 10);
+        if (isNaN(caseId)) {
+          return reply.status(400).send({
+            error: { code: 'INVALID_ID', message: 'Case ID must be an integer' },
+          });
+        }
+
+        const parseResult = closeCaseSchema.safeParse(req.body);
+        if (!parseResult.success) {
+          return reply.status(400).send({
+            error: {
+              code: 'VALIDATION_ERROR',
+              message: 'Invalid close case payload',
+              details: parseResult.error.format(),
+            },
+          });
+        }
+
+        const result = await closeCase(
+          req.user!,
+          caseId,
+          parseResult.data,
           req.ip,
           req.headers['user-agent']
         );

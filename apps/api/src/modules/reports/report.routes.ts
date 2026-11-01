@@ -1,6 +1,6 @@
 import { FastifyInstance, FastifyPluginAsync } from 'fastify';
 import { Permissions } from '@hospital-crm/shared';
-import { getAdmissionReport } from './report.service';
+import { getAdmissionReport, getAftercareReport } from './report.service';
 import { authenticate, requirePermission } from '../auth/auth.middleware';
 
 export const reportRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
@@ -20,6 +20,31 @@ export const reportRoutes: FastifyPluginAsync = async (fastify: FastifyInstance)
 
         const branchId = query.branchId ? parseInt(query.branchId, 10) : undefined;
         const result = await getAdmissionReport(
+          {
+            branchId,
+            startDate: query.startDate,
+            endDate: query.endDate,
+          },
+          req.user!
+        );
+
+        return reply.send(result);
+      }
+    );
+
+    // Aftercare Desk Report
+    authGroup.get(
+      '/reports/aftercare',
+      { preHandler: [requirePermission(Permissions.REPORT_VIEW, 'report')] },
+      async (req, reply) => {
+        const query = req.query as {
+          branchId?: string;
+          startDate?: string;
+          endDate?: string;
+        };
+
+        const branchId = query.branchId ? parseInt(query.branchId, 10) : undefined;
+        const result = await getAftercareReport(
           {
             branchId,
             startDate: query.startDate,

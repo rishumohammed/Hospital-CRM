@@ -2,7 +2,7 @@ import { prisma } from '../../database/client';
 import { UserContext } from '../rbac/scope';
 import { applyCadence, cancelOpenCadenceTasks } from '../cadences/cadence.service';
 import { toZonedTime } from 'date-fns-tz';
-import { startOfDay, endOfDay } from 'date-fns';
+import { startOfDay, endOfDay, addHours } from 'date-fns';
 
 export interface CallLimitsCheckResult {
   requiresOverride: boolean;
@@ -367,4 +367,239 @@ export async function getUnifiedTimeline(resourceType: 'lead' | 'case', resource
   timeline.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
   return timeline;
+}
+
+/**
+ * Logs an Aftercare Call interaction with structured questionnaire fields,
+ * automatic manager callback on low feedback score (<= 6) [Acceptance Test 11],
+ * and clinical red-flag escalation to duty doctor with 1-hour SLA [Acceptance Test 10].
+ */
+export async function logAftercareCallInteraction(
+  input: {
+    caseId: number;
+    taskId?: number | null;
+    outcomeId?: number | null;
+    durationSeconds?: number | null;
+    note?: string;
+    details: {
+      generalCondition: 'better' | 'same' | 'worse';
+      medicinesTaken: 'yes' | 'partly' | 'no';
+      symptoms?: string;
+      dietRestFollowed?: boolean;
+      reviewVisitBooked?: boolean;
+      reviewVisitDate?: string | null;
+      complaints?: string | null;
+      feedbackScore?: number | null;
+      escalateToDoctor?: boolean;
+      escalationReason?: string | null;
+    };
+    overrideReason?: string | null;
+    nextAction?: {
+      type: string;
+      title: string;
+      dueAt: string;
+      priority?: string;
+    } | null;
+    closureCodeId?: number | null;
+    escalateToDoctor?: boolean;
+    escalationReason?: string | null;
+  },
+  user: UserContext
+) {
+  const patientCase = await prisma.case.findFirst({
+    where: { id: input.caseId, archivedAt: null },
+    include: {
+      patient: true,
+      branch: true,
+      treatingDoctor: true,
+    },
+  });
+
+  if (!patientCase) {
+    const err = new Error('Case not found');
+    (err as any).statusCode = 404;
+    (err as any).code = 'NOT_FOUND';
+    throw err;
+  }
+
+  const now = new Date();
+  const shouldEscalate = input.escalateToDoctor || input.details?.escalateToDoctor;
+  const escalationReason = input.escalationReason || input.details?.escalationReason;
+  let escalationId: number | null = null;
+
+  // 1. Acceptance Test 10: Clinical Red Flag Escalation
+  if (shouldEscalate) {
+    if (!escalationReason || !escalationReason.trim()) {
+      const err = new Error('Escalation reason is required when escalating to doctor');
+      (err as any).statusCode = 400;
+      (err as any).code = 'ESCALATION_REASON_REQUIRED';
+      throw err;
+    }
+
+    const dutyDoctor = await prisma.user.findFirst({
+      where: {
+        status: 'active',
+        available: true,
+        OR: [{ dutyDoctor: true }, { role: { code: 'doctor' } }],
+        userBranches: { some: { branchId: patientCase.branchId } },
+      },
+      select: { id: true, name: true },
+    });
+
+    const escalationDueAt = addHours(now, 1); // 1-hour SLA
+    const escalation = await prisma.escalation.create({
+      data: {
+        caseId: input.caseId,
+        raisedBy: user.id,
+        reason: escalationReason,
+        assignedDoctorId: dutyDoctor?.id || null,
+        dueAt: escalationDueAt,
+        status: 'pending',
+      },
+    });
+    escalationId = escalation.id;
+
+    if (dutyDoctor) {
+      await prisma.notification.create({
+        data: {
+          userId: dutyDoctor.id,
+          type: 'escalation',
+          title: `🚨 Urgent Clinical Escalation: ${patientCase.patient?.name || 'Patient'}`,
+          body: `Reason: ${escalationReason}. Decision required within 1 hour.`,
+          link: `/doctor`,
+        },
+      });
+    }
+  }
+
+  // 2. Acceptance Test 11: Low Feedback Score (<= 6) creates Telecaller Manager callback within 24h
+  const feedbackScore = input.details?.feedbackScore;
+  let managerCallbackTaskId: number | null = null;
+
+  if (feedbackScore !== undefined && feedbackScore !== null && feedbackScore <= 6) {
+    const manager = await prisma.user.findFirst({
+      where: {
+        status: 'active',
+        role: { code: 'telecaller_manager' },
+        userBranches: { some: { branchId: patientCase.branchId } },
+      },
+      select: { id: true, name: true },
+    });
+
+    const managerFallback =
+      manager ||
+      (await prisma.user.findFirst({
+        where: { status: 'active', role: { code: 'telecaller_manager' } },
+        select: { id: true, name: true },
+      }));
+
+    if (managerFallback) {
+      const callbackTask = await prisma.task.create({
+        data: {
+          type: 'escalation_callback',
+          title: `Low Feedback Callback (Score: ${feedbackScore}/10) - ${patientCase.patient?.name || 'Patient'}`,
+          dueAt: addHours(now, 24), // within 24 hours
+          priority: 'hot',
+          ownerId: managerFallback.id,
+          caseId: input.caseId,
+          status: 'open',
+        },
+      });
+      managerCallbackTaskId = callbackTask.id;
+
+      await prisma.notification.create({
+        data: {
+          userId: managerFallback.id,
+          type: 'low_feedback',
+          title: `⚠️ Low Patient Feedback Alert (${feedbackScore}/10)`,
+          body: `Patient ${patientCase.patient?.name} rated experience ${feedbackScore}/10 during aftercare call. Callback task created (24h SLA).`,
+          link: `/cases/${input.caseId}`,
+        },
+      });
+    }
+  }
+
+  // 3. Mark the cadence task completed if taskId is provided
+  if (input.taskId) {
+    await prisma.task.update({
+      where: { id: input.taskId },
+      data: {
+        status: 'done',
+        completedAt: now,
+        completedBy: user.id,
+        updatedAt: now,
+      },
+    });
+  }
+
+  // 4. Create Next Action task if specified
+  if (input.nextAction) {
+    await prisma.task.create({
+      data: {
+        type: input.nextAction.type,
+        title: input.nextAction.title,
+        dueAt: new Date(input.nextAction.dueAt),
+        priority: input.nextAction.priority || 'warm',
+        ownerId: patientCase.ownerId || user.id,
+        caseId: input.caseId,
+        status: 'open',
+      },
+    });
+  }
+
+  // 5. Book review visit if selected
+  if (input.details?.reviewVisitBooked && input.details?.reviewVisitDate) {
+    await prisma.appointment.create({
+      data: {
+        caseId: input.caseId,
+        branchId: patientCase.branchId,
+        doctorName: patientCase.treatingDoctor?.name || 'Treating Doctor',
+        startsAt: new Date(input.details.reviewVisitDate),
+        status: 'booked',
+      },
+    });
+  }
+
+  // 6. If closureCodeId provided, close the case
+  if (input.closureCodeId) {
+    await prisma.case.update({
+      where: { id: input.caseId },
+      data: {
+        stage: 'completed',
+        closureCodeId: input.closureCodeId,
+        updatedAt: now,
+      },
+    });
+    await cancelOpenCadenceTasks(prisma, 'case', input.caseId);
+  }
+
+  // 7. Record the interaction
+  const noteContent =
+    input.note ||
+    `Aftercare Call: Condition ${input.details.generalCondition.toUpperCase()}, Meds: ${input.details.medicinesTaken}${feedbackScore != null ? ', Feedback: ' + feedbackScore + '/10' : ''}${shouldEscalate ? ' [ESCALATED TO DOCTOR]' : ''}`;
+
+  const interaction = await prisma.interaction.create({
+    data: {
+      type: 'aftercare_call',
+      direction: 'outbound',
+      userId: user.id,
+      caseId: input.caseId,
+      outcomeId: input.outcomeId || null,
+      durationSeconds: input.durationSeconds || 60,
+      note: noteContent,
+      details: input.details,
+      overrideReason: input.overrideReason || null,
+      occurredAt: now,
+    },
+    include: {
+      outcome: true,
+      user: { select: { id: true, name: true, email: true } },
+    },
+  });
+
+  return {
+    interaction,
+    escalationId,
+    managerCallbackTaskId,
+  };
 }

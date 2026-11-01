@@ -134,3 +134,160 @@ export async function getAdmissionReport(
     overdueFollowUps,
   };
 }
+
+export interface AftercareReportParams {
+  branchId?: number;
+  startDate?: string;
+  endDate?: string;
+}
+
+export async function getAftercareReport(
+  params: AftercareReportParams,
+  user: UserContext
+): Promise<any> {
+  const caseWhere: any = {
+    archivedAt: null,
+    OR: [
+      { treatmentCompletedAt: { not: null } },
+      { stage: { in: [CaseStages.AFTERCARE_FOLLOW_UP, CaseStages.COMPLETED] } },
+    ],
+    ...scopeWhere(user, 'case', Permissions.REPORT_VIEW),
+  };
+
+  if (params.branchId) {
+    caseWhere.branchId = params.branchId;
+  }
+
+  if (params.startDate || params.endDate) {
+    caseWhere.treatmentCompletedAt = {};
+    if (params.startDate) caseWhere.treatmentCompletedAt.gte = new Date(params.startDate);
+    if (params.endDate) caseWhere.treatmentCompletedAt.lte = new Date(params.endDate);
+  }
+
+  // 1. Fetch relevant cases
+  const cases = await prisma.case.findMany({
+    where: caseWhere,
+    include: {
+      patient: true,
+      closureCode: true,
+      tasks: {
+        where: {
+          archivedAt: null,
+          cadenceKey: { in: ['case.aftercare_inpatient', 'case.aftercare_opd'] },
+        },
+      },
+      escalations: true,
+      interactions: {
+        where: { type: 'aftercare_call', archivedAt: null },
+      },
+    },
+  });
+
+  const totalCases = cases.length;
+  let activeCases = 0;
+  let completedCases = 0;
+  let totalCallsDue = 0;
+  let totalCallsCompleted = 0;
+  let totalCallsOnTime = 0;
+
+  let totalFeedbackScore = 0;
+  let feedbackCount = 0;
+  let lowFeedbackCount = 0;
+
+  const conditionCounts = { better: 0, same: 0, worse: 0 };
+  let adherenceYesCount = 0;
+  let totalAdherenceCalls = 0;
+
+  let totalEscalations = 0;
+  let pendingEscalations = 0;
+  let decidedEscalations = 0;
+  let totalDecisionHours = 0;
+
+  const closureCounts: Record<string, { labelEn: string; count: number }> = {};
+
+  for (const c of cases) {
+    if (c.stage === CaseStages.AFTERCARE_FOLLOW_UP) activeCases++;
+    if (c.stage === CaseStages.COMPLETED) {
+      completedCases++;
+      if (c.closureCode) {
+        const key = c.closureCode.labelEn;
+        if (!closureCounts[key]) closureCounts[key] = { labelEn: key, count: 0 };
+        closureCounts[key].count++;
+      }
+    }
+
+    // Tasks metrics
+    for (const t of c.tasks) {
+      totalCallsDue++;
+      if (t.status === 'done') {
+        totalCallsCompleted++;
+        if (t.completedAt && t.completedAt <= t.dueAt) {
+          totalCallsOnTime++;
+        }
+      }
+    }
+
+    // Escalations metrics
+    for (const e of c.escalations) {
+      totalEscalations++;
+      if (e.status === 'pending') pendingEscalations++;
+      if (e.status === 'decided' && e.decidedAt) {
+        decidedEscalations++;
+        const hours = (e.decidedAt.getTime() - e.createdAt.getTime()) / (1000 * 60 * 60);
+        totalDecisionHours += hours;
+      }
+    }
+
+    // Questionnaire details metrics
+    for (const inter of c.interactions) {
+      const details = inter.details as any;
+      if (details) {
+        if (details.generalCondition && conditionCounts[details.generalCondition as keyof typeof conditionCounts] !== undefined) {
+          conditionCounts[details.generalCondition as keyof typeof conditionCounts]++;
+        }
+        if (details.medicinesTaken) {
+          totalAdherenceCalls++;
+          if (details.medicinesTaken === 'yes') adherenceYesCount++;
+        }
+        if (details.feedbackScore !== undefined && details.feedbackScore !== null) {
+          totalFeedbackScore += details.feedbackScore;
+          feedbackCount++;
+          if (details.feedbackScore <= 6) lowFeedbackCount++;
+        }
+      }
+    }
+  }
+
+  const onTimeRate = totalCallsCompleted > 0 ? Math.round((totalCallsOnTime / totalCallsCompleted) * 100) : 0;
+  const feedbackAverage = feedbackCount > 0 ? Number((totalFeedbackScore / feedbackCount).toFixed(1)) : null;
+  const adherenceRate = totalAdherenceCalls > 0 ? Math.round((adherenceYesCount / totalAdherenceCalls) * 100) : null;
+  const avgDecisionHours = decidedEscalations > 0 ? Number((totalDecisionHours / decidedEscalations).toFixed(1)) : null;
+
+  return {
+    totalCases,
+    activeCases,
+    completedCases,
+    calls: {
+      due: totalCallsDue,
+      completed: totalCallsCompleted,
+      onTime: totalCallsOnTime,
+      onTimeRate,
+    },
+    feedback: {
+      average: feedbackAverage,
+      count: feedbackCount,
+      lowCount: lowFeedbackCount,
+    },
+    clinical: {
+      adherenceRate,
+      conditionBreakdown: conditionCounts,
+    },
+    escalations: {
+      total: totalEscalations,
+      pending: pendingEscalations,
+      decided: decidedEscalations,
+      avgDecisionHours,
+    },
+    closures: Object.values(closureCounts),
+  };
+}

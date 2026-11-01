@@ -12,6 +12,18 @@
 
       <div class="flex items-center space-x-2">
         <UButton
+          v-if="caseData?.stage === 'aftercare_follow_up'"
+          @click="openAftercareCallModal"
+          color="emerald"
+          variant="solid"
+          icon="i-heroicons-clipboard-document-check"
+          class="min-h-[44px]"
+        >
+          {{ t('aftercare.log_aftercare_call') }}
+        </UButton>
+
+        <UButton
+          v-else
           @click="showLogCall = true"
           color="teal"
           icon="i-heroicons-phone"
@@ -32,7 +44,7 @@
         </UButton>
 
         <UButton
-          v-if="caseData && caseData.stage !== 'completed' && caseData.stage !== 'not_started'"
+          v-if="caseData && caseData.stage !== 'completed' && caseData.stage !== 'aftercare_follow_up' && caseData.stage !== 'not_started'"
           @click="openAdvanceModal"
           color="purple"
           variant="solid"
@@ -40,6 +52,28 @@
           class="min-h-[44px]"
         >
           {{ t('admission.advance_stage') }}
+        </UButton>
+
+        <UButton
+          v-if="canMarkTreatmentCompleted"
+          @click="openTreatmentModal"
+          color="emerald"
+          variant="solid"
+          icon="i-heroicons-check-circle"
+          class="min-h-[44px]"
+        >
+          {{ t('aftercare.mark_treatment_completed') }}
+        </UButton>
+
+        <UButton
+          v-if="canCloseCase"
+          @click="openCloseModal"
+          color="gray"
+          variant="soft"
+          icon="i-heroicons-archive-box-x-mark"
+          class="min-h-[44px]"
+        >
+          {{ t('aftercare.close_case') }}
         </UButton>
       </div>
     </div>
@@ -606,6 +640,464 @@
       </div>
     </UModal>
 
+    <!-- Mark Treatment Completed Modal -->
+    <UModal v-model="showTreatmentModal">
+      <div class="p-6 space-y-5 bg-white dark:bg-slate-800 rounded-3xl">
+        <div class="flex items-center justify-between">
+          <h3 class="text-xl font-black text-slate-900 dark:text-slate-100">
+            {{ t('aftercare.mark_treatment_completed') }}
+          </h3>
+          <button @click="showTreatmentModal = false" class="text-slate-400 hover:text-slate-600">
+            <UIcon name="i-heroicons-x-mark" class="w-6 h-6" />
+          </button>
+        </div>
+
+        <form @submit.prevent="submitTreatmentCompleted" class="space-y-4">
+          <div class="p-4 rounded-2xl bg-teal-50 dark:bg-teal-950/50 border border-teal-200 dark:border-teal-900/60 text-xs text-teal-900 dark:text-teal-200 space-y-1">
+            <p class="font-bold flex items-center gap-1.5">
+              <UIcon name="i-heroicons-information-circle" class="w-4 h-4 text-teal-600" />
+              Aftercare Desk Routing & Follow-up Cadence
+            </p>
+            <p v-if="caseData?.careType === 'in_patient'">
+              Marking treatment completed for In-Patient care requires a <strong>Discharge Date</strong>. The case will automatically transition to <strong>Aftercare Follow-Up</strong>, round-robin assign to an aftercare executive, and schedule cadence calls on <strong>Day 2, Day 7, Day 30, and Day 90</strong> post-discharge.
+            </p>
+            <p v-else>
+              Marking treatment completed will transition this case to <strong>Aftercare Follow-Up</strong>, round-robin assign to an aftercare executive, and schedule OPD cadence calls on <strong>Day 7, Day 30, and Day 90</strong>.
+            </p>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">
+              Treatment Completed Date & Time *
+            </label>
+            <input
+              v-model="treatmentForm.treatmentCompletedAt"
+              type="datetime-local"
+              required
+              class="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm focus:ring-2 focus:ring-teal-500 min-h-[44px]"
+            />
+          </div>
+
+          <div v-if="caseData?.careType === 'in_patient'">
+            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">
+              Discharge Date * <span class="text-rose-500 font-semibold">(Required for In-Patient)</span>
+            </label>
+            <input
+              v-model="treatmentForm.dischargeDate"
+              type="date"
+              required
+              class="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm focus:ring-2 focus:ring-teal-500 min-h-[44px]"
+            />
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">
+              Completion & Discharge Summary Notes
+            </label>
+            <textarea
+              v-model="treatmentForm.notes"
+              rows="3"
+              placeholder="Post-discharge instructions, medical summary, review timeline..."
+              class="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm focus:ring-2 focus:ring-teal-500"
+            ></textarea>
+          </div>
+
+          <div class="flex items-center justify-end space-x-2 pt-2">
+            <UButton
+              type="button"
+              @click="showTreatmentModal = false"
+              color="gray"
+              variant="soft"
+              class="min-h-[44px]"
+            >
+              Cancel
+            </UButton>
+            <UButton
+              type="submit"
+              :loading="submittingTreatment"
+              color="emerald"
+              class="min-h-[44px]"
+            >
+              Confirm Treatment Completed
+            </UButton>
+          </div>
+        </form>
+      </div>
+    </UModal>
+
+    <!-- Close Case Modal -->
+    <UModal v-model="showCloseModal">
+      <div class="p-6 space-y-5 bg-white dark:bg-slate-800 rounded-3xl">
+        <div class="flex items-center justify-between">
+          <h3 class="text-xl font-black text-slate-900 dark:text-slate-100">
+            {{ t('aftercare.close_case') }}
+          </h3>
+          <button @click="showCloseModal = false" class="text-slate-400 hover:text-slate-600">
+            <UIcon name="i-heroicons-x-mark" class="w-6 h-6" />
+          </button>
+        </div>
+
+        <form @submit.prevent="submitCloseCase" class="space-y-4">
+          <div class="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-900/60 text-xs text-amber-900 dark:text-amber-200">
+            Closing this case marks the stage as <strong>Completed</strong> and cancels any remaining scheduled tasks.
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">
+              {{ t('aftercare.closure_code') }} *
+            </label>
+            <select
+              v-model="closeForm.closureCodeId"
+              required
+              class="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm focus:ring-2 focus:ring-teal-500 min-h-[44px]"
+            >
+              <option value="" disabled>Select Closure Code</option>
+              <option v-for="c in closureCodes" :key="c.id" :value="c.id">
+                {{ c.labelEn }} ({{ c.labelMl }})
+              </option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">
+              Closure Note (Optional)
+            </label>
+            <textarea
+              v-model="closeForm.note"
+              rows="3"
+              placeholder="Final patient condition, recovery assessment or summary..."
+              class="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm focus:ring-2 focus:ring-teal-500"
+            ></textarea>
+          </div>
+
+          <div class="flex items-center justify-end space-x-2 pt-2">
+            <UButton
+              type="button"
+              @click="showCloseModal = false"
+              color="gray"
+              variant="soft"
+              class="min-h-[44px]"
+            >
+              Cancel
+            </UButton>
+            <UButton
+              type="submit"
+              :loading="submittingClose"
+              color="rose"
+              class="min-h-[44px]"
+            >
+              Close Case
+            </UButton>
+          </div>
+        </form>
+      </div>
+    </UModal>
+
+    <!-- Log Aftercare Call Modal -->
+    <UModal v-model="showAftercareCallModal" :ui="{ width: 'sm:max-w-xl' }">
+      <div class="p-6 space-y-5 bg-white dark:bg-slate-800 rounded-3xl">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="text-xl font-black text-slate-900 dark:text-slate-100">
+              {{ t('aftercare.log_aftercare_call') }}
+            </h3>
+            <p class="text-xs text-slate-500 mt-0.5">
+              {{ caseData?.patient?.name }} ({{ caseData?.patient?.mobileNorm }})
+            </p>
+          </div>
+          <button @click="showAftercareCallModal = false" class="text-slate-400 hover:text-slate-600">
+            <UIcon name="i-heroicons-x-mark" class="w-6 h-6" />
+          </button>
+        </div>
+
+        <form @submit.prevent="submitAftercareCall" class="space-y-4">
+          <!-- 1. General Condition -->
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-500 mb-1.5">
+              {{ t('aftercare.general_condition') }} *
+            </label>
+            <div class="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                @click="aftercareForm.generalCondition = 'better'"
+                :class="[
+                  'py-2.5 px-3 rounded-xl border text-xs font-bold transition-all min-h-[44px]',
+                  aftercareForm.generalCondition === 'better'
+                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                    : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                ]"
+              >
+                😊 {{ t('aftercare.better') }}
+              </button>
+
+              <button
+                type="button"
+                @click="aftercareForm.generalCondition = 'same'"
+                :class="[
+                  'py-2.5 px-3 rounded-xl border text-xs font-bold transition-all min-h-[44px]',
+                  aftercareForm.generalCondition === 'same'
+                    ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
+                    : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                ]"
+              >
+                😐 {{ t('aftercare.same') }}
+              </button>
+
+              <button
+                type="button"
+                @click="aftercareForm.generalCondition = 'worse'"
+                :class="[
+                  'py-2.5 px-3 rounded-xl border text-xs font-bold transition-all min-h-[44px]',
+                  aftercareForm.generalCondition === 'worse'
+                    ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
+                    : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                ]"
+              >
+                😟 {{ t('aftercare.worse') }}
+              </button>
+            </div>
+          </div>
+
+          <!-- 2. Medicines Taken -->
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-500 mb-1.5">
+              {{ t('aftercare.medicines_taken') }} *
+            </label>
+            <div class="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                @click="aftercareForm.medicinesTaken = 'full'"
+                :class="[
+                  'py-2.5 px-3 rounded-xl border text-xs font-bold transition-all min-h-[44px]',
+                  aftercareForm.medicinesTaken === 'full'
+                    ? 'bg-teal-600 text-white border-teal-600 shadow-sm'
+                    : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                ]"
+              >
+                💊 {{ t('aftercare.full') }}
+              </button>
+
+              <button
+                type="button"
+                @click="aftercareForm.medicinesTaken = 'partial'"
+                :class="[
+                  'py-2.5 px-3 rounded-xl border text-xs font-bold transition-all min-h-[44px]',
+                  aftercareForm.medicinesTaken === 'partial'
+                    ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
+                    : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                ]"
+              >
+                ⚠️ {{ t('aftercare.partial') }}
+              </button>
+
+              <button
+                type="button"
+                @click="aftercareForm.medicinesTaken = 'stopped'"
+                :class="[
+                  'py-2.5 px-3 rounded-xl border text-xs font-bold transition-all min-h-[44px]',
+                  aftercareForm.medicinesTaken === 'stopped'
+                    ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
+                    : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                ]"
+              >
+                🛑 {{ t('aftercare.stopped') }}
+              </button>
+            </div>
+          </div>
+
+          <!-- 3. Complications -->
+          <div class="flex items-center justify-between p-3.5 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+            <div>
+              <p class="text-xs font-bold text-slate-800 dark:text-slate-200">
+                {{ t('aftercare.complications') }}
+              </p>
+              <p class="text-[11px] text-slate-400">
+                Any fever, acute pain, bleeding, or wound issues
+              </p>
+            </div>
+            <input
+              v-model="aftercareForm.complications"
+              type="checkbox"
+              class="w-5 h-5 rounded text-rose-600 focus:ring-rose-500"
+            />
+          </div>
+
+          <!-- 4. Escalate to Doctor (Red Flag) -->
+          <div
+            :class="[
+              'p-4 rounded-2xl border transition-all space-y-3',
+              aftercareForm.escalateToDoctor || aftercareForm.generalCondition === 'worse' || aftercareForm.complications
+                ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-300 dark:border-rose-900/60'
+                : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800'
+            ]"
+          >
+            <div class="flex items-center justify-between">
+              <div>
+                <span class="text-xs font-black text-rose-700 dark:text-rose-400 flex items-center gap-1.5 uppercase tracking-wider">
+                  <UIcon name="i-heroicons-exclamation-triangle" class="w-4 h-4" />
+                  {{ t('aftercare.escalate_to_doctor') }}
+                </span>
+                <p class="text-[11px] text-rose-600 dark:text-rose-300">
+                  Creates an urgent clinical escalation for duty doctor with 1-hour SLA
+                </p>
+              </div>
+              <input
+                v-model="aftercareForm.escalateToDoctor"
+                type="checkbox"
+                class="w-5 h-5 rounded text-rose-600 focus:ring-rose-500"
+              />
+            </div>
+
+            <div v-if="aftercareForm.escalateToDoctor || aftercareForm.generalCondition === 'worse' || aftercareForm.complications">
+              <label class="block text-xs font-bold uppercase text-rose-700 dark:text-rose-400 mb-1">
+                {{ t('aftercare.escalation_reason') }} *
+              </label>
+              <textarea
+                v-model="aftercareForm.escalationReason"
+                rows="2"
+                required
+                placeholder="Describe red flag symptoms, vitals, or clinical complications..."
+                class="w-full px-3.5 py-2 rounded-xl bg-white dark:bg-slate-900 border border-rose-300 dark:border-rose-800 text-xs focus:ring-2 focus:ring-rose-500"
+              ></textarea>
+            </div>
+          </div>
+
+          <!-- 5. Feedback Score (1-10) -->
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="text-xs font-bold uppercase text-slate-500">
+                {{ t('aftercare.feedback_score') }} (1 to 10)
+              </label>
+              <span class="text-xs font-black font-mono px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                {{ aftercareForm.feedbackScore }} / 10
+              </span>
+            </div>
+            <div class="grid grid-cols-10 gap-1">
+              <button
+                v-for="num in 10"
+                :key="num"
+                type="button"
+                @click="aftercareForm.feedbackScore = num"
+                :class="[
+                  'py-2 rounded-lg text-xs font-bold transition-all min-h-[38px]',
+                  aftercareForm.feedbackScore === num
+                    ? num <= 6
+                      ? 'bg-rose-600 text-white'
+                      : 'bg-emerald-600 text-white'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+                ]"
+              >
+                {{ num }}
+              </button>
+            </div>
+            <p v-if="aftercareForm.feedbackScore <= 6" class="text-[11px] font-semibold text-rose-600 dark:text-rose-400 mt-1.5 flex items-center gap-1">
+              <UIcon name="i-heroicons-bell-alert" class="w-3.5 h-3.5" />
+              Score ≤ 6 automatically creates a 24-hour callback task for Telecaller Manager.
+            </p>
+          </div>
+
+          <!-- 6. Review Visit Booked -->
+          <div class="p-3.5 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-xs font-bold text-slate-800 dark:text-slate-200">
+                  {{ t('aftercare.review_visit_booked') }}
+                </p>
+                <p class="text-[11px] text-slate-400">
+                  Patient scheduled for OPD review with doctor
+                </p>
+              </div>
+              <input
+                v-model="aftercareForm.reviewVisitBooked"
+                type="checkbox"
+                class="w-5 h-5 rounded text-emerald-600 focus:ring-emerald-500"
+              />
+            </div>
+
+            <div v-if="aftercareForm.reviewVisitBooked" class="pt-2">
+              <label class="block text-xs font-bold uppercase text-slate-500 mb-1">
+                {{ t('aftercare.review_date') }} *
+              </label>
+              <input
+                v-model="aftercareForm.reviewDate"
+                type="date"
+                required
+                class="w-full px-3.5 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs min-h-[44px]"
+              />
+            </div>
+          </div>
+
+          <!-- 7. Close Case Checkbox -->
+          <div class="p-3.5 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-xs font-bold text-slate-800 dark:text-slate-200">
+                  Close Case Now
+                </p>
+                <p class="text-[11px] text-slate-400">
+                  Patient has fully recovered or completed aftercare cycle
+                </p>
+              </div>
+              <input
+                v-model="aftercareForm.closeCase"
+                type="checkbox"
+                class="w-5 h-5 rounded text-purple-600 focus:ring-purple-500"
+              />
+            </div>
+
+            <div v-if="aftercareForm.closeCase" class="pt-2">
+              <label class="block text-xs font-bold uppercase text-slate-500 mb-1">
+                Closure Code *
+              </label>
+              <select
+                v-model="aftercareForm.closureCodeId"
+                required
+                class="w-full px-3.5 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs min-h-[44px]"
+              >
+                <option value="" disabled>Select Closure Code</option>
+                <option v-for="c in closureCodes" :key="c.id" :value="c.id">
+                  {{ c.labelEn }} ({{ c.labelMl }})
+                </option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Notes -->
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">
+              {{ t('common.notes') }}
+            </label>
+            <textarea
+              v-model="aftercareForm.notes"
+              rows="2"
+              placeholder="Summary of conversation, recovery feedback, diet notes..."
+              class="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs focus:ring-2 focus:ring-emerald-500"
+            ></textarea>
+          </div>
+
+          <div class="flex items-center justify-end space-x-2 pt-2">
+            <UButton
+              type="button"
+              @click="showAftercareCallModal = false"
+              color="gray"
+              variant="soft"
+              class="min-h-[44px]"
+            >
+              Cancel
+            </UButton>
+            <UButton
+              type="submit"
+              :loading="submittingAftercareCall"
+              color="emerald"
+              class="min-h-[44px]"
+            >
+              Save Aftercare Interaction
+            </UButton>
+          </div>
+        </form>
+      </div>
+    </UModal>
+
     <!-- Log Call Slide-over Drawer -->
     <InteractionLogCallDrawer
       :is-open="showLogCall"
@@ -641,6 +1133,38 @@ const showAdvanceModal = ref(false);
 const submittingAdvance = ref(false);
 const declineReasons = ref<any[]>([]);
 
+const showTreatmentModal = ref(false);
+const submittingTreatment = ref(false);
+const treatmentForm = ref({
+  treatmentCompletedAt: '',
+  dischargeDate: '',
+  notes: '',
+});
+
+const showCloseModal = ref(false);
+const submittingClose = ref(false);
+const closeForm = ref({
+  closureCodeId: '',
+  note: '',
+});
+const closureCodes = ref<any[]>([]);
+
+const showAftercareCallModal = ref(false);
+const submittingAftercareCall = ref(false);
+const aftercareForm = ref({
+  generalCondition: 'better' as 'better' | 'same' | 'worse',
+  medicinesTaken: 'full' as 'full' | 'partial' | 'stopped',
+  complications: false,
+  escalateToDoctor: false,
+  escalationReason: '',
+  feedbackScore: 9,
+  reviewVisitBooked: false,
+  reviewDate: '',
+  closeCase: false,
+  closureCodeId: '',
+  notes: '',
+});
+
 const advanceForm = ref({
   stage: 'counseling_estimate',
   estimatedAmount: null as number | null,
@@ -668,6 +1192,17 @@ const canRecordOutcome = computed(() => {
     role === 'center_head' ||
     role === 'admission_specialist'
   );
+});
+
+const canMarkTreatmentCompleted = computed(() => {
+  if (!caseData.value) return false;
+  const stage = caseData.value.stage;
+  return stage === 'in_treatment' || stage === 'plan_accepted' || stage === 'plan_given';
+});
+
+const canCloseCase = computed(() => {
+  if (!caseData.value) return false;
+  return caseData.value.stage !== 'completed' && caseData.value.stage !== 'not_started';
 });
 
 const openTasks = computed(() => {
@@ -872,8 +1407,137 @@ function handleCallLogged() {
   fetchCaseDetails();
 }
 
+function openTreatmentModal() {
+  if (!caseData.value) return;
+  const now = new Date();
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  const nowLocal = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  treatmentForm.value = {
+    treatmentCompletedAt: nowLocal,
+    dischargeDate: new Date().toISOString().split('T')[0],
+    notes: '',
+  };
+  showTreatmentModal.value = true;
+}
+
+async function submitTreatmentCompleted() {
+  submittingTreatment.value = true;
+  try {
+    const payload: any = {
+      treatmentCompletedAt: new Date(treatmentForm.value.treatmentCompletedAt).toISOString(),
+      dischargeDate: treatmentForm.value.dischargeDate ? new Date(treatmentForm.value.dischargeDate).toISOString() : undefined,
+      notes: treatmentForm.value.notes || undefined,
+    };
+
+    await $fetch(`${config.public.apiBase}/cases/${caseId}/treatment-completed`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${authStore.token}` },
+      body: payload,
+    });
+
+    showTreatmentModal.value = false;
+    await fetchCaseDetails();
+  } catch (err: any) {
+    alert(err.data?.error?.message || err.message || 'Failed to mark treatment completed');
+  } finally {
+    submittingTreatment.value = false;
+  }
+}
+
+function openCloseModal() {
+  closeForm.value = {
+    closureCodeId: closureCodes.value[0]?.id || '',
+    note: '',
+  };
+  showCloseModal.value = true;
+}
+
+async function submitCloseCase() {
+  if (!closeForm.value.closureCodeId) return;
+  submittingClose.value = true;
+  try {
+    await $fetch(`${config.public.apiBase}/cases/${caseId}/close`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${authStore.token}` },
+      body: {
+        closureCodeId: closeForm.value.closureCodeId,
+        note: closeForm.value.note || undefined,
+      },
+    });
+
+    showCloseModal.value = false;
+    await fetchCaseDetails();
+  } catch (err: any) {
+    alert(err.data?.error?.message || err.message || 'Failed to close case');
+  } finally {
+    submittingClose.value = false;
+  }
+}
+
+function openAftercareCallModal() {
+  aftercareForm.value = {
+    generalCondition: 'better',
+    medicinesTaken: 'full',
+    complications: false,
+    escalateToDoctor: false,
+    escalationReason: '',
+    feedbackScore: 9,
+    reviewVisitBooked: false,
+    reviewDate: '',
+    closeCase: false,
+    closureCodeId: closureCodes.value[0]?.id || '',
+    notes: '',
+  };
+  showAftercareCallModal.value = true;
+}
+
+async function submitAftercareCall() {
+  submittingAftercareCall.value = true;
+  try {
+    const payload: any = {
+      caseId: Number(caseId),
+      generalCondition: aftercareForm.value.generalCondition,
+      medicinesTaken: aftercareForm.value.medicinesTaken,
+      complications: aftercareForm.value.complications,
+      escalateToDoctor: aftercareForm.value.escalateToDoctor || aftercareForm.value.generalCondition === 'worse' || aftercareForm.value.complications,
+      escalationReason: aftercareForm.value.escalationReason || undefined,
+      feedbackScore: aftercareForm.value.feedbackScore,
+      reviewVisitBooked: aftercareForm.value.reviewVisitBooked,
+      reviewDate: aftercareForm.value.reviewDate ? new Date(aftercareForm.value.reviewDate).toISOString() : undefined,
+      closeCase: aftercareForm.value.closeCase,
+      closureCodeId: aftercareForm.value.closeCase ? aftercareForm.value.closureCodeId : undefined,
+      notes: aftercareForm.value.notes || undefined,
+    };
+
+    await $fetch(`${config.public.apiBase}/interactions/aftercare-call`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${authStore.token}` },
+      body: payload,
+    });
+
+    showAftercareCallModal.value = false;
+    await fetchCaseDetails();
+  } catch (err: any) {
+    alert(err.data?.error?.message || err.message || 'Failed to log aftercare call');
+  } finally {
+    submittingAftercareCall.value = false;
+  }
+}
+
+async function fetchClosureCodes() {
+  try {
+    const res = await $fetch<any>(`${config.public.apiBase}/picklists/closure-codes`, {
+      headers: { authorization: `Bearer ${authStore.token}` },
+    });
+    closureCodes.value = res.data || res || [];
+  } catch (err) {
+    console.error('Failed to fetch closure codes:', err);
+  }
+}
+
 onMounted(() => {
   fetchCaseDetails();
   fetchDeclineReasons();
+  fetchClosureCodes();
 });
 </script>

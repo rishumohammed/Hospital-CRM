@@ -134,3 +134,28 @@ This log records design decisions, assumptions, and architectural trade-offs mad
 - **Context:** Admission managers and center heads require real-time visibility into cases advised admission, 24-hour first contact compliance, pipeline conversion rates, and cases overdue for counseling.
 - **Decision:** Implemented `GET /api/v1/reports/admission` scoped by user branch permissions. Aggregates cases advised admission, cases contacted within 24 hours of advice, overall contact rate percentage, conversion stages (`counseling_estimate`, `plan_accepted`, `in_treatment`), decline reason distribution, and overdue follow-up cases (>24 hours with no logged contact).
 - **Rationale:** Provides operational leadership with actionable insights to reduce admission leakage and track specialist counseling performance.
+
+---
+
+### Decision 019: Aftercare Follow-Up Cadences & In-Patient Discharge Gate (Acceptance Test 9)
+- **Date:** 2026-11-01
+- **Context:** Acceptance Test 9 specifies that marking treatment completed on an in-patient case requires a discharge date and schedules cadence calls on Day 2, Day 7, Day 30, and Day 90. For OPD cases, follow-up calls are scheduled on Day 7, Day 30, and Day 90.
+- **Decision:** Implemented in `POST /api/v1/cases/:id/treatment-completed`. In-patient cases reject with HTTP 422 `DISCHARGE_DATE_REQUIRED` if `dischargeDate` is omitted. Transitions stage to `aftercare_follow_up`, sets team to `aftercare`, executes round-robin assignment among active aftercare executives in the branch, cancels previous open tasks, and schedules `case.aftercare_inpatient` (Day 2, 7, 30, 90) or `case.aftercare_opd` (Day 7, 30, 90). Closure of active cases is supported via `POST /api/v1/cases/:id/close` with picklist `closureCodeId`.
+- **Rationale:** Ensures continuous clinical follow-up post discharge to monitor recovery and prevent complications.
+
+---
+
+### Decision 020: Clinical Red Flag Escalation & 1-Hour Duty Doctor SLA (Acceptance Test 10)
+- **Date:** 2026-11-01
+- **Context:** Acceptance Test 10 requires that clinical red flags logged during aftercare calls (e.g. fever, acute pain, bleeding, general condition worsening) escalate to a duty doctor with a strict 1-hour SLA. If unanswered, alerts escalate to the Telecaller Manager at 1 hour and Center Head at 2 hours. Doctor resolution generates a hot callback task for the aftercare telecaller.
+- **Decision:** Implemented `POST /api/v1/interactions/aftercare-call` and `POST /api/v1/escalations/:id/decision`. Red flag condition or `escalateToDoctor: true` creates an `Escalation` with `dueAt = now + 1 hour` assigned to the case's treating doctor or branch duty doctor. Cron job `checkUnansweredEscalations` monitors pending escalations, dispatching notifications at 1 hour (manager) and 2 hours (center head). When doctor records a decision, status updates to `decided` and a hot callback task is automatically created for the aftercare executive.
+- **Rationale:** Safeguards patient safety through rapid medical escalation workflows while automating notification chains for overdue clinical reviews.
+
+---
+
+### Decision 021: Low Feedback Score (≤ 6/10) Manager Callback Trigger (Acceptance Test 11)
+- **Date:** 2026-11-01
+- **Context:** Acceptance Test 11 requires that aftercare call interactions recording a patient feedback rating of 6/10 or below automatically alert and schedule a 24-hour callback task for the Telecaller Manager.
+- **Decision:** Implemented in `logAftercareCallInteraction`. When `feedbackScore <= 6`, the system finds active telecaller managers in the branch (or center head/admin fallback) and creates a priority callback task titled `Manager Callback: Low Patient Feedback (${score}/10)` due within 24 hours, alongside an immediate in-app notification.
+- **Rationale:** Provides rapid service recovery for dissatisfied patients before negative word-of-mouth or complaints escalate.
+

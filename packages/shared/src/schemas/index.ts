@@ -230,6 +230,11 @@ export const treatmentCompletedSchema = z.object({
   note: z.string().max(500).optional(),
 });
 
+export const closeCaseSchema = z.object({
+  closureCodeId: z.number().int().positive(),
+  note: z.string().max(500).optional(),
+});
+
 // Task Schemas
 export const nextActionSchema = z.object({
   type: z.enum([
@@ -294,16 +299,22 @@ export const aftercareDetailsSchema = z.object({
   reviewVisitDate: z.string().datetime().optional().nullable(),
   complaints: z.string().max(500).optional().nullable(),
   feedbackScore: z.number().int().min(0).max(10).optional().nullable(),
+  escalateToDoctor: z.boolean().optional().default(false),
+  escalationReason: z.string().max(1000).optional().nullable(),
 });
 
 export const logAftercareCallSchema = z.object({
   caseId: z.number().int().positive(),
+  taskId: z.number().int().positive().optional().nullable(),
+  outcomeId: z.number().int().positive().optional().nullable(),
   durationSeconds: z.number().int().nonnegative().optional().nullable(),
   note: z.string().max(2000).optional().default(''),
   details: aftercareDetailsSchema,
   overrideReason: z.string().max(500).optional().nullable(),
   nextAction: nextActionSchema.optional().nullable(),
   closureCodeId: z.number().int().positive().optional().nullable(),
+  escalateToDoctor: z.boolean().optional().default(false),
+  escalationReason: z.string().max(1000).optional().nullable(),
 });
 
 // Escalation Schemas

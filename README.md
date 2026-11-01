@@ -114,6 +114,6 @@ pnpm typecheck
 | **M4** | Tasks, Interactions, Cadences, My Work Dashboard, Appointments, Cron | ✅ Complete |
 | **M5** | Conversion & Patient Cases ("Mark Visited", Consultation Outcome) | ✅ Complete |
 | **M6** | Admission Desk (In-Patient queue, Estimate Counseling, Deposit Gate) | ✅ Complete |
-| **M7** | Aftercare Desk (Post-treatment Cadences, Call Form, Doctor Escalations) | ⏳ Next |
-| **M8** | Reports, Watermarked CSV Exports, PWA & Final Polish | ⏳ Pending |
+| **M7** | Aftercare Desk (Post-treatment Cadences, Call Form, Doctor Escalations) | ✅ Complete |
+| **M8** | Reports, Watermarked CSV Exports, PWA & Final Polish | ⏳ Next |
 
