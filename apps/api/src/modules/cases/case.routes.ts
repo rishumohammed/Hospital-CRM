@@ -3,6 +3,7 @@ import {
   caseFilterSchema,
   updateCaseSchema,
   consultationOutcomeSchema,
+  advanceCaseStageSchema,
   Permissions,
 } from '@hospital-crm/shared';
 import {
@@ -10,6 +11,7 @@ import {
   getCaseById,
   updateCase,
   recordConsultationOutcome,
+  advanceCaseStage,
 } from './case.service';
 import { authenticate, requirePermission } from '../auth/auth.middleware';
 
@@ -122,6 +124,41 @@ export const caseRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) =
         }
 
         const result = await recordConsultationOutcome(
+          caseId,
+          parseResult.data,
+          req.user!,
+          req.ip,
+          req.headers['user-agent']
+        );
+        return reply.send(result);
+      }
+    );
+
+    // 5. Advance Case Stage
+    authGroup.post(
+      '/cases/:id/advance-stage',
+      { preHandler: [requirePermission(Permissions.CASE_EDIT, 'case')] },
+      async (req, reply) => {
+        const { id } = req.params as { id: string };
+        const caseId = parseInt(id, 10);
+        if (isNaN(caseId)) {
+          return reply.status(400).send({
+            error: { code: 'INVALID_ID', message: 'Case ID must be an integer' },
+          });
+        }
+
+        const parseResult = advanceCaseStageSchema.safeParse(req.body);
+        if (!parseResult.success) {
+          return reply.status(400).send({
+            error: {
+              code: 'VALIDATION_ERROR',
+              message: 'Invalid advance stage payload',
+              details: parseResult.error.format(),
+            },
+          });
+        }
+
+        const result = await advanceCaseStage(
           caseId,
           parseResult.data,
           req.user!,

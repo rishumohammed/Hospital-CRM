@@ -2,7 +2,7 @@ import { prisma } from '../../database/client';
 import { UserContext, scopeWhere } from '../rbac/scope';
 import { maskPhoneNumber, Permissions, CareTypes, CaseStages } from '@hospital-crm/shared';
 import { recordAuditLog } from '../audit/audit.service';
-import { applyCadence } from '../cadences/cadence.service';
+import { applyCadence, cancelOpenCadenceTasks } from '../cadences/cadence.service';
 
 export interface ListCasesParams {
   page?: number;
@@ -496,4 +496,169 @@ export async function recordConsultationOutcome(
   });
 
   return result.case;
+}
+
+export interface AdvanceStageInput {
+  stage: string;
+  estimatedAmount?: number | null;
+  estimateSharedAt?: string | null;
+  depositReceived?: boolean;
+  depositAmount?: number | null;
+  expectedAdmissionDate?: string | null;
+  admissionDate?: string | null;
+  emergencyAdmission?: boolean;
+  emergencyReason?: string | null;
+  notStartedReasonId?: number | null;
+  closureCodeId?: number | null;
+  note?: string;
+}
+
+/**
+ * Advances a case through its lifecycle stages:
+ * - visited -> plan_given -> counseling_estimate -> plan_accepted -> in_treatment -> completed / not_started.
+ * Enforces the Deposit Gate (Acceptance Test 8):
+ * - Moving an in-patient case to 'in_treatment' strictly requires depositReceived = true,
+ *   unless emergencyAdmission = true with a non-empty emergencyReason.
+ */
+export async function advanceCaseStage(
+  caseId: number,
+  input: AdvanceStageInput,
+  user: UserContext,
+  ip?: string,
+  userAgent?: string
+): Promise<any> {
+  const patientCase = await prisma.case.findFirst({
+    where: {
+      id: caseId,
+      archivedAt: null,
+      ...scopeWhere(user, 'case', Permissions.CASE_EDIT),
+    },
+  });
+
+  if (!patientCase) {
+    const exists = await prisma.case.findUnique({ where: { id: caseId } });
+    if (exists) {
+      await recordAuditLog({
+        userId: user.id,
+        action: 'ACCESS_DENIED',
+        entity: 'case',
+        entityId: caseId,
+        ip,
+        userAgent,
+      });
+      const err = new Error('Forbidden: Out of scope access');
+      (err as any).statusCode = 403;
+      (err as any).code = 'FORBIDDEN';
+      throw err;
+    }
+    const err = new Error('Case not found');
+    (err as any).statusCode = 404;
+    (err as any).code = 'NOT_FOUND';
+    throw err;
+  }
+
+  // --- Acceptance Test 8: Deposit Gate & Emergency Exception ---
+  if (input.stage === CaseStages.IN_TREATMENT) {
+    const isInPatient = patientCase.careType === CareTypes.IN_PATIENT || patientCase.advisedAdmission;
+    if (isInPatient) {
+      const effectiveDeposit =
+        input.depositReceived !== undefined ? input.depositReceived : patientCase.depositReceived;
+      const isEmergency =
+        input.emergencyAdmission !== undefined ? input.emergencyAdmission : patientCase.emergencyAdmission;
+      const emergencyReason =
+        input.emergencyReason !== undefined ? input.emergencyReason : patientCase.emergencyReason;
+
+      if (!effectiveDeposit && (!isEmergency || !emergencyReason || !emergencyReason.trim())) {
+        const err = new Error(
+          'In-patient admission requires deposit received or an emergency admission override with reason'
+        );
+        (err as any).statusCode = 400;
+        (err as any).code = 'DEPOSIT_REQUIRED';
+        throw err;
+      }
+    }
+  }
+
+  // If moving to not_started (declined), decline reason is required
+  if (input.stage === CaseStages.NOT_STARTED) {
+    if (!input.notStartedReasonId && !patientCase.notStartedReasonId) {
+      const err = new Error('Decline reason is required when closing case as Not Started');
+      (err as any).statusCode = 400;
+      (err as any).code = 'DECLINE_REASON_REQUIRED';
+      throw err;
+    }
+  }
+
+  const now = new Date();
+  const updateData: any = {
+    stage: input.stage,
+    updatedAt: now,
+  };
+
+  if (input.estimatedAmount !== undefined) updateData.estimatedAmount = input.estimatedAmount;
+  if (input.estimateSharedAt) updateData.estimateSharedAt = new Date(input.estimateSharedAt);
+  if (input.depositReceived !== undefined) updateData.depositReceived = input.depositReceived;
+  if (input.depositAmount !== undefined) updateData.depositAmount = input.depositAmount;
+  if (input.expectedAdmissionDate) updateData.expectedAdmissionDate = new Date(input.expectedAdmissionDate);
+  if (input.admissionDate) {
+    updateData.admissionDate = new Date(input.admissionDate);
+  } else if (input.stage === CaseStages.IN_TREATMENT && !patientCase.admissionDate) {
+    updateData.admissionDate = now;
+  }
+  if (input.emergencyAdmission !== undefined) updateData.emergencyAdmission = input.emergencyAdmission;
+  if (input.emergencyReason !== undefined) updateData.emergencyReason = input.emergencyReason;
+  if (input.notStartedReasonId !== undefined) updateData.notStartedReasonId = input.notStartedReasonId;
+  if (input.closureCodeId !== undefined) updateData.closureCodeId = input.closureCodeId;
+
+  const result = await prisma.$transaction(async (tx: any) => {
+    const updated = await tx.case.update({
+      where: { id: caseId },
+      data: updateData,
+      include: {
+        patient: true,
+        department: true,
+        branch: true,
+        owner: { select: { id: true, name: true, email: true } },
+        treatingDoctor: { select: { id: true, name: true, email: true } },
+        notStartedReason: true,
+        closureCode: true,
+      },
+    });
+
+    // If admitted (in_treatment) or closed (not_started/completed), cancel open cadence tasks
+    if (
+      input.stage === CaseStages.IN_TREATMENT ||
+      input.stage === CaseStages.NOT_STARTED ||
+      input.stage === CaseStages.COMPLETED
+    ) {
+      await cancelOpenCadenceTasks(tx, 'case', caseId);
+    }
+
+    // Record stage transition interaction
+    await tx.interaction.create({
+      data: {
+        type: 'status_change',
+        direction: 'inbound',
+        userId: user.id,
+        caseId,
+        note: `Stage advanced from ${patientCase.stage.toUpperCase()} to ${input.stage.toUpperCase()}${input.note ? '. Note: ' + input.note : ''}${input.emergencyAdmission ? ' [EMERGENCY OVERRIDE: ' + input.emergencyReason + ']' : ''}`,
+        occurredAt: now,
+      },
+    });
+
+    return updated;
+  });
+
+  await recordAuditLog({
+    userId: user.id,
+    action: 'CASE_STAGE_ADVANCED',
+    entity: 'case',
+    entityId: caseId,
+    before: { stage: patientCase.stage, depositReceived: patientCase.depositReceived },
+    after: { stage: result.stage, depositReceived: result.depositReceived },
+    ip,
+    userAgent,
+  });
+
+  return result;
 }

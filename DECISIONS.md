@@ -119,5 +119,18 @@ This log records design decisions, assumptions, and architectural trade-offs mad
 - **Decision:** Implemented in `recordConsultationOutcome` (`POST /api/v1/cases/:id/consultation-outcome`). When `careType === 'in_patient'`, the system sets `advisedAdmission = true`, stage to `plan_given`, team to `admission`, assigns the specialist with lowest open case volume via `assignCaseRoundRobin`, and triggers `applyCadence(..., 'case.admission_advised')`, creating the initial follow-up task due in 24 hours plus Day 3 and Day 7 counseling checkpoints. If `careType === 'consultation_only'`, the case stage moves to `completed`.
 - **Rationale:** Fully automates the transition from doctor consultation to specialist admission counseling without manual handoffs.
 
+---
 
+### Decision 017: Admission Deposit Gate & Emergency Override (Acceptance Test 8)
+- **Date:** 2026-11-01
+- **Context:** Acceptance Test 8 requires that advancing a case to `in_treatment` is blocked if `careType === 'in_patient'` and `depositReceived !== true`, unless `emergencyAdmission === true` with a mandatory medical justification reason.
+- **Decision:** Enforced strictly in `advanceCaseStage` (`POST /api/v1/cases/:id/advance-stage`). If an in-patient case attempts to transition to `in_treatment` without `depositReceived = true` and `emergencyAdmission = false`, the API rejects with HTTP 422 `DEPOSIT_REQUIRED`. If `emergencyAdmission` is enabled, an `emergencyReason` string must be non-empty; otherwise HTTP 422 `EMERGENCY_REASON_REQUIRED` is thrown. Advancing to `in_treatment` cancels remaining open admission cadence tasks. Transitioning to `not_started` requires a valid `notStartedReasonId` (picklist decline reason).
+- **Rationale:** Protects hospital financial exposure and ensures admissions follow standard advance deposit protocols while preserving clinical agility for urgent emergency admissions.
 
+---
+
+### Decision 018: Admission Desk Pipeline Reporting & Conversion Funnel Analytics
+- **Date:** 2026-11-01
+- **Context:** Admission managers and center heads require real-time visibility into cases advised admission, 24-hour first contact compliance, pipeline conversion rates, and cases overdue for counseling.
+- **Decision:** Implemented `GET /api/v1/reports/admission` scoped by user branch permissions. Aggregates cases advised admission, cases contacted within 24 hours of advice, overall contact rate percentage, conversion stages (`counseling_estimate`, `plan_accepted`, `in_treatment`), decline reason distribution, and overdue follow-up cases (>24 hours with no logged contact).
+- **Rationale:** Provides operational leadership with actionable insights to reduce admission leakage and track specialist counseling performance.

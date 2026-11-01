@@ -86,5 +86,23 @@
       "not_started": "Not Started",
       "dropped_out": "Dropped Out"
     }
+  },
+  "admission": {
+    "title": "Admission Desk",
+    "advised_cases": "Advised In-Patient",
+    "contacted_24h": "Contacted <24h",
+    "counseling_estimate": "Counseling & Estimate",
+    "deposit_received": "Deposit Received",
+    "admitted": "Admitted (In Treatment)",
+    "declined": "Declined / Not Started",
+    "deposit_gate_warning": "In-patient admission strictly requires advance deposit received or an emergency admission override with clinical reason.",
+    "emergency_admission": "Emergency Admission",
+    "emergency_reason": "Emergency Justification / Clinical Reason",
+    "expected_admission_date": "Expected Admission Date",
+    "admission_date": "Admission Date",
+    "deposit_amount": "Deposit Amount (₹)",
+    "decline_reason": "Decline Reason",
+    "advance_stage": "Advance Stage",
+    "confirm_admission": "Confirm Admission"
   }
 }

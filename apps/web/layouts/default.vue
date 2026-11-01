@@ -44,6 +44,13 @@
             {{ t('nav.cases') }}
           </NuxtLink>
           <NuxtLink
+            to="/admission"
+            class="px-3 py-2 rounded-lg text-sm font-semibold transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200"
+            active-class="!bg-teal-50 dark:!bg-teal-950/50 !text-teal-700 dark:!text-teal-400 font-bold"
+          >
+            {{ t('nav.admission_desk') }}
+          </NuxtLink>
+          <NuxtLink
             to="/doctor"
             class="px-3 py-2 rounded-lg text-sm font-semibold transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200"
             active-class="!bg-teal-50 dark:!bg-teal-950/50 !text-teal-700 dark:!text-teal-400 font-bold"

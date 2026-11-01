@@ -113,7 +113,7 @@ pnpm typecheck
 | **M3** | Support Desk: Leads, Duplicates, Round-Robin, SLA, Intake API | ✅ Complete |
 | **M4** | Tasks, Interactions, Cadences, My Work Dashboard, Appointments, Cron | ✅ Complete |
 | **M5** | Conversion & Patient Cases ("Mark Visited", Consultation Outcome) | ✅ Complete |
-| **M6** | Admission Desk (In-Patient queue, Estimate Counseling, Deposit Gate) | ⏳ Next |
-| **M7** | Aftercare Desk (Post-treatment Cadences, Call Form, Doctor Escalations) | ⏳ Pending |
+| **M6** | Admission Desk (In-Patient queue, Estimate Counseling, Deposit Gate) | ✅ Complete |
+| **M7** | Aftercare Desk (Post-treatment Cadences, Call Form, Doctor Escalations) | ⏳ Next |
 | **M8** | Reports, Watermarked CSV Exports, PWA & Final Polish | ⏳ Pending |
 

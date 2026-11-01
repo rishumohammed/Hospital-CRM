@@ -86,5 +86,23 @@
       "not_started": "തുടങ്ങിയിട്ടില്ല",
       "dropped_out": "നിർത്തലാക്കി"
     }
+  },
+  "admission": {
+    "title": "അഡ്മിഷൻ ഡെസ്ക്",
+    "advised_cases": "നിർദ്ദേശിച്ച ഇൻ-പേഷ്യന്റ്",
+    "contacted_24h": "24 മണിക്കൂറിനകം ബന്ധപ്പെട്ടു",
+    "counseling_estimate": "കൗൺസിലിംഗ് & എസ്റ്റിമേറ്റ്",
+    "deposit_received": "ഡെപ്പോസിറ്റ് ലഭിച്ചു",
+    "admitted": "അഡ്മിറ്റ് ചെയ്തു (ചികിത്സയിൽ)",
+    "declined": "നിരസിച്ചു / തുടങ്ങിയിട്ടില്ല",
+    "deposit_gate_warning": "ഇൻ-പേഷ്യന്റ് അഡ്മിഷന് മുൻകൂർ ഡെപ്പോസിറ്റ് അല്ലെങ്കിൽ അടിയന്തിര കാരണസഹിതമായ ഇളവ് നിർബന്ധമാണ്.",
+    "emergency_admission": "അടിയന്തിര അഡ്മിഷൻ (Emergency Admission)",
+    "emergency_reason": "അടിയന്തിര കാരണം / ഡോക്ടറുടെ അനുമതി",
+    "expected_admission_date": "പ്രതീക്ഷിക്കുന്ന അഡ്മിഷൻ തീയതി",
+    "admission_date": "അഡ്മിഷൻ തീയതി",
+    "deposit_amount": "ഡെപ്പോസിറ്റ് തുക (₹)",
+    "decline_reason": "നിരസിക്കാനുള്ള കാരണം",
+    "advance_stage": "ഘട്ടം മാറ്റുക",
+    "confirm_admission": "അഡ്മിഷൻ സ്ഥിരീകരിക്കുക"
   }
 }

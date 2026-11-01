@@ -202,13 +202,16 @@
               <NuxtLink v-if="task.lead" :to="`/leads/${task.lead.id}`">
                 {{ task.lead.name }}
               </NuxtLink>
+              <NuxtLink v-else-if="task.case" :to="`/cases/${task.case.id}`">
+                {{ task.case.patient?.name || 'Patient Case' }}
+              </NuxtLink>
               <span v-else>{{ task.case?.patient?.name || 'Patient Case' }}</span>
             </h3>
 
             <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
               <span class="font-mono">{{ task.lead?.mobile || task.case?.patient?.mobileNorm || '—' }}</span>
-              <span v-if="task.lead?.language" class="px-1.5 py-0.2 bg-slate-100 dark:bg-slate-700 rounded text-[10px] font-bold">
-                {{ task.lead.language.toUpperCase() }}
+              <span v-if="task.lead?.language || task.case?.patient?.preferredLang" class="px-1.5 py-0.2 bg-slate-100 dark:bg-slate-700 rounded text-[10px] font-bold">
+                {{ (task.lead?.language || task.case?.patient?.preferredLang || 'en').toUpperCase() }}
               </span>
             </div>
           </div>
@@ -218,15 +221,18 @@
             <p class="text-xs font-bold text-slate-800 dark:text-slate-200">
               {{ task.title }}
             </p>
-            <p v-if="task.lead?.concern" class="text-xs text-slate-600 dark:text-slate-400 mt-1 line-clamp-2">
-              {{ task.lead.concern }}
+            <p v-if="task.lead?.concern || task.case?.planNote" class="text-xs text-slate-600 dark:text-slate-400 mt-1 line-clamp-2">
+              {{ task.lead?.concern || task.case?.planNote }}
             </p>
             <div class="mt-2 flex items-center gap-2 text-[11px] text-slate-400">
-              <span v-if="task.lead?.department">
-                🏥 {{ locale === 'ml' ? task.lead.department.labelMl : task.lead.department.labelEn }}
+              <span v-if="task.lead?.department || task.case?.department">
+                🏥 {{ locale === 'ml' ? (task.lead?.department?.labelMl || task.case?.department?.labelMl) : (task.lead?.department?.labelEn || task.case?.department?.labelEn) }}
               </span>
               <span v-if="task.lead?.source">
                 &bull; {{ task.lead.source.labelEn }}
+              </span>
+              <span v-else-if="task.case">
+                &bull; {{ formatStage(task.case.stage) }}
               </span>
             </div>
           </div>
@@ -236,7 +242,7 @@
         <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-3 gap-2">
           <!-- Call Button (tel: link) -->
           <a
-            :href="`tel:${task.lead?.mobileNorm || task.lead?.mobile || ''}`"
+            :href="`tel:${task.lead?.mobileNorm || task.lead?.mobile || task.case?.patient?.mobileNorm || ''}`"
             class="min-h-[44px] flex items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-bold text-xs hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors"
           >
             📞 {{ t('common.call') }}
@@ -246,7 +252,7 @@
           <button
             type="button"
             class="min-h-[44px] flex items-center justify-center rounded-xl bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 font-bold text-xs hover:bg-teal-100 dark:hover:bg-teal-900/60 transition-colors"
-            @click="openWhatsApp(task.lead)"
+            @click="openWhatsApp(task)"
           >
             💬 {{ t('common.whatsapp') }}
           </button>
@@ -255,7 +261,7 @@
           <button
             type="button"
             class="min-h-[44px] flex items-center justify-center rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs transition-colors shadow-xs"
-            @click="openLogCall(task.lead)"
+            @click="openLogCall(task)"
           >
             📝 {{ t('common.log_call') }}
           </button>
@@ -272,14 +278,17 @@
 
     <LogCallDrawer
       :is-open="isLogCallOpen"
-      :lead="selectedLead"
+      :lead="selectedTask?.lead"
+      :case-id="selectedTask?.case?.id"
+      :recipient-name="selectedTask?.lead?.name || selectedTask?.case?.patient?.name"
+      :recipient-phone="selectedTask?.lead?.mobile || selectedTask?.case?.patient?.mobileNorm"
       @close="isLogCallOpen = false"
       @call-logged="onCallLogged"
     />
 
     <BookAppointmentModal
       :is-open="isBookApptOpen"
-      :lead="selectedLead"
+      :lead="selectedTask?.lead"
       @close="isBookApptOpen = false"
       @booked="onApptBooked"
     />
@@ -311,7 +320,7 @@ const upcomingCount = ref(0);
 const isQuickCreateOpen = ref(false);
 const isLogCallOpen = ref(false);
 const isBookApptOpen = ref(false);
-const selectedLead = ref<any>(null);
+const selectedTask = ref<any>(null);
 
 let countdownInterval: any = null;
 const nowTime = ref(Date.now());
@@ -374,24 +383,32 @@ const formatDueDate = (dateStr: string) => {
   return new Date(dateStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
 
-const openLogCall = (lead: any) => {
-  selectedLead.value = lead;
+const formatStage = (stage: string) => {
+  return t(`cases.stages.${stage}`, stage);
+};
+
+const openLogCall = (task: any) => {
+  selectedTask.value = task;
   isLogCallOpen.value = true;
 };
 
-const openWhatsApp = (lead: any) => {
-  if (!lead?.mobile) return;
-  if (!lead.consentWhatsapp) {
+const openWhatsApp = (task: any) => {
+  const lead = task.lead;
+  const mobile = lead?.mobile || task.case?.patient?.mobileNorm;
+  if (!mobile) return;
+  const consent = lead ? lead.consentWhatsapp : task.case?.patient?.consentWhatsapp;
+  if (!consent) {
     const proceed = confirm(
       'Notice: Patient WhatsApp consent is not recorded in the profile. Proceed to open WhatsApp chat?'
     );
     if (!proceed) return;
   }
-  const cleanPhone = lead.mobile.replace(/\D/g, '');
+  const cleanPhone = mobile.replace(/\D/g, '');
+  const lang = lead?.language || task.case?.patient?.preferredLang || 'en';
   const greeting =
-    lead.language === 'ml'
+    lang === 'ml'
       ? 'നമസ്കാരം, ഹോസ്പിറ്റലിൽ നിന്ന് ബന്ധപ്പെടുകയാണ്.'
-      : 'Hello, reaching out to you from Hospital CRM regarding your enquiry.';
+      : 'Hello, reaching out to you from Hospital CRM regarding your case.';
   window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(greeting)}`, '_blank');
 };
 
@@ -408,6 +425,11 @@ const onApptBooked = () => {
 };
 
 onMounted(() => {
+  if (authStore.user?.role?.code === 'admission_specialist') {
+    activeTeam.value = 'admission';
+  } else if (authStore.user?.role?.code === 'aftercare_executive') {
+    activeTeam.value = 'aftercare';
+  }
   loadWorkQueue();
   countdownInterval = setInterval(() => {
     nowTime.value = Date.now();

@@ -30,6 +30,17 @@
         >
           {{ t('cases.record_outcome') }}
         </UButton>
+
+        <UButton
+          v-if="caseData && caseData.stage !== 'completed' && caseData.stage !== 'not_started'"
+          @click="openAdvanceModal"
+          color="purple"
+          variant="solid"
+          icon="i-heroicons-arrow-trending-up"
+          class="min-h-[44px]"
+        >
+          {{ t('admission.advance_stage') }}
+        </UButton>
       </div>
     </div>
 
@@ -406,6 +417,195 @@
       </div>
     </UModal>
 
+    <!-- Advance Stage Modal -->
+    <UModal v-model="showAdvanceModal">
+      <div class="p-6 space-y-5 bg-white dark:bg-slate-800 rounded-3xl">
+        <div class="flex items-center justify-between">
+          <h3 class="text-xl font-black text-slate-900 dark:text-slate-100">
+            {{ t('admission.advance_stage') }}
+          </h3>
+          <button @click="showAdvanceModal = false" class="text-slate-400 hover:text-slate-600">
+            <UIcon name="i-heroicons-x-mark" class="w-6 h-6" />
+          </button>
+        </div>
+
+        <form @submit.prevent="submitAdvanceStage" class="space-y-4">
+          <!-- Next Stage Selection -->
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">
+              Select Next Stage *
+            </label>
+            <select
+              v-model="advanceForm.stage"
+              required
+              class="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm font-semibold focus:ring-2 focus:ring-purple-500 min-h-[44px]"
+            >
+              <option value="counseling_estimate">{{ t('cases.stages.counseling_estimate') }}</option>
+              <option value="plan_accepted">{{ t('cases.stages.plan_accepted') }} (Deposit Paid)</option>
+              <option value="in_treatment">{{ t('cases.stages.in_treatment') }} (Admitted)</option>
+              <option value="not_started">{{ t('cases.stages.not_started') }} (Declined)</option>
+            </select>
+          </div>
+
+          <!-- Counseling / Estimate fields -->
+          <div v-if="advanceForm.stage === 'counseling_estimate'" class="space-y-3">
+            <div>
+              <label class="block text-xs font-bold uppercase text-slate-500 mb-1">
+                Estimated Treatment Amount (₹)
+              </label>
+              <input
+                v-model.number="advanceForm.estimatedAmount"
+                type="number"
+                min="0"
+                class="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm min-h-[44px]"
+              />
+            </div>
+          </div>
+
+          <!-- Plan Accepted fields -->
+          <div v-if="advanceForm.stage === 'plan_accepted'" class="space-y-3">
+            <div class="flex items-center space-x-2">
+              <input
+                id="depRecDetail"
+                v-model="advanceForm.depositReceived"
+                type="checkbox"
+                class="w-4 h-4 rounded text-purple-600 focus:ring-purple-500"
+              />
+              <label for="depRecDetail" class="text-xs font-bold text-slate-700 dark:text-slate-300">
+                Deposit Received (50% Advance)
+              </label>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold uppercase text-slate-500 mb-1">
+                Deposit Amount (₹)
+              </label>
+              <input
+                v-model.number="advanceForm.depositAmount"
+                type="number"
+                min="0"
+                class="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm min-h-[44px]"
+              />
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold uppercase text-slate-500 mb-1">
+                Expected Admission Date
+              </label>
+              <input
+                v-model="advanceForm.expectedAdmissionDate"
+                type="date"
+                class="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm min-h-[44px]"
+              />
+            </div>
+          </div>
+
+          <!-- In-Treatment (Deposit Gate / Emergency Override) -->
+          <div v-if="advanceForm.stage === 'in_treatment'" class="space-y-3">
+            <div class="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-900/60 text-xs text-amber-900 dark:text-amber-200">
+              <p class="font-bold flex items-center gap-1">
+                <UIcon name="i-heroicons-shield-check" class="w-4 h-4 text-amber-600" />
+                Admission Deposit Gate
+              </p>
+              <p class="mt-1">
+                In-patient admission requires advance deposit received or an emergency override with medical reason.
+              </p>
+            </div>
+
+            <div class="flex items-center space-x-2">
+              <input
+                id="admitDepDetail"
+                v-model="advanceForm.depositReceived"
+                type="checkbox"
+                class="w-4 h-4 rounded text-purple-600 focus:ring-purple-500"
+              />
+              <label for="admitDepDetail" class="text-xs font-bold text-slate-700 dark:text-slate-300">
+                Advance Deposit Confirmed Received
+              </label>
+            </div>
+
+            <div class="pt-2 border-t border-slate-200 dark:border-slate-700">
+              <div class="flex items-center space-x-2">
+                <input
+                  id="emgAdmDetail"
+                  v-model="advanceForm.emergencyAdmission"
+                  type="checkbox"
+                  class="w-4 h-4 rounded text-rose-600 focus:ring-rose-500"
+                />
+                <label for="emgAdmDetail" class="text-xs font-bold text-rose-600 dark:text-rose-400">
+                  🚨 Emergency Admission Override (Waive Deposit Gate)
+                </label>
+              </div>
+
+              <div v-if="advanceForm.emergencyAdmission" class="mt-2">
+                <label class="block text-xs font-bold uppercase text-slate-500 mb-1">
+                  Emergency Justification Reason *
+                </label>
+                <textarea
+                  v-model="advanceForm.emergencyReason"
+                  rows="2"
+                  required
+                  placeholder="e.g. Acute trauma / MD approved waiver"
+                  class="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-rose-300 dark:border-rose-800 text-xs focus:ring-2 focus:ring-rose-500"
+                ></textarea>
+              </div>
+            </div>
+          </div>
+
+          <!-- Declined (Not Started) -->
+          <div v-if="advanceForm.stage === 'not_started'" class="space-y-3">
+            <div>
+              <label class="block text-xs font-bold uppercase text-slate-500 mb-1">
+                Decline Reason *
+              </label>
+              <select
+                v-model="advanceForm.notStartedReasonId"
+                required
+                class="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm min-h-[44px]"
+              >
+                <option :value="null" disabled>Select Reason</option>
+                <option v-for="dr in declineReasons" :key="dr.id" :value="dr.id">
+                  {{ dr.labelEn }} ({{ dr.labelMl }})
+                </option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Notes -->
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">
+              Transition Note (Optional)
+            </label>
+            <input
+              v-model="advanceForm.note"
+              type="text"
+              class="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs min-h-[44px]"
+            />
+          </div>
+
+          <div class="flex items-center justify-end space-x-2 pt-3">
+            <UButton
+              type="button"
+              @click="showAdvanceModal = false"
+              color="gray"
+              variant="soft"
+              class="min-h-[44px]"
+            >
+              Cancel
+            </UButton>
+            <UButton
+              type="submit"
+              :loading="submittingAdvance"
+              color="purple"
+              class="min-h-[44px]"
+            >
+              Update Stage
+            </UButton>
+          </div>
+        </form>
+      </div>
+    </UModal>
+
     <!-- Log Call Slide-over Drawer -->
     <InteractionLogCallDrawer
       :is-open="showLogCall"
@@ -436,6 +636,22 @@ const loading = ref(true);
 const showLogCall = ref(false);
 const showOutcomeModal = ref(false);
 const submittingOutcome = ref(false);
+
+const showAdvanceModal = ref(false);
+const submittingAdvance = ref(false);
+const declineReasons = ref<any[]>([]);
+
+const advanceForm = ref({
+  stage: 'counseling_estimate',
+  estimatedAmount: null as number | null,
+  depositReceived: false,
+  depositAmount: null as number | null,
+  expectedAdmissionDate: '',
+  emergencyAdmission: false,
+  emergencyReason: '',
+  notStartedReasonId: null as string | null,
+  note: '',
+});
 
 const outcomeForm = ref({
   careType: 'consultation_only' as 'consultation_only' | 'opd_course' | 'in_patient' | 'procedure',
@@ -529,6 +745,85 @@ function formatCareType(careType: string) {
   return t(`cases.${careType}`, careType);
 }
 
+function openAdvanceModal() {
+  if (!caseData.value) return;
+  const cur = caseData.value.stage;
+  let nextStage = 'counseling_estimate';
+  if (cur === 'plan_given') nextStage = 'counseling_estimate';
+  else if (cur === 'counseling_estimate') nextStage = 'plan_accepted';
+  else if (cur === 'plan_accepted') nextStage = 'in_treatment';
+  else nextStage = cur;
+
+  advanceForm.value = {
+    stage: nextStage,
+    estimatedAmount: caseData.value.estimatedAmount ? Number(caseData.value.estimatedAmount) : null,
+    depositReceived: !!caseData.value.depositReceived,
+    depositAmount: caseData.value.depositAmount ? Number(caseData.value.depositAmount) : null,
+    expectedAdmissionDate: caseData.value.expectedAdmissionDate ? new Date(caseData.value.expectedAdmissionDate).toISOString().split('T')[0] : '',
+    emergencyAdmission: !!caseData.value.emergencyAdmission,
+    emergencyReason: caseData.value.emergencyReason || '',
+    notStartedReasonId: caseData.value.notStartedReasonId || null,
+    note: '',
+  };
+  showAdvanceModal.value = true;
+}
+
+async function fetchDeclineReasons() {
+  try {
+    const res = await $fetch<any>(`${config.public.apiBase}/picklists/decline_reasons`, {
+      headers: { authorization: `Bearer ${authStore.token}` },
+    });
+    declineReasons.value = res.data || res || [];
+  } catch (err) {
+    console.error('Failed to fetch decline reasons:', err);
+  }
+}
+
+async function submitAdvanceStage() {
+  submittingAdvance.value = true;
+  try {
+    const payload: any = {
+      stage: advanceForm.value.stage,
+      note: advanceForm.value.note || undefined,
+    };
+
+    if (advanceForm.value.stage === 'counseling_estimate') {
+      if (advanceForm.value.estimatedAmount !== null) {
+        payload.estimatedAmount = advanceForm.value.estimatedAmount;
+      }
+    } else if (advanceForm.value.stage === 'plan_accepted') {
+      payload.depositReceived = advanceForm.value.depositReceived;
+      if (advanceForm.value.depositAmount !== null) {
+        payload.depositAmount = advanceForm.value.depositAmount;
+      }
+      if (advanceForm.value.expectedAdmissionDate) {
+        payload.expectedAdmissionDate = new Date(advanceForm.value.expectedAdmissionDate).toISOString();
+      }
+    } else if (advanceForm.value.stage === 'in_treatment') {
+      payload.depositReceived = advanceForm.value.depositReceived;
+      payload.emergencyAdmission = advanceForm.value.emergencyAdmission;
+      if (advanceForm.value.emergencyAdmission) {
+        payload.emergencyReason = advanceForm.value.emergencyReason;
+      }
+    } else if (advanceForm.value.stage === 'not_started') {
+      payload.notStartedReasonId = advanceForm.value.notStartedReasonId;
+    }
+
+    await $fetch(`${config.public.apiBase}/cases/${caseId}/advance-stage`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${authStore.token}` },
+      body: payload,
+    });
+
+    showAdvanceModal.value = false;
+    await fetchCaseDetails();
+  } catch (err: any) {
+    alert(err.data?.error?.message || err.message || 'Failed to advance case stage');
+  } finally {
+    submittingAdvance.value = false;
+  }
+}
+
 async function fetchCaseDetails() {
   loading.value = true;
   try {
@@ -579,5 +874,6 @@ function handleCallLogged() {
 
 onMounted(() => {
   fetchCaseDetails();
+  fetchDeclineReasons();
 });
 </script>
