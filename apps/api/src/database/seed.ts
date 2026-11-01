@@ -364,6 +364,194 @@ export async function seedDatabase() {
     console.log(`   - ${du.email} [Role: ${du.roleCode}]`);
   }
 
+  // 5. Seed 15 Departments + Other
+  const departmentDefs = [
+    { code: 'TRADITIONAL_AYURVEDA', labelEn: 'Traditional Ayurveda', labelMl: 'പരമ്പരാഗത ആയുർവേദം', sort: 1 },
+    { code: 'INTEGRATED_MEDICINE', labelEn: 'Integrated Medicine', labelMl: 'ഇന്റഗ്രേറ്റഡ് മെഡിസിൻ', sort: 2 },
+    { code: 'PSYCHOLOGICAL_COUNSELING', labelEn: 'Psychological Counseling', labelMl: 'സൈക്കോളജിക്കൽ കൗൺസിലിംഗ്', sort: 3 },
+    { code: 'YOGA_WELLNESS', labelEn: 'Yoga and Wellness', labelMl: 'യോഗ & വെൽനസ്', sort: 4 },
+    { code: 'HIJAMA_ACUPUNCTURE', labelEn: 'Hijama and Acupuncture', labelMl: 'ഹിജാമ & അക്യുപങ്ചർ', sort: 5 },
+    { code: 'PHYSIOTHERAPY_NATUROPATHY', labelEn: 'Physiotherapy and Naturopathy', labelMl: 'ഫിസിയോതെറാപ്പി & നേച്ചുറോപ്പതി', sort: 6 },
+    { code: 'DIABETIC_VARICOSE', labelEn: 'Diabetic and Varicose Clinic', labelMl: 'ഡയബറ്റിക് & വെരിക്കോസ് ക്ലിനിക്ക്', sort: 7 },
+    { code: 'ELECTRO_HOMEOPATHY', labelEn: 'Electro Homeopathy', labelMl: 'ഇലക്ട്രോ ഹോമിയോപ്പതി', sort: 8 },
+    { code: 'DE_ADDICTION_REFLEXOLOGY', labelEn: 'De-addiction and Reflexology', labelMl: 'ഡി-അഡിക്ഷൻ & റിഫ്ലെക്സോളജി', sort: 9 },
+    { code: 'PANCHA_KARMA_SPA', labelEn: 'Pancha Karma and Spa', labelMl: 'പഞ്ചകർമ്മ & സ്പാ', sort: 10 },
+    { code: 'INFERTILITY_COSMETIC', labelEn: 'Infertility and Cosmetic Clinic', labelMl: 'ഇൻഫെർട്ടിലിറ്റി & കോസ്മെറ്റിക് ക്ലിനിക്ക്', sort: 11 },
+    { code: 'MARMA_BONE_ALIGNMENT', labelEn: 'Marma and Bone Alignment', labelMl: 'മർമ്മ & അസ്ഥി ക്രമീകരണം', sort: 12 },
+    { code: 'POST_NATAL_CARE', labelEn: 'Post Natal Care', labelMl: 'പ്രസവാനന്തര ശുശ്രൂഷ', sort: 13 },
+    { code: 'LABS_SCANS', labelEn: 'Labs and Scans', labelMl: 'ലാബുകൾ & സ്കാനുകൾ', sort: 14 },
+    { code: 'CIRCUMCISION', labelEn: 'Circumcision', labelMl: 'സുന്നത്ത് ക്ലിനിക്ക്', sort: 15 },
+    { code: 'OTHER', labelEn: 'Other', labelMl: 'മറ്റുള്ളവ', sort: 16 },
+  ];
+
+  for (const dept of departmentDefs) {
+    await prisma.department.upsert({
+      where: { code: dept.code },
+      update: { labelEn: dept.labelEn, labelMl: dept.labelMl, sort: dept.sort },
+      create: dept,
+    });
+  }
+  console.log('✓ 15 Departments + Other seeded with Malayalam labels');
+
+  // 6. Seed Sources
+  const sourceDefs = [
+    { code: 'GOOGLE_ADS', labelEn: 'Google Ads', labelMl: 'ഗൂഗിൾ പരസ്യങ്ങൾ', sort: 1 },
+    { code: 'META_ADS', labelEn: 'Meta Ads', labelMl: 'മെറ്റ പരസ്യങ്ങൾ', sort: 2 },
+    { code: 'DOCTOR_REFERRAL', labelEn: 'Doctor Referral', labelMl: 'ഡോക്ടർ റെഫറൽ', sort: 3 },
+    { code: 'PATIENT_REFERRAL', labelEn: 'Patient Referral', labelMl: 'രോഗി റെഫറൽ', sort: 4 },
+    { code: 'WEBSITE', labelEn: 'Website', labelMl: 'വെബ്സൈറ്റ്', sort: 5 },
+    { code: 'WALK_IN', labelEn: 'Walk-in', labelMl: 'നേരിട്ടെത്തിയവർ', sort: 6 },
+    { code: 'CAMP_EVENT', labelEn: 'Camp or Event', labelMl: 'മെഡിക്കൽ ക്യാമ്പ് / ഇവന്റ്', sort: 7 },
+    { code: 'WHATSAPP', labelEn: 'WhatsApp', labelMl: 'വാട്സ്ആപ്പ്', sort: 8 },
+    { code: 'PHONE_CALL', labelEn: 'Phone Call', labelMl: 'ഫോൺ കോൾ', sort: 9 },
+    { code: 'OTHER', labelEn: 'Other', labelMl: 'മറ്റുള്ളവ', sort: 10 },
+  ];
+
+  for (const src of sourceDefs) {
+    await prisma.source.upsert({
+      where: { code: src.code },
+      update: { labelEn: src.labelEn, labelMl: src.labelMl, sort: src.sort },
+      create: src,
+    });
+  }
+  console.log('✓ 10 Sources seeded');
+
+  // 7. Seed Call Outcomes
+  const callOutcomeDefs = [
+    { code: 'APPOINTMENT_BOOKED', labelEn: 'Appointment Booked', labelMl: 'അപ്പോയിന്റ്മെന്റ് ബുക്ക് ചെയ്തു', sort: 1 },
+    { code: 'CALLBACK_REQUESTED', labelEn: 'Callback Requested', labelMl: 'തിരിച്ചുവിളിക്കാൻ ആവശ്യപ്പെട്ടു', sort: 2 },
+    { code: 'INTERESTED_NOT_READY', labelEn: 'Interested Not Ready', labelMl: 'താല്പര്യമുണ്ട്, ഇപ്പോൾ സാധ്യമല്ല', sort: 3 },
+    { code: 'INFORMATION_GIVEN', labelEn: 'Information Given', labelMl: 'വിവരങ്ങൾ നൽകി', sort: 4 },
+    { code: 'NO_ANSWER', labelEn: 'No Answer', labelMl: 'ഫോൺ എടുത്തില്ല', sort: 5 },
+    { code: 'SWITCHED_OFF_BUSY', labelEn: 'Switched Off or Busy', labelMl: 'സ്വിച്ച്ഡ് ഓഫ് അല്ലെങ്കിൽ ബിസി', sort: 6 },
+    { code: 'WRONG_NUMBER', labelEn: 'Wrong Number', labelMl: 'തെറ്റായ നമ്പർ', sort: 7 },
+    { code: 'NOT_INTERESTED', labelEn: 'Not Interested', labelMl: 'താല്പര്യമില്ല', sort: 8 },
+    { code: 'EMERGENCY_REDIRECTED', labelEn: 'Emergency Redirected', labelMl: 'അടിയന്തിര വിഭാഗത്തിലേക്ക് തിരിച്ചുവിട്ടു', sort: 9 },
+    { code: 'COMPLAINT', labelEn: 'Complaint', labelMl: 'പരാതി', sort: 10 },
+  ];
+
+  for (const co of callOutcomeDefs) {
+    await prisma.callOutcome.upsert({
+      where: { code: co.code },
+      update: { labelEn: co.labelEn, labelMl: co.labelMl, sort: co.sort },
+      create: co,
+    });
+  }
+  console.log('✓ 10 Call Outcomes seeded');
+
+  // 8. Seed Lost Reasons (Leads)
+  const lostReasonDefs = [
+    { code: 'PRICE', labelEn: 'Price', labelMl: 'ചികിത്സാ ചെലവ്', sort: 1 },
+    { code: 'DISTANCE', labelEn: 'Distance', labelMl: 'ദൂരം', sort: 2 },
+    { code: 'CHOSE_ANOTHER_CENTER', labelEn: 'Chose Another Center', labelMl: 'മറ്റൊരു സെന്റർ തിരഞ്ഞെടുത്തു', sort: 3 },
+    { code: 'NOT_READY', labelEn: 'Not Ready', labelMl: 'ഇപ്പോൾ തയ്യാറല്ല', sort: 4 },
+    { code: 'NO_RESPONSE', labelEn: 'No Response', labelMl: 'പ്രതികരണമില്ല', sort: 5 },
+    { code: 'WRONG_NUMBER', labelEn: 'Wrong Number', labelMl: 'തെറ്റായ നമ്പർ', sort: 6 },
+    { code: 'NOT_SUITABLE', labelEn: 'Not Suitable', labelMl: 'അനുയോജ്യമല്ല', sort: 7 },
+    { code: 'OTHER', labelEn: 'Other', labelMl: 'മറ്റുള്ളവ', sort: 8 },
+  ];
+
+  for (const lr of lostReasonDefs) {
+    await prisma.lostReason.upsert({
+      where: { code: lr.code },
+      update: { labelEn: lr.labelEn, labelMl: lr.labelMl, sort: lr.sort },
+      create: lr,
+    });
+  }
+  console.log('✓ 8 Lost Reasons seeded');
+
+  // 9. Seed Decline Reasons (Admission Cases)
+  const declineReasonDefs = [
+    { code: 'COST', labelEn: 'Cost', labelMl: 'ചെലവ് കൂടുതൽ', sort: 1 },
+    { code: 'DISTANCE', labelEn: 'Distance', labelMl: 'യാത്രാ ദൂരം', sort: 2 },
+    { code: 'FAMILY_DECISION', labelEn: 'Family Decision', labelMl: 'കുടുംബ തീരുമാനം', sort: 3 },
+    { code: 'CHOSE_ANOTHER_CENTER', labelEn: 'Chose Another Center', labelMl: 'മറ്റൊരു ആശുപത്രി തിരഞ്ഞെടുത്തു', sort: 4 },
+    { code: 'NOT_READY', labelEn: 'Not Ready', labelMl: 'ഇപ്പോൾ തയ്യാറല്ല', sort: 5 },
+    { code: 'NOT_SUITABLE', labelEn: 'Not Suitable', labelMl: 'അനുയോജ്യമല്ല', sort: 6 },
+    { code: 'OTHER', labelEn: 'Other', labelMl: 'മറ്റുള്ളവ', sort: 7 },
+  ];
+
+  for (const dr of declineReasonDefs) {
+    await prisma.declineReason.upsert({
+      where: { code: dr.code },
+      update: { labelEn: dr.labelEn, labelMl: dr.labelMl, sort: dr.sort },
+      create: dr,
+    });
+  }
+  console.log('✓ 7 Decline Reasons seeded');
+
+  // 10. Seed Closure Codes (Aftercare Cases)
+  const closureCodeDefs = [
+    { code: 'IMPROVED', labelEn: 'Improved', labelMl: 'രോഗശമനം ഉണ്ടായി', sort: 1 },
+    { code: 'NO_CHANGE', labelEn: 'No Change', labelMl: 'മാറ്റമില്ല', sort: 2 },
+    { code: 'REFERRED', labelEn: 'Referred', labelMl: 'റഫർ ചെയ്തു', sort: 3 },
+    { code: 'DISCONTINUED', labelEn: 'Discontinued', labelMl: 'ചികിത്സ നിർത്തിവച്ചു', sort: 4 },
+    { code: 'LOST_TO_FOLLOW_UP', labelEn: 'Lost to Follow-up', labelMl: 'ബന്ധപ്പെടാൻ സാധിച്ചില്ല', sort: 5 },
+  ];
+
+  for (const cc of closureCodeDefs) {
+    await prisma.closureCode.upsert({
+      where: { code: cc.code },
+      update: { labelEn: cc.labelEn, labelMl: cc.labelMl, sort: cc.sort },
+      create: cc,
+    });
+  }
+  console.log('✓ 5 Closure Codes seeded');
+
+  // 11. Seed System Settings
+  const defaultSettings = [
+    {
+      key: 'calling_hours',
+      value: {
+        start: '09:00',
+        end: '20:00',
+        timezone: 'Asia/Kolkata',
+        enforce: true,
+      },
+    },
+    {
+      key: 'sla_minutes',
+      value: {
+        meta_ads: 5,
+        google_ads: 5,
+        default: 15,
+        business_hours_only: true,
+      },
+    },
+    {
+      key: 'contact_rules',
+      value: {
+        max_calls_per_day: 1,
+        max_attempts_per_cycle: 3,
+        warn_on_excess: true,
+      },
+    },
+    {
+      key: 'quiet_hours',
+      value: {
+        enabled: true,
+        start: '20:00',
+        end: '09:00',
+      },
+    },
+    {
+      key: 'retention_policies',
+      value: {
+        leads_days: 1825, // 5 years
+        audit_days: 2555, // 7 years
+      },
+    },
+  ];
+
+  for (const s of defaultSettings) {
+    await prisma.setting.upsert({
+      where: { key: s.key },
+      update: { value: s.value },
+      create: s,
+    });
+  }
+  console.log('✓ System Settings (calling hours, SLA, contact rules, quiet hours) seeded');
+
   console.log('--- Database Seed Complete ---');
 }
 

@@ -14,6 +14,8 @@ import { rbacRoutes } from './modules/rbac/rbac.routes';
 import { branchRoutes } from './modules/branches/branch.routes';
 import { auditRoutes } from './modules/audit/audit.routes';
 import { leadRoutes } from './modules/leads/lead.routes';
+import { picklistRoutes } from './modules/picklists/picklist.routes';
+import { settingsRoutes } from './modules/settings/settings.routes';
 
 export async function buildApp() {
   const isTest = process.env.NODE_ENV === 'test';
@@ -130,6 +132,8 @@ export async function buildApp() {
   await fastify.register(branchRoutes, { prefix: '/api/v1' });
   await fastify.register(auditRoutes, { prefix: '/api/v1' });
   await fastify.register(leadRoutes, { prefix: '/api/v1' });
+  await fastify.register(picklistRoutes, { prefix: '/api/v1' });
+  await fastify.register(settingsRoutes, { prefix: '/api/v1' });
 
   return fastify;
 }

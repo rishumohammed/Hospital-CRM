@@ -50,3 +50,11 @@ This log records design decisions, assumptions, and architectural trade-offs mad
 - **Context:** Permission codes have scopes: `own`, `team`, `branch`, `all`. Client parameters must never be trusted for scope.
 - **Decision:** Centralize query filtering in `scopeWhere(user, resource)`. This utility generates Prisma `where` filter objects based on the user's role permissions and active temporary permission grants. Direct ID access (e.g., `GET /leads/:id`) executes `prisma.lead.findFirst({ where: { id, ...scopeWhere(user, 'lead') } })`. If not found, a 403 Forbidden is returned and an audit log entry is written.
 - **Rationale:** Guarantees bulletproof multi-tenant and branch isolation that cannot be bypassed by querying IDs directly.
+
+---
+
+### Decision 008: Master Picklists & System Settings Architecture
+- **Context:** Picklists (departments, sources, call outcomes, lost reasons, decline reasons, closure codes) and system settings (calling hours, SLAs, contact rules) need to be dynamically managed, bilingual, and auditable while providing instant fallback defaults.
+- **Decision:** Picklists are stored in dedicated Prisma models with `code`, `labelEn`, `labelMl`, `sort`, and `isActive` flags. System settings are stored as JSON blobs in a `Setting` table, accessed via a typed service with hardcoded fallback constants. Any setting changes by admins are recorded in `AuditLog` with `SETTING_UPDATED`.
+- **Rationale:** Guarantees uptime even if a setting row is temporarily missing, gives admins full autonomy to configure operational parameters, and maintains an unalterable audit trail.
+
