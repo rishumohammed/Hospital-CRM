@@ -55,5 +55,36 @@
     "no_tasks": "No tasks in this queue",
     "complete": "Complete",
     "snooze": "Snooze"
+  },
+  "cases": {
+    "title": "Patient Cases",
+    "patient_code": "Patient Code",
+    "stage": "Stage",
+    "care_type": "Care Type",
+    "consultation_outcome": "Consultation Outcome",
+    "record_outcome": "Record Outcome",
+    "consultation_only": "Consultation Only",
+    "opd_course": "OPD Course",
+    "in_patient": "In-Patient Admission",
+    "procedure": "Day Procedure",
+    "treating_doctor": "Treating Doctor",
+    "estimated_amount": "Estimated Amount (₹)",
+    "plan_notes": "Clinical / Treatment Notes",
+    "mark_visited": "Mark Visited & Convert",
+    "mark_visited_desc": "Convert this lead to a Patient and Case upon clinic arrival",
+    "advised_admission": "Admission Advised",
+    "doctor_desk": "Doctor Desk",
+    "all_stages": "All Stages",
+    "stages": {
+      "visited": "Visited",
+      "plan_given": "Plan Given",
+      "counseling_estimate": "Counseling / Estimate",
+      "plan_accepted": "Plan Accepted",
+      "in_treatment": "In Treatment",
+      "aftercare_follow_up": "Aftercare Follow-up",
+      "completed": "Completed",
+      "not_started": "Not Started",
+      "dropped_out": "Dropped Out"
+    }
   }
 }

@@ -145,7 +145,28 @@ export const bookAppointmentSchema = z.object({
   note: z.string().max(500).optional(),
 });
 
+export const convertLeadSchema = z.object({
+  patientCode: z.string().max(50).optional(),
+  dateOfBirth: z.string().optional().nullable(),
+  treatingDoctorId: z.number().int().positive().optional().nullable(),
+  departmentId: z.number().int().positive().optional().nullable(),
+  note: z.string().max(500).optional(),
+});
+
 // Case Schemas
+export const caseFilterSchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  pageSize: z.coerce.number().int().positive().max(100).default(20),
+  stage: z.string().optional(),
+  careType: z.string().optional(),
+  branchId: z.coerce.number().int().positive().optional(),
+  departmentId: z.coerce.number().int().positive().optional(),
+  ownerId: z.coerce.number().int().positive().optional(),
+  treatingDoctorId: z.coerce.number().int().positive().optional(),
+  team: z.string().optional(),
+  search: z.string().optional(),
+});
+
 export const consultationOutcomeSchema = z.object({
   careType: z.enum([
     CareTypes.CONSULTATION_ONLY,
@@ -153,10 +174,29 @@ export const consultationOutcomeSchema = z.object({
     CareTypes.IN_PATIENT,
     CareTypes.PROCEDURE,
   ]),
-  departmentId: z.number().int().positive(),
+  departmentId: z.number().int().positive().optional(),
   treatingDoctorId: z.number().int().positive().optional().nullable(),
   estimatedAmount: z.number().nonnegative().optional().nullable(),
   planNote: z.string().max(2000).optional().default(''),
+});
+
+export const updateCaseSchema = z.object({
+  careType: z
+    .enum([
+      CareTypes.CONSULTATION_ONLY,
+      CareTypes.OPD_COURSE,
+      CareTypes.IN_PATIENT,
+      CareTypes.PROCEDURE,
+    ])
+    .optional(),
+  departmentId: z.number().int().positive().optional(),
+  treatingDoctorId: z.number().int().positive().optional().nullable(),
+  estimatedAmount: z.number().nonnegative().optional().nullable(),
+  emergencyAdmission: z.boolean().optional(),
+  emergencyReason: z.string().max(500).optional().nullable(),
+  notStartedReasonId: z.number().int().positive().optional().nullable(),
+  closureCodeId: z.number().int().positive().optional().nullable(),
+  ownerId: z.number().int().positive().optional().nullable(),
 });
 
 export const advanceCaseStageSchema = z.object({

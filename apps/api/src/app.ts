@@ -19,6 +19,7 @@ import { settingsRoutes } from './modules/settings/settings.routes';
 import { taskRoutes } from './modules/tasks/task.routes';
 import { interactionRoutes } from './modules/interactions/interaction.routes';
 import { notificationRoutes } from './modules/notifications/notification.routes';
+import { caseRoutes } from './modules/cases/case.routes';
 
 export async function buildApp() {
   const isTest = process.env.NODE_ENV === 'test';
@@ -140,6 +141,7 @@ export async function buildApp() {
   await fastify.register(taskRoutes, { prefix: '/api/v1/tasks' });
   await fastify.register(interactionRoutes, { prefix: '/api/v1/interactions' });
   await fastify.register(notificationRoutes, { prefix: '/api/v1/notifications' });
+  await fastify.register(caseRoutes, { prefix: '/api/v1' });
 
   return fastify;
 }

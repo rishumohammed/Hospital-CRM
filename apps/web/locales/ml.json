@@ -55,5 +55,36 @@
     "no_tasks": "ഈ ലിസ്റ്റിൽ ചുമതലകൾ ഒന്നുമില്ല",
     "complete": "പൂർത്തിയായി",
     "snooze": "നീട്ടിവെക്കുക"
+  },
+  "cases": {
+    "title": "ചികിത്സാ കേസുകൾ",
+    "patient_code": "രോഗി നമ്പർ",
+    "stage": "ഘട്ടം",
+    "care_type": "ചികിത്സാ തരം",
+    "consultation_outcome": "കൺസൾട്ടേഷൻ ഫലം",
+    "record_outcome": "ഫലം രേഖപ്പെടുത്തുക",
+    "consultation_only": "കൺസൾട്ടേഷൻ മാത്രം",
+    "opd_course": "ഒ.പി.ഡി ചികിത്സാ കോഴ്സ്",
+    "in_patient": "ഇൻ-പേഷ്യന്റ് അഡ്മിഷൻ",
+    "procedure": "ഡേ പ്രൊസീജിയർ",
+    "treating_doctor": "ഡോക്ടർ",
+    "estimated_amount": "എസ്റ്റിമേറ്റ് തുക (₹)",
+    "plan_notes": "ചികിത്സാ വിവരങ്ങൾ",
+    "mark_visited": "രോഗി എത്തി (കൺവേർട്ട് ചെയ്യുക)",
+    "mark_visited_desc": "രോഗി ക്ലിനിക്കിൽ എത്തുമ്പോൾ ലീഡിനെ രോഗി കേസാക്കി മാറ്റുക",
+    "advised_admission": "അഡ്മിഷൻ നിർദ്ദേശിച്ചു",
+    "doctor_desk": "ഡോക്ടർ ഡെസ്ക്",
+    "all_stages": "എല്ലാ ഘട്ടങ്ങളും",
+    "stages": {
+      "visited": "സന്ദർശിച്ചു",
+      "plan_given": "പ്ലാൻ നൽകി",
+      "counseling_estimate": "കൗൺസിലിംഗ് / എസ്റ്റിമേറ്റ്",
+      "plan_accepted": "പ്ലാൻ സ്വീകരിച്ചു",
+      "in_treatment": "ചികിത്സയിൽ",
+      "aftercare_follow_up": "തുടർപരിചരണം",
+      "completed": "പൂർത്തിയായി",
+      "not_started": "തുടങ്ങിയിട്ടില്ല",
+      "dropped_out": "നിർത്തലാക്കി"
+    }
   }
 }

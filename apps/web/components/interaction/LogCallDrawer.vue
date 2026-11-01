@@ -15,8 +15,8 @@
               <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
               {{ t('common.log_call') }}
             </h2>
-            <p v-if="lead" class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              {{ lead.name }} ({{ lead.mobile }})
+            <p v-if="lead || recipientName" class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              {{ recipientName || lead?.name }} ({{ recipientPhone || lead?.mobile }})
             </p>
           </div>
           <button
@@ -257,6 +257,9 @@ import { useAuthStore } from '~/stores/auth';
 const props = defineProps<{
   isOpen: boolean;
   lead?: any;
+  caseId?: number;
+  recipientName?: string;
+  recipientPhone?: string;
 }>();
 
 const emit = defineEmits<{
@@ -267,7 +270,8 @@ const emit = defineEmits<{
 const { t, locale } = useI18n();
 const authStore = useAuthStore();
 const config = useRuntimeConfig();
-const apiBase = config.public.apiBase || 'http://localhost:3001';
+const rawApi = config.public.apiBase || 'http://localhost:4000/api/v1';
+const apiBase = rawApi.endsWith('/api/v1') ? rawApi : `${rawApi}/api/v1`;
 
 const callOutcomes = ref<any[]>([]);
 const lostReasons = ref<any[]>([]);
@@ -304,10 +308,10 @@ const nextAction = ref({
 const loadPicklists = async () => {
   try {
     const [coRes, lrRes] = await Promise.all([
-      fetch(`${apiBase}/api/v1/picklists/call-outcomes`, {
+      fetch(`${apiBase}/picklists/call-outcomes`, {
         headers: { Authorization: `Bearer ${authStore.token}` },
       }),
-      fetch(`${apiBase}/api/v1/picklists/lost-reasons`, {
+      fetch(`${apiBase}/picklists/lost-reasons`, {
         headers: { Authorization: `Bearer ${authStore.token}` },
       }),
     ]);
@@ -320,9 +324,13 @@ const loadPicklists = async () => {
 
 // Check Contact Rules on Open
 const checkLimits = async () => {
-  if (!props.lead?.id) return;
+  const targetLeadId = props.lead?.id;
+  const targetCaseId = props.caseId;
+  if (!targetLeadId && !targetCaseId) return;
+
+  const query = targetLeadId ? `leadId=${targetLeadId}` : `caseId=${targetCaseId}`;
   try {
-    const res = await fetch(`${apiBase}/api/v1/interactions/check-limits?leadId=${props.lead.id}`, {
+    const res = await fetch(`${apiBase}/interactions/check-limits?${query}`, {
       headers: { Authorization: `Bearer ${authStore.token}` },
     });
     if (res.ok) {
@@ -347,7 +355,7 @@ watch(
       closedReasonId.value = null;
       nextAction.value = {
         type: 'call',
-        title: `Follow-up with ${props.lead?.name || 'patient'}`,
+        title: `Follow-up with ${props.recipientName || props.lead?.name || 'patient'}`,
         dueAt: getTomorrow10AM(),
         priority: 'warm',
       };
@@ -387,7 +395,8 @@ const submitCall = async () => {
 
   try {
     const payload: any = {
-      leadId: props.lead.id,
+      leadId: props.lead?.id || undefined,
+      caseId: props.caseId || props.lead?.caseId || undefined,
       outcomeId: outcomeId.value,
       direction: direction.value,
       durationSeconds: durationSeconds.value,
@@ -406,7 +415,7 @@ const submitCall = async () => {
       };
     }
 
-    const res = await fetch(`${apiBase}/api/v1/interactions/call`, {
+    const res = await fetch(`${apiBase}/interactions/call`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

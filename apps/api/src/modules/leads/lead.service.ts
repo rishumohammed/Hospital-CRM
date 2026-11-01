@@ -1,6 +1,6 @@
 import { prisma } from '../../database/client';
 import { UserContext, scopeWhere } from '../rbac/scope';
-import { normalizePhoneNumber, maskPhoneNumber } from '@hospital-crm/shared';
+import { normalizePhoneNumber, maskPhoneNumber, Permissions } from '@hospital-crm/shared';
 import { recordAuditLog } from '../audit/audit.service';
 import { getSetting } from '../settings/settings.service';
 import { cancelOpenCadenceTasks, calculateStepDueAt } from '../cadences/cadence.service';
@@ -864,6 +864,179 @@ export async function bookAppointmentForLead(
     entity: 'lead',
     entityId: lead.id,
     after: { appointmentId: result.appointment.id, startsAt: input.startsAt, doctorName: input.doctorName },
+    ip,
+    userAgent,
+  });
+
+  return result;
+}
+
+/**
+ * Converts a lead to a Patient and Case when marked Visited.
+ * Cancels all open tasks on the lead, sets lead status to 'converted',
+ * updates booked appointments to 'visited', and records visit interaction and audit log.
+ */
+export async function convertLead(
+  leadId: number,
+  input: {
+    patientCode?: string;
+    dateOfBirth?: string | null;
+    treatingDoctorId?: number | null;
+    departmentId?: number | null;
+    note?: string;
+  },
+  user: UserContext,
+  ip?: string,
+  userAgent?: string
+): Promise<{ lead: any; patient: any; case: any }> {
+  const lead = await prisma.lead.findFirst({
+    where: {
+      id: leadId,
+      archivedAt: null,
+      ...scopeWhere(user, 'lead', Permissions.LEAD_EDIT),
+    },
+  });
+
+  if (!lead) {
+    const exists = await prisma.lead.findUnique({ where: { id: leadId } });
+    if (exists) {
+      await recordAuditLog({
+        userId: user.id,
+        action: 'ACCESS_DENIED',
+        entity: 'lead',
+        entityId: leadId,
+        ip,
+        userAgent,
+      });
+      const err = new Error('Forbidden: Out of scope access');
+      (err as any).statusCode = 403;
+      (err as any).code = 'FORBIDDEN';
+      throw err;
+    }
+    const err = new Error('Lead not found');
+    (err as any).statusCode = 404;
+    (err as any).code = 'NOT_FOUND';
+    throw err;
+  }
+
+  if (lead.status === 'converted') {
+    const existingCase = await prisma.case.findFirst({
+      where: { leadId: lead.id, archivedAt: null },
+      include: { patient: true },
+    });
+    const err = new Error('Lead has already been converted');
+    (err as any).statusCode = 400;
+    (err as any).code = 'ALREADY_CONVERTED';
+    (err as any).details = { caseId: existingCase?.id, patientId: existingCase?.patientId };
+    throw err;
+  }
+
+  const result = await prisma.$transaction(async (tx: any) => {
+    // 1. Find or create patient
+    let patient = await tx.patient.findFirst({
+      where: {
+        mobileNorm: lead.mobileNorm,
+        branchId: lead.branchId,
+        archivedAt: null,
+      },
+    });
+
+    if (!patient) {
+      const now = new Date();
+      const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+      const generatedCode = input.patientCode || `PAT-${yearMonth}-${randomSuffix}`;
+
+      patient = await tx.patient.create({
+        data: {
+          patientCode: generatedCode,
+          name: lead.name,
+          mobileNorm: lead.mobileNorm,
+          language: lead.language,
+          branchId: lead.branchId,
+          dateOfBirth: input.dateOfBirth ? new Date(input.dateOfBirth) : null,
+        },
+      });
+    }
+
+    // 2. Create Case
+    const patientCase = await tx.case.create({
+      data: {
+        patientId: patient.id,
+        leadId: lead.id,
+        branchId: lead.branchId,
+        stage: 'visited',
+        careType: 'consultation_only',
+        departmentId: input.departmentId ?? lead.departmentId,
+        treatingDoctorId: input.treatingDoctorId ?? null,
+        ownerId: lead.ownerId,
+        team: 'admission',
+      },
+      include: {
+        patient: true,
+        department: true,
+        branch: true,
+        owner: { select: { id: true, name: true, email: true } },
+        treatingDoctor: { select: { id: true, name: true, email: true } },
+      },
+    });
+
+    // 3. Update Lead
+    const updatedLead = await tx.lead.update({
+      where: { id: lead.id },
+      data: {
+        status: 'converted',
+        convertedPatientId: patient.id,
+      },
+    });
+
+    // 4. Cancel open tasks on lead
+    await tx.task.updateMany({
+      where: {
+        leadId: lead.id,
+        status: 'open',
+      },
+      data: {
+        status: 'cancelled',
+        updatedAt: new Date(),
+      },
+    });
+
+    // 5. Update booked appointments to visited and link to case
+    await tx.appointment.updateMany({
+      where: {
+        leadId: lead.id,
+        status: 'booked',
+      },
+      data: {
+        status: 'visited',
+        caseId: patientCase.id,
+      },
+    });
+
+    // 6. Record interaction
+    await tx.interaction.create({
+      data: {
+        type: 'visit',
+        direction: 'inbound',
+        userId: user.id,
+        leadId: lead.id,
+        caseId: patientCase.id,
+        note: input.note || `Lead marked visited and converted to Patient ${patient.patientCode} (Case #${patientCase.id})`,
+        occurredAt: new Date(),
+      },
+    });
+
+    return { lead: updatedLead, patient, case: patientCase };
+  });
+
+  await recordAuditLog({
+    userId: user.id,
+    action: 'LEAD_CONVERTED',
+    entity: 'lead',
+    entityId: lead.id,
+    before: { status: lead.status },
+    after: { status: 'converted', patientId: result.patient.id, caseId: result.case.id },
     ip,
     userAgent,
   });

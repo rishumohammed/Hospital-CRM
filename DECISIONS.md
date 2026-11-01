@@ -103,5 +103,21 @@ This log records design decisions, assumptions, and architectural trade-offs mad
 - **Decision:** Provided `GET /api/v1/interactions/check-limits` for real-time frontend alert banners and enforced validation in `logCallInteraction`. If limits are exceeded without a non-empty `overrideReason`, the API responds with HTTP 422 `OVERRIDE_REASON_REQUIRED`. When supplied, the reason is persisted in `interactions.override_reason`.
 - **Rationale:** Protects patient goodwill and privacy from over-calling while providing operational flexibility when patients explicitly request immediate callbacks.
 
+---
+
+### Decision 015: Lead Conversion & Patient Case Pipeline ("Mark Visited")
+- **Date:** 2026-11-01
+- **Context:** When a patient visits the clinic for their appointment or as a walk-in, the lead must be marked visited and converted to an active `Patient` and `Case` record without orphaned tasks.
+- **Decision:** Implemented an atomic transaction in `POST /api/v1/leads/:id/convert`. If an existing patient with matching `mobileNorm` exists in the branch, they are linked; otherwise, a unique medical record code (`PAT-YYYYMM-XXXX`) is assigned. All previous open tasks on the lead are marked `cancelled`, booked appointments are transitioned to `visited` and linked to the case, and a visit interaction and audit log are recorded.
+- **Rationale:** Guarantees a clean boundary transition between pre-visit marketing lead tracking and post-visit clinical case management with zero dangling tasks.
+
+---
+
+### Decision 016: In-Patient Consultation Outcome & Admission Cadence Routing (Acceptance Test 7)
+- **Date:** 2026-11-01
+- **Context:** Acceptance Test 7 requires that saving a consultation outcome with care type `in_patient` puts the case in the Admission Desk queue, assigned round-robin, with a first task due within 24 hours.
+- **Decision:** Implemented in `recordConsultationOutcome` (`POST /api/v1/cases/:id/consultation-outcome`). When `careType === 'in_patient'`, the system sets `advisedAdmission = true`, stage to `plan_given`, team to `admission`, assigns the specialist with lowest open case volume via `assignCaseRoundRobin`, and triggers `applyCadence(..., 'case.admission_advised')`, creating the initial follow-up task due in 24 hours plus Day 3 and Day 7 counseling checkpoints. If `careType === 'consultation_only'`, the case stage moves to `completed`.
+- **Rationale:** Fully automates the transition from doctor consultation to specialist admission counseling without manual handoffs.
+
 
 

@@ -76,6 +76,17 @@
           <span>{{ $i18n.locale === 'ml' ? 'അപ്പോയിന്റ്മെന്റ്' : 'Book Appt' }}</span>
         </button>
 
+        <!-- Mark Visited & Convert Button -->
+        <button
+          v-if="lead.status !== 'converted'"
+          type="button"
+          @click="showConvertModal = true"
+          class="min-h-[44px] px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center space-x-1.5 shadow-sm shadow-purple-500/20"
+        >
+          <span>🏥</span>
+          <span>{{ $i18n.locale === 'ml' ? 'രോഗി എത്തി (കൺവേർട്ട്)' : 'Mark Visited' }}</span>
+        </button>
+
         <!-- Emergency Redirect Button -->
         <button
           type="button"
@@ -95,6 +106,29 @@
           ✕ {{ $i18n.locale === 'ml' ? 'ക്ലോസ് ചെയ്യുക' : 'Close Lead' }}
         </button>
       </div>
+    </div>
+
+    <!-- Converted Alert Banner -->
+    <div
+      v-if="lead?.status === 'converted'"
+      class="p-4 rounded-2xl bg-purple-50 dark:bg-purple-950/50 border border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm"
+    >
+      <div class="flex items-center space-x-3">
+        <span class="text-2xl">🏥</span>
+        <div>
+          <p class="font-bold text-sm">This lead has been converted to a Patient Case!</p>
+          <p class="text-xs text-purple-700 dark:text-purple-300">
+            A patient medical record and case file have been established.
+          </p>
+        </div>
+      </div>
+      <NuxtLink
+        to="/cases"
+        class="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition-colors inline-flex items-center gap-1.5 self-start sm:self-auto min-h-[36px]"
+      >
+        <span>View Cases</span>
+        <span>→</span>
+      </NuxtLink>
     </div>
 
     <!-- Loading State -->
@@ -348,24 +382,86 @@
       @close="showBookApptModal = false"
       @booked="fetchLead"
     />
+
+    <!-- Mark Visited & Convert Modal -->
+    <div
+      v-if="showConvertModal"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
+    >
+      <div class="bg-white dark:bg-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-slate-200 dark:border-slate-700">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <span class="text-2xl">🏥</span>
+            <h3 class="text-lg font-black text-slate-900 dark:text-slate-100">
+              {{ $i18n.locale === 'ml' ? 'രോഗി എത്തി (കൺവേർട്ട് ചെയ്യുക)' : 'Mark Visited & Convert Lead' }}
+            </h3>
+          </div>
+          <button @click="showConvertModal = false" class="text-slate-400 hover:text-slate-600">✕</button>
+        </div>
+
+        <p class="text-xs text-slate-500 dark:text-slate-400">
+          Marking visited converts this inquiry into an active Patient Medical Record and Case File. All open cadence tasks will be archived.
+        </p>
+
+        <div class="space-y-3">
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">
+              Visit Note (Optional)
+            </label>
+            <input
+              v-model="convertNote"
+              type="text"
+              placeholder="e.g. Arrived for appointment"
+              class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs focus:ring-2 focus:ring-purple-500 min-h-[44px]"
+            />
+          </div>
+        </div>
+
+        <div class="flex items-center justify-end space-x-2 pt-3">
+          <button
+            type="button"
+            @click="showConvertModal = false"
+            class="min-h-[44px] px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            :disabled="isSubmittingConvert"
+            @click="submitConvert"
+            class="min-h-[44px] px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs disabled:opacity-50 transition-colors shadow-md shadow-purple-500/20"
+          >
+            {{ isSubmittingConvert ? 'Converting...' : 'Confirm & Convert' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import LogCallDrawer from '~/components/interaction/LogCallDrawer.vue';
 import BookAppointmentModal from '~/components/lead/BookAppointmentModal.vue';
+import { useAuthStore } from '~/stores/auth';
 
 const route = useRoute();
+const router = useRouter();
+const authStore = useAuthStore();
 const config = useRuntimeConfig();
-const apiBase = config.public.apiBase ? `${config.public.apiBase}/api/v1` : 'http://localhost:3001/api/v1';
+const rawApiBase = config.public.apiBase || 'http://localhost:4000/api/v1';
+const apiBase = rawApiBase.endsWith('/api/v1') ? rawApiBase : `${rawApiBase}/api/v1`;
 
 const lead = ref<any | null>(null);
 const isLoading = ref(true);
 
 const showLogCallDrawer = ref(false);
 const showBookApptModal = ref(false);
+
+const showConvertModal = ref(false);
+const convertNote = ref('');
+const isSubmittingConvert = ref(false);
 
 const showEmergencyModal = ref(false);
 const emergencyNote = ref('');
@@ -480,6 +576,44 @@ const submitClose = async () => {
     console.error('Close lead failed', err);
   } finally {
     isSubmittingClose.value = false;
+  }
+};
+
+const submitConvert = async () => {
+  if (!lead.value) return;
+  isSubmittingConvert.value = true;
+  try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (authStore.token) {
+      headers['authorization'] = `Bearer ${authStore.token}`;
+    }
+
+    const res = await fetch(`${apiBase}/leads/${lead.value.id}/convert`, {
+      method: 'POST',
+      headers,
+      credentials: 'include',
+      body: JSON.stringify({
+        note: convertNote.value.trim() || undefined,
+      }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      showConvertModal.value = false;
+      if (data.case?.id) {
+        router.push(`/cases/${data.case.id}`);
+      } else {
+        fetchLead();
+      }
+    } else {
+      const err = await res.json();
+      alert(err.error?.message || 'Failed to convert lead');
+    }
+  } catch (err) {
+    console.error('Lead conversion failed', err);
+    alert('An unexpected error occurred during conversion');
+  } finally {
+    isSubmittingConvert.value = false;
   }
 };
 </script>

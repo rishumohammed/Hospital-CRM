@@ -7,6 +7,7 @@ import {
   closeLeadSchema,
   emergencyRedirectSchema,
   bookAppointmentSchema,
+  convertLeadSchema,
   intakeLeadSchema,
   importLeadsPreviewSchema,
   importLeadsCommitSchema,
@@ -22,6 +23,7 @@ import {
   closeLead,
   emergencyRedirectLead,
   bookAppointmentForLead,
+  convertLead,
   checkDuplicateLead,
   calculateFirstResponseDue,
   assignLeadRoundRobin,
@@ -459,6 +461,41 @@ export const leadRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) =
           req.headers['user-agent']
         );
         return reply.status(201).send(result);
+      }
+    );
+
+    // 8c. Mark Visited & Convert Lead to Case
+    authGroup.post(
+      '/leads/:id/convert',
+      { preHandler: [requirePermission(Permissions.LEAD_EDIT, 'lead')] },
+      async (req, reply) => {
+        const { id } = req.params as { id: string };
+        const leadId = parseInt(id, 10);
+        if (isNaN(leadId)) {
+          return reply.status(400).send({
+            error: { code: 'INVALID_ID', message: 'Lead ID must be an integer' },
+          });
+        }
+
+        const parseResult = convertLeadSchema.safeParse(req.body || {});
+        if (!parseResult.success) {
+          return reply.status(400).send({
+            error: {
+              code: 'VALIDATION_ERROR',
+              message: 'Invalid conversion payload',
+              details: parseResult.error.format(),
+            },
+          });
+        }
+
+        const result = await convertLead(
+          leadId,
+          parseResult.data,
+          req.user!,
+          req.ip,
+          req.headers['user-agent']
+        );
+        return reply.status(200).send(result);
       }
     );
 
