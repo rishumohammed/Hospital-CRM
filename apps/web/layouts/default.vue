@@ -96,6 +96,26 @@
             </button>
           </div>
 
+          <!-- Auth Status & Logout / Login -->
+          <div v-if="authStore.user" class="flex items-center space-x-2">
+            <span class="hidden sm:inline-block text-xs font-semibold px-2.5 py-1 rounded-lg bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300">
+              {{ authStore.user.name }}
+            </span>
+            <button
+              @click="authStore.logout()"
+              class="px-2.5 py-1.5 min-h-[36px] rounded-lg text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+            >
+              {{ t('nav.logout') }}
+            </button>
+          </div>
+          <NuxtLink
+            v-else
+            to="/login"
+            class="px-3 py-1.5 min-h-[36px] rounded-lg text-xs font-semibold text-teal-700 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-950/50 transition-colors"
+          >
+            {{ t('nav.login') }}
+          </NuxtLink>
+
           <!-- Quick Create Lead Button -->
           <NuxtLink
             to="/leads?quickCreate=true"
@@ -157,8 +177,15 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n';
+import { onMounted } from 'vue';
+import { useAuthStore } from '../stores/auth';
 
 const { t, locale, setLocale } = useI18n();
+const authStore = useAuthStore();
+
+onMounted(() => {
+  authStore.fetchMe();
+});
 
 const switchLocale = (newLocale: string) => {
   setLocale(newLocale);
