@@ -136,7 +136,7 @@ export async function listTasks(filter: TaskFilterOptions, user: UserContext) {
 
   // Mask phone numbers if user role specifies phone masking
   const shouldMask = user.maskPhone;
-  const sanitizedTasks = tasks.map((task) => {
+  const sanitizedTasks = tasks.map((task: any) => {
     if (task.lead) {
       return {
         ...task,
@@ -237,7 +237,7 @@ export async function snoozeTask(
     };
   }
 
-  const updated = await prisma.$transaction(async (tx) => {
+  const updated = await prisma.$transaction(async (tx: any) => {
     const t = await tx.task.update({
       where: { id: taskId },
       data: {
@@ -279,7 +279,7 @@ export async function rescheduleTask(
     throw { statusCode: 404, code: 'NOT_FOUND', message: 'Task not found' };
   }
 
-  const updated = await prisma.$transaction(async (tx) => {
+  const updated = await prisma.$transaction(async (tx: any) => {
     const t = await tx.task.update({
       where: { id: taskId },
       data: {
@@ -319,7 +319,7 @@ export async function reassignTask(
     throw { statusCode: 404, code: 'NOT_FOUND', message: 'Task not found' };
   }
 
-  const updated = await prisma.$transaction(async (tx) => {
+  const updated = await prisma.$transaction(async (tx: any) => {
     const t = await tx.task.update({
       where: { id: taskId },
       data: {

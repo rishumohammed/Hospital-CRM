@@ -413,13 +413,11 @@ export async function cancelOpenCadenceTasks(
   resourceType: 'lead' | 'case',
   resourceId: number
 ): Promise<number> {
-  const where: Prisma.TaskWhereInput = {
-    status: 'open',
-    ...(resourceType === 'lead' ? { leadId: resourceId } : { caseId: resourceId }),
-  };
-
   const updateResult = await prisma.task.updateMany({
-    where,
+    where: {
+      status: 'open',
+      ...(resourceType === 'lead' ? { leadId: resourceId } : { caseId: resourceId }),
+    },
     data: {
       status: 'cancelled',
       updatedAt: new Date(),
