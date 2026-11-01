@@ -202,3 +202,30 @@ This log records design decisions, assumptions, and architectural trade-offs mad
 - **Decision:** Configured Nuxt 3 with PWA manifest (`apps/web/public/manifest.json`), teal theme branding (`#0f766e`), custom SVG app icons, and full mobile viewport meta tags. Enforced a minimum touch target size of 44px on all interactive buttons, select dropdowns, and pagination controls. Provided click-to-call (`tel:`) and click-to-chat WhatsApp (`wa.me`) integration seams for frictionless 1-tap patient communication.
 - **Rationale:** Maximizes telecaller productivity on touch devices while enabling standalone app installation without requiring separate native app store deployments.
 
+---
+
+### Decision 026: Testimonials Sent, Anti-Data-Leakage Consent Enforcement, and Outcome Association Reporting
+- **Date:** 2026-11-01
+- **Context:** Support telecallers need to share approved patient testimonials to build trust with new leads, but patient consent must be strictly enforced, PII leakage prevented, and managers need oversight on outreach coverage and appointment booking outcomes.
+- **Decision:** Implemented a full-stack Testimonials Sent module across `packages/shared`, `apps/api`, and `apps/web`:
+  1. **Approved Library with Mandatory Written Consent & Anti-PII:**
+     - The `Testimonial` entity requires `consentConfirmed = true` and a non-empty `consentReference` (e.g. signed consent form number or document reference) to be created or active.
+     - Anti-PII validation blocks phone number patterns in `title` and `summary` fields across both API and client forms to prevent accidental patient data leakage.
+  2. **Channel Consent Enforcement & Supervisor Override:**
+     - Sending via WhatsApp, SMS, or Email checks lead channel consent (`consentWhatsapp`, `consentSms`, `consentEmail`). If missing, the request is rejected with `CONSENT_MISSING`.
+     - Supervisors with `testimonial.void` permission can override the consent block by providing an explicit `override_reason`. Overrides are recorded on the send entity and immutably logged in `audit_logs`.
+     - Sending is blocked for leads marked `do_not_contact`, `junk`, or with an active `emergency_flag`.
+  3. **Atomic Transaction & Interaction Timeline:**
+     - Every send atomically creates `LeadTestimonialSend`, `LeadTestimonialSendItem`s, updates denormalized counters on `Lead` (`testimonialsSentCount`, `testimonialsLastSentAt`), records an interaction of type `testimonial_sent`, logs an audit entry, and optionally creates a follow-up task (`testimonial_followup_hours`, default 24h).
+     - Voiding (`POST /leads/:id/testimonials-sent/:sendId/void`) marks `voidedAt`, `voidedBy`, `voidReason`, recalculates denormalized counters, logs a `testimonial_void` interaction and audit entry, and preserves data history (soft-voiding).
+     - Senders can edit `note` and `sentAt` only within the same calendar day; any other modification requires voiding and re-recording.
+  4. **Prefilled WhatsApp Link & Disclaimers:**
+     - Generates prefilled `wa.me` links with customizable templates containing mandatory disclaimers:
+       - English: *"Results vary from person to person. Please consult a doctor."*
+       - Malayalam: *"ഫലം ഓരോ വ്യക്തിക്കും വ്യത്യസ്തമായിരിക്കും. ദയവായി ഒരു ഡോക്ടറെ സമീപിക്കുക."* (**Note: marked to be reviewed by a native speaker**).
+     - Includes a confirmation sheet ("Did you send it?") before persisting the send record.
+  5. **Observational Outcome Association Reporting:**
+     - `GET /reports/testimonials` analyzes leads within a time period, calculating percentage reached, channel breakdown, telecaller breakdown, and appointment booking rates for leads with testimonials vs without testimonials.
+     - Prominently displays the mandatory banner: *"Appointment booking rates for leads who received testimonials versus those who did not are reported as an observational association, not proof of cause."*
+- **Rationale:** Guarantees strict patient privacy and ethical advertising compliance, protects telecallers from unauthorized outreach, and provides executives with evidence-based conversion analytics.
+

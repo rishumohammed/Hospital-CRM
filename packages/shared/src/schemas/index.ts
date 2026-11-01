@@ -12,6 +12,8 @@ import {
   InteractionTypes,
   AppointmentStatuses,
   EscalationStatuses,
+  TestimonialChannels,
+  TestimonialTypes,
 } from '../enums/index';
 import { normalizePhoneNumber } from '../utils/phone';
 
@@ -75,6 +77,9 @@ export const leadFilterSchema = z.object({
   priority: z.enum(['hot', 'warm', 'cold']).optional(),
   language: z.enum(['en', 'ml']).optional(),
   search: z.string().optional(),
+  testimonials: z.enum(['sent', 'not_sent']).optional(),
+  sortBy: z.string().optional(),
+  sortOrder: z.enum(['asc', 'desc']).optional(),
 });
 
 export const updateLeadSchema = z.object({
@@ -362,4 +367,143 @@ export const approveExportSchema = z.object({
 });
 
 export type ApproveExportInput = z.infer<typeof approveExportSchema>;
+
+// Anti-PII phone number detector for library items
+export const phonePatternRegex = /(?:\+?\d{1,4}[-.\s]?)?\(?\d{2,5}\)?[-.\s]?\d{3,5}[-.\s]?\d{3,5}|\b\d{7,14}\b/;
+
+export function containsPhoneNumber(text: string | null | undefined): boolean {
+  if (!text) return false;
+  return phonePatternRegex.test(text);
+}
+
+// Testimonial Library Schemas
+export const createTestimonialSchema = z.object({
+  title: z
+    .string()
+    .min(1, 'Title is required')
+    .max(200)
+    .refine((val) => !containsPhoneNumber(val), {
+      message: 'Title must not contain patient phone numbers or contact identifiers',
+    }),
+  type: z.enum([
+    TestimonialTypes.VIDEO,
+    TestimonialTypes.TEXT,
+    TestimonialTypes.IMAGE,
+    TestimonialTypes.PDF,
+  ]),
+  url: z.string().min(1, 'URL or file reference is required').max(500),
+  language: z.enum(['en', 'ml', 'other']).default('en'),
+  departmentId: z.number().int().positive().optional().nullable(),
+  summary: z
+    .string()
+    .min(1, 'Summary is required')
+    .max(2000)
+    .refine((val) => !containsPhoneNumber(val), {
+      message: 'Summary must not contain patient phone numbers or contact identifiers',
+    }),
+  consentConfirmed: z.literal(true, {
+    errorMap: () => ({ message: 'Patient consent must be confirmed to save testimonial' }),
+  }),
+  consentReference: z
+    .string()
+    .min(1, 'Consent reference (e.g. consent form number or archive ID) is strictly required')
+    .max(200),
+  active: z.boolean().default(true),
+});
+
+export type CreateTestimonialInput = z.infer<typeof createTestimonialSchema>;
+
+export const updateTestimonialSchema = z.object({
+  title: z
+    .string()
+    .min(1)
+    .max(200)
+    .refine((val) => !containsPhoneNumber(val), {
+      message: 'Title must not contain patient phone numbers or contact identifiers',
+    })
+    .optional(),
+  type: z
+    .enum([
+      TestimonialTypes.VIDEO,
+      TestimonialTypes.TEXT,
+      TestimonialTypes.IMAGE,
+      TestimonialTypes.PDF,
+    ])
+    .optional(),
+  url: z.string().min(1).max(500).optional(),
+  language: z.enum(['en', 'ml', 'other']).optional(),
+  departmentId: z.number().int().positive().optional().nullable(),
+  summary: z
+    .string()
+    .min(1)
+    .max(2000)
+    .refine((val) => !containsPhoneNumber(val), {
+      message: 'Summary must not contain patient phone numbers or contact identifiers',
+    })
+    .optional(),
+  consentConfirmed: z.boolean().optional(),
+  consentReference: z.string().min(1).max(200).optional(),
+  active: z.boolean().optional(),
+}).refine(
+  (data) => {
+    if (data.active === true || data.consentConfirmed === true) {
+      if (data.consentConfirmed === false) return false;
+      if (data.consentReference !== undefined && data.consentReference.trim() === '') return false;
+    }
+    return true;
+  },
+  { message: 'Testimonial cannot be activated or saved without confirmed consent and reference' }
+);
+
+export type UpdateTestimonialInput = z.infer<typeof updateTestimonialSchema>;
+
+// Lead Testimonial Send Schemas
+export const sendTestimonialsSchema = z
+  .object({
+    channel: z.enum([
+      TestimonialChannels.WHATSAPP,
+      TestimonialChannels.SMS,
+      TestimonialChannels.EMAIL,
+      TestimonialChannels.CALL_READOUT,
+      TestimonialChannels.OTHER,
+    ]),
+    testimonial_ids: z.array(z.number().int().positive()).optional(),
+    testimonialIds: z.array(z.number().int().positive()).optional(),
+    note: z.string().max(1000).optional().nullable(),
+    sent_at: z.string().optional().nullable(),
+    sentAt: z.string().optional().nullable(),
+    override_reason: z.string().max(500).optional().nullable(),
+    overrideReason: z.string().max(500).optional().nullable(),
+  })
+  .refine(
+    (data) =>
+      (data.testimonial_ids && data.testimonial_ids.length > 0) ||
+      (data.testimonialIds && data.testimonialIds.length > 0),
+    { message: 'Select at least one testimonial to send' }
+  );
+
+export type SendTestimonialsInput = z.infer<typeof sendTestimonialsSchema>;
+
+export const editTestimonialSendSchema = z.object({
+  note: z.string().max(1000).optional().nullable(),
+  sent_at: z.string().optional().nullable(),
+  sentAt: z.string().optional().nullable(),
+});
+
+export type EditTestimonialSendInput = z.infer<typeof editTestimonialSendSchema>;
+
+export const voidTestimonialSendSchema = z.object({
+  reason: z.string().min(1, 'Reason for voiding is required').max(500),
+});
+
+export type VoidTestimonialSendInput = z.infer<typeof voidTestimonialSendSchema>;
+
+export const testimonialReportQuerySchema = z.object({
+  branch_id: z.coerce.number().int().positive().optional(),
+  branchId: z.coerce.number().int().positive().optional(),
+  from: z.string().optional(),
+  to: z.string().optional(),
+});
+
+export type TestimonialReportQuery = z.infer<typeof testimonialReportQuerySchema>;
 

@@ -34,6 +34,9 @@ export interface ListLeadsParams {
   priority?: string;
   language?: string;
   search?: string;
+  testimonials?: 'sent' | 'not_sent';
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
 }
 
 /**
@@ -361,6 +364,11 @@ export async function listLeads(
   if (params.language) {
     where.language = params.language;
   }
+  if (params.testimonials === 'sent') {
+    where.testimonialsSentCount = { gt: 0 };
+  } else if (params.testimonials === 'not_sent') {
+    where.testimonialsSentCount = 0;
+  }
 
   if (params.search) {
     const term = params.search.trim();
@@ -376,16 +384,27 @@ export async function listLeads(
     }
   }
 
+  let orderBy: any[] = [
+    { firstResponseDueAt: 'asc' },
+    { createdAt: 'desc' },
+  ];
+
+  if (params.sortBy === 'testimonials_last_sent_at') {
+    orderBy = [
+      { testimonialsLastSentAt: params.sortOrder || 'desc' },
+      { createdAt: 'desc' },
+    ];
+  } else if (params.sortBy === 'created_at') {
+    orderBy = [{ createdAt: params.sortOrder || 'desc' }];
+  }
+
   const [total, rawLeads] = await Promise.all([
     prisma.lead.count({ where }),
     prisma.lead.findMany({
       where,
       skip,
       take: pageSize,
-      orderBy: [
-        { firstResponseDueAt: 'asc' },
-        { createdAt: 'desc' },
-      ],
+      orderBy,
       include: {
         source: { select: { id: true, code: true, labelEn: true, labelMl: true } },
         department: { select: { id: true, code: true, labelEn: true, labelMl: true } },

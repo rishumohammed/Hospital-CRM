@@ -112,6 +112,10 @@ export async function seedDatabase() {
         { permission: Permissions.CADENCE_MANAGE, scope: Scopes.BRANCH },
         { permission: Permissions.ASSIGNMENT_RULE_MANAGE, scope: Scopes.BRANCH },
         { permission: Permissions.AUDIT_VIEW, scope: Scopes.BRANCH },
+        { permission: Permissions.TESTIMONIAL_SEND, scope: Scopes.BRANCH },
+        { permission: Permissions.TESTIMONIAL_VOID, scope: Scopes.BRANCH },
+        { permission: Permissions.TESTIMONIAL_MANAGE, scope: Scopes.BRANCH },
+        { permission: Permissions.TESTIMONIAL_VIEW, scope: Scopes.BRANCH },
       ],
     },
     // 4. Telecaller Manager: branch-level for leads & cases, report: branch
@@ -135,6 +139,10 @@ export async function seedDatabase() {
         { permission: Permissions.EXPORT_APPROVE, scope: Scopes.BRANCH },
         { permission: Permissions.CADENCE_MANAGE, scope: Scopes.BRANCH },
         { permission: Permissions.ASSIGNMENT_RULE_MANAGE, scope: Scopes.BRANCH },
+        { permission: Permissions.TESTIMONIAL_SEND, scope: Scopes.BRANCH },
+        { permission: Permissions.TESTIMONIAL_VOID, scope: Scopes.BRANCH },
+        { permission: Permissions.TESTIMONIAL_MANAGE, scope: Scopes.BRANCH },
+        { permission: Permissions.TESTIMONIAL_VIEW, scope: Scopes.BRANCH },
       ],
     },
     // 5. Support Telecaller: own leads, own tasks, own reports
@@ -152,6 +160,8 @@ export async function seedDatabase() {
         { permission: Permissions.ESCALATION_CREATE, scope: Scopes.ALL },
         { permission: Permissions.REPORT_VIEW, scope: Scopes.OWN },
         { permission: Permissions.EXPORT_REQUEST, scope: Scopes.OWN },
+        { permission: Permissions.TESTIMONIAL_SEND, scope: Scopes.OWN },
+        { permission: Permissions.TESTIMONIAL_VIEW, scope: Scopes.BRANCH },
       ],
     },
     // 6. Admission Specialist: own cases & tasks
@@ -166,6 +176,7 @@ export async function seedDatabase() {
         { permission: Permissions.ESCALATION_CREATE, scope: Scopes.ALL },
         { permission: Permissions.REPORT_VIEW, scope: Scopes.OWN },
         { permission: Permissions.EXPORT_REQUEST, scope: Scopes.OWN },
+        { permission: Permissions.TESTIMONIAL_VIEW, scope: Scopes.BRANCH },
       ],
     },
     // 7. Aftercare Executive: own cases & tasks
@@ -180,6 +191,7 @@ export async function seedDatabase() {
         { permission: Permissions.ESCALATION_CREATE, scope: Scopes.ALL },
         { permission: Permissions.REPORT_VIEW, scope: Scopes.OWN },
         { permission: Permissions.EXPORT_REQUEST, scope: Scopes.OWN },
+        { permission: Permissions.TESTIMONIAL_VIEW, scope: Scopes.BRANCH },
       ],
     },
     // 8. Doctor: own cases, notes, escalation decision
@@ -192,6 +204,7 @@ export async function seedDatabase() {
         { permission: Permissions.TASK_MANAGE, scope: Scopes.OWN },
         { permission: Permissions.INTERACTION_CREATE, scope: Scopes.OWN },
         { permission: Permissions.ESCALATION_DECIDE, scope: Scopes.OWN },
+        { permission: Permissions.TESTIMONIAL_VIEW, scope: Scopes.BRANCH },
       ],
     },
     // 9. Auditor: read-only all
@@ -204,6 +217,7 @@ export async function seedDatabase() {
         { permission: Permissions.REPORT_VIEW, scope: Scopes.ALL },
         { permission: Permissions.AUDIT_VIEW, scope: Scopes.ALL },
         { permission: Permissions.EXPORT_REQUEST, scope: Scopes.ALL },
+        { permission: Permissions.TESTIMONIAL_VIEW, scope: Scopes.ALL },
       ],
     },
   ];
@@ -550,6 +564,12 @@ export async function seedDatabase() {
         audit_days: 2555, // 7 years
       },
     },
+    {
+      key: 'testimonial_followup_hours',
+      value: {
+        hours: 24,
+      },
+    },
   ];
 
   for (const s of defaultSettings) {
@@ -559,13 +579,15 @@ export async function seedDatabase() {
       create: s,
     });
   }
-  console.log('✓ System Settings (calling hours, SLA, contact rules, quiet hours) seeded');
+  console.log('✓ System Settings (calling hours, SLA, contact rules, quiet hours, testimonial followup) seeded');
   await ensureDefaultCadences(prisma);
   console.log('✓ 9 Default Cadences & Steps seeded');
 
   // 12. Seed 40 Synthetic Leads
   const t1 = seededUsers['telecaller1@hospital.test'];
   const t2 = seededUsers['telecaller2@hospital.test'];
+  const managerUser = seededUsers['manager@hospital.test'];
+  const ownerUser = seededUsers['owner@hospital.test'];
 
   const depts = await prisma.department.findMany();
   const sources = await prisma.source.findMany();
@@ -630,6 +652,9 @@ export async function seedDatabase() {
         status: sLead.status,
         priority: sLead.priority,
         ownerId: sLead.ownerId,
+        consentCalls: true,
+        consentWhatsapp: true,
+        consentSms: true,
       },
       create: {
         id: parseInt(sLead.mobile.slice(-4), 10),
@@ -646,12 +671,202 @@ export async function seedDatabase() {
         ownerId: sLead.ownerId,
         firstResponseDueAt,
         consentCalls: true,
+        consentWhatsapp: true,
+        consentSms: true,
         consentSource: 'seed_synthetic',
         consentDate: new Date(),
       },
     });
   }
   console.log(`✓ ${syntheticLeadDefs.length} Synthetic Leads seeded with bilingual concerns`);
+
+  // 13. Seed Synthetic Testimonials Library (Section 10)
+  const ayurvedaDept = depts.find((d) => d.code === 'ayurveda') || depts[0];
+  const marmaDept = depts.find((d) => d.code === 'marma') || depts[0];
+  const varicoseDept = depts.find((d) => d.code === 'varicose') || depts[0];
+
+  const syntheticTestimonials = [
+    {
+      title: 'മുട്ടുവേദന ആയുർവേദ ചികിത്സയിലൂടെ ഭേദമായ അനുഭവം',
+      type: 'video',
+      url: 'https://cdn.hospital.test/testimonials/knee-ayurveda.mp4',
+      language: 'ml',
+      departmentId: ayurvedaDept.id,
+      summary: 'മുട്ടിലെ തേയ്മാനം മൂലം നടക്കാൻ ബുദ്ധിമുട്ടിയ രോഗി 14 ദിവസത്തെ ചികിത്സ കൊണ്ട് സുഖം പ്രാപിച്ച അനുഭവം.',
+      consentConfirmed: true,
+      consentReference: 'DEMO-001',
+      approvedBy: ownerUser.id,
+      approvedAt: new Date(),
+      active: true,
+      createdBy: ownerUser.id,
+    },
+    {
+      title: 'Back Pain Recovery through Marma Alignment',
+      type: 'text',
+      url: 'https://cdn.hospital.test/testimonials/backpain-marma.pdf',
+      language: 'en',
+      departmentId: marmaDept.id,
+      summary: 'Office professional shares experience of relieving severe lumbar back pain without surgery after 7 sessions of Marma alignment.',
+      consentConfirmed: true,
+      consentReference: 'DEMO-002',
+      approvedBy: ownerUser.id,
+      approvedAt: new Date(),
+      active: true,
+      createdBy: ownerUser.id,
+    },
+    {
+      title: 'Varicose Veins Laser Therapy Clinical Case',
+      type: 'pdf',
+      url: 'https://cdn.hospital.test/testimonials/varicose-veins-case.pdf',
+      language: 'en',
+      departmentId: varicoseDept.id,
+      summary: 'Patient documentation highlighting complete resolution of swelling, burning sensation, and skin discoloration post laser and leech therapy.',
+      consentConfirmed: true,
+      consentReference: 'DEMO-003',
+      approvedBy: ownerUser.id,
+      approvedAt: new Date(),
+      active: true,
+      createdBy: ownerUser.id,
+    },
+  ];
+
+  const seededLibrary: any[] = [];
+  for (const tDef of syntheticTestimonials) {
+    const existing = await prisma.testimonial.findFirst({
+      where: { consentReference: tDef.consentReference },
+    });
+    if (existing) {
+      seededLibrary.push(
+        await prisma.testimonial.update({
+          where: { id: existing.id },
+          data: tDef,
+        })
+      );
+    } else {
+      seededLibrary.push(await prisma.testimonial.create({ data: tDef }));
+    }
+  }
+  console.log(`✓ ${seededLibrary.length} Synthetic Approved Testimonials seeded in library`);
+
+  // 14. Seed Testimonial Sends for ~10 Leads across channels
+  // Clear any previous seed sends to keep fresh state
+  await prisma.leadTestimonialSendItem.deleteMany({});
+  await prisma.leadTestimonialSend.deleteMany({});
+  await prisma.interaction.deleteMany({
+    where: {
+      type: { in: ['testimonial_sent', 'testimonial_void'] },
+    },
+  });
+
+  const sendSpecs = [
+    { leadId: 10, channel: 'whatsapp', itemIdx: 0, sentBy: t1.id, note: 'വാട്സാപ്പ് വഴി വീഡിയോ അനുഭവം അയച്ചുകൊടുത്തു.', hoursAgo: 2 },
+    { leadId: 11, channel: 'sms', itemIdx: 1, sentBy: t2.id, note: 'Sent Marma therapy feedback via SMS.', hoursAgo: 4 },
+    { leadId: 12, channel: 'email', itemIdx: 2, sentBy: t1.id, note: 'Email sent with case summary document.', hoursAgo: 6 },
+    { leadId: 13, channel: 'call_readout', itemIdx: 0, sentBy: t2.id, note: 'Read out key patient recovery points during phone consultation.', hoursAgo: 8 },
+    { leadId: 14, channel: 'whatsapp', itemIdx: 1, sentBy: t1.id, note: 'Sent WhatsApp link before booking appointment.', hoursAgo: 10 },
+    { leadId: 15, channel: 'other', itemIdx: 2, sentBy: t2.id, note: 'Printed brochure shared with patient attendant.', hoursAgo: 12 },
+    { leadId: 16, channel: 'whatsapp', itemIdx: 0, sentBy: t1.id, note: 'Video testimonial sent upon patient inquiry.', hoursAgo: 14 },
+    { leadId: 17, channel: 'sms', itemIdx: 1, sentBy: t2.id, note: 'SMS sent with results disclaimer.', hoursAgo: 16 },
+    { leadId: 18, channel: 'whatsapp', itemIdx: 0, sentBy: t1.id, note: 'Shared link with greeting.', hoursAgo: 18 },
+    { leadId: 19, channel: 'call_readout', itemIdx: 1, sentBy: t2.id, note: 'Read out testimonial on call as requested.', hoursAgo: 20 },
+  ];
+
+  for (const spec of sendSpecs) {
+    const testimonial = seededLibrary[spec.itemIdx];
+    const sentAt = new Date(Date.now() - spec.hoursAgo * 3600 * 1000);
+
+    const send = await prisma.leadTestimonialSend.create({
+      data: {
+        leadId: spec.leadId,
+        sentBy: spec.sentBy,
+        sentAt,
+        channel: spec.channel,
+        note: spec.note,
+        items: {
+          create: [{ testimonialId: testimonial.id }],
+        },
+      },
+    });
+
+    // Write timeline interaction
+    await prisma.interaction.create({
+      data: {
+        type: 'testimonial_sent',
+        direction: 'outbound',
+        userId: spec.sentBy,
+        leadId: spec.leadId,
+        note: spec.note,
+        details: {
+          sendId: send.id,
+          channel: spec.channel,
+          testimonialIds: [testimonial.id],
+          titles: [testimonial.title],
+        },
+        occurredAt: sentAt,
+      },
+    });
+
+    // Update lead counters
+    await prisma.lead.update({
+      where: { id: spec.leadId },
+      data: {
+        testimonialsSentCount: 1,
+        testimonialsLastSentAt: sentAt,
+      },
+    });
+  }
+
+  // Also add a voided send on Lead 10 to demonstrate void history in seed data
+  const voidedSentAt = new Date(Date.now() - 5 * 3600 * 1000);
+  const voidedSend = await prisma.leadTestimonialSend.create({
+    data: {
+      leadId: 10,
+      sentBy: t1.id,
+      sentAt: voidedSentAt,
+      channel: 'sms',
+      note: 'SMS sent earlier in the morning',
+      voidedAt: new Date(Date.now() - 4 * 3600 * 1000),
+      voidedBy: managerUser.id,
+      voidReason: 'Patient requested WhatsApp instead of SMS link',
+      items: {
+        create: [{ testimonialId: seededLibrary[1].id }],
+      },
+    },
+  });
+
+  await prisma.interaction.create({
+    data: {
+      type: 'testimonial_sent',
+      direction: 'outbound',
+      userId: t1.id,
+      leadId: 10,
+      note: 'SMS sent earlier in the morning',
+      details: {
+        sendId: voidedSend.id,
+        channel: 'sms',
+        testimonialIds: [seededLibrary[1].id],
+        titles: [seededLibrary[1].title],
+      },
+      occurredAt: voidedSentAt,
+    },
+  });
+
+  await prisma.interaction.create({
+    data: {
+      type: 'testimonial_void',
+      direction: 'outbound',
+      userId: managerUser.id,
+      leadId: 10,
+      note: 'Patient requested WhatsApp instead of SMS link',
+      details: {
+        sendId: voidedSend.id,
+        voidReason: 'Patient requested WhatsApp instead of SMS link',
+      },
+      occurredAt: new Date(Date.now() - 4 * 3600 * 1000),
+    },
+  });
+
+  console.log(`✓ 10 Leads seeded with testimonial sends (including 1 voided send on Lead 10)`);
 
   console.log('--- Database Seed Complete ---');
 }

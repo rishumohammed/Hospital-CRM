@@ -65,6 +65,10 @@ model User {
   imports        Import[]
   exports        Export[]          @relation("ExportUser")
   approvedExports Export[]         @relation("ExportApprover")
+  testimonialsCreated Testimonial[] @relation("TestimonialCreator")
+  testimonialsApproved Testimonial[] @relation("TestimonialApprover")
+  testimonialSends LeadTestimonialSend[] @relation("TestimonialSender")
+  testimonialVoids LeadTestimonialSend[] @relation("TestimonialVoider")
 
   @@index([roleId])
   @@index([status])
@@ -182,6 +186,7 @@ model Department {
 
   leads     Lead[]
   cases     Case[]
+  testimonials Testimonial[]
 
   @@map("departments")
 }
@@ -277,6 +282,8 @@ model Lead {
   closedReasonId      Int?         @map("closed_reason_id") @db.UnsignedInt
   closedAt            DateTime?    @map("closed_at")
   convertedPatientId  Int?         @map("converted_patient_id") @db.UnsignedInt
+  testimonialsSentCount Int        @default(0) @map("testimonials_sent_count")
+  testimonialsLastSentAt DateTime? @map("testimonials_last_sent_at")
   createdAt           DateTime     @default(now()) @map("created_at")
   updatedAt           DateTime     @updatedAt @map("updated_at")
   archivedAt          DateTime?    @map("archived_at")
@@ -292,6 +299,7 @@ model Lead {
   appointments        Appointment[]
   tasks               Task[]
   interactions        Interaction[]
+  testimonialSends    LeadTestimonialSend[]
 
   @@index([mobileNorm])
   @@index([altMobileNorm])
@@ -301,6 +309,7 @@ model Lead {
   @@index([ownerId])
   @@index([firstResponseDueAt])
   @@index([archivedAt])
+  @@index([testimonialsSentCount])
   @@map("leads")
 }
 
@@ -631,4 +640,70 @@ model Export {
   @@index([status])
   @@index([branchId])
   @@map("exports")
+}
+
+model Testimonial {
+  id               Int       @id @default(autoincrement()) @db.UnsignedInt
+  title            String    @db.VarChar(200)
+  type             String    @db.VarChar(20) // video | text | image | pdf
+  url              String    @db.VarChar(500)
+  language         String    @default("en") @db.VarChar(10) // en | ml | other
+  departmentId     Int?      @map("department_id") @db.UnsignedInt
+  summary          String    @db.Text
+  consentConfirmed Boolean   @default(true) @map("consent_confirmed")
+  consentReference String    @map("consent_reference") @db.VarChar(200)
+  approvedBy       Int?      @map("approved_by") @db.UnsignedInt
+  approvedAt       DateTime? @map("approved_at")
+  active           Boolean   @default(true)
+  createdBy        Int       @map("created_by") @db.UnsignedInt
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  archivedAt       DateTime? @map("archived_at")
+
+  department       Department? @relation(fields: [departmentId], references: [id])
+  creator          User        @relation("TestimonialCreator", fields: [createdBy], references: [id])
+  approver         User?       @relation("TestimonialApprover", fields: [approvedBy], references: [id])
+  sendItems        LeadTestimonialSendItem[]
+
+  @@index([active])
+  @@index([language])
+  @@index([departmentId])
+  @@map("testimonials")
+}
+
+model LeadTestimonialSend {
+  id             Int       @id @default(autoincrement()) @db.UnsignedInt
+  leadId         Int       @map("lead_id") @db.UnsignedInt
+  sentBy         Int       @map("sent_by") @db.UnsignedInt
+  sentAt         DateTime  @default(now()) @map("sent_at")
+  channel        String    @db.VarChar(30) // whatsapp | sms | email | call_readout | other
+  note           String?   @db.Text
+  overrideReason String?   @map("override_reason") @db.Text
+  voidedAt       DateTime? @map("voided_at")
+  voidedBy       Int?      @map("voided_by") @db.UnsignedInt
+  voidReason     String?   @map("void_reason") @db.Text
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  lead           Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  sender         User      @relation("TestimonialSender", fields: [sentBy], references: [id])
+  voider         User?     @relation("TestimonialVoider", fields: [voidedBy], references: [id])
+  items          LeadTestimonialSendItem[]
+
+  @@index([leadId, sentAt])
+  @@index([sentBy])
+  @@map("lead_testimonial_sends")
+}
+
+model LeadTestimonialSendItem {
+  id            Int                 @id @default(autoincrement()) @db.UnsignedInt
+  sendId        Int                 @map("send_id") @db.UnsignedInt
+  testimonialId Int                 @map("testimonial_id") @db.UnsignedInt
+
+  send          LeadTestimonialSend @relation(fields: [sendId], references: [id], onDelete: Cascade)
+  testimonial   Testimonial         @relation(fields: [testimonialId], references: [id])
+
+  @@index([sendId])
+  @@index([testimonialId])
+  @@map("lead_testimonial_send_items")
 }

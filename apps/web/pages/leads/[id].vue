@@ -28,6 +28,11 @@
             <span v-if="lead?.emergencyFlag" class="px-2.5 py-0.5 text-xs font-black uppercase rounded-md bg-rose-600 text-white animate-pulse">
               🚨 Emergency
             </span>
+            <TestimonialChip
+              v-if="lead"
+              :sent-count="lead.testimonialsSentCount || 0"
+              :last-sent-at="lead.testimonialsLastSentAt"
+            />
           </div>
           <p class="text-xs text-slate-500 font-mono mt-0.5">
             ID: #{{ lead?.id }} • {{ lead?.branch?.name }}
@@ -64,6 +69,17 @@
         >
           <span>📝</span>
           <span>{{ $i18n.locale === 'ml' ? 'കോൾ രേഖപ്പെടുത്തുക' : 'Log Call' }}</span>
+        </button>
+
+        <!-- Send Testimonials Quick Action -->
+        <button
+          v-if="authStore.hasPermission('testimonial.send') && !lead.doNotContact && lead.status !== 'junk' && !lead.emergencyFlag"
+          type="button"
+          @click="showMarkTestimonial = true"
+          class="min-h-[44px] px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs flex items-center space-x-1.5 shadow-sm shadow-teal-500/20"
+        >
+          <span>📜</span>
+          <span>{{ $i18n.locale === 'ml' ? 'സാക്ഷ്യപത്രം' : 'Testimonials' }}</span>
         </button>
 
         <!-- Book Appointment Button -->
@@ -203,6 +219,132 @@
             <span :class="lead.consentSms ? 'text-emerald-600' : 'text-slate-400'">
               {{ lead.consentSms ? '✓ SMS Opted-in' : '✗ No SMS Consent' }}
             </span>
+          </div>
+        </div>
+
+        <!-- Testimonials Section -->
+        <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm space-y-4">
+          <div class="flex items-center justify-between border-b pb-3 border-slate-100 dark:border-slate-700 flex-wrap gap-2">
+            <div class="flex items-center gap-2">
+              <span class="text-base">📜</span>
+              <h2 class="text-sm font-bold text-slate-900 dark:text-slate-100">
+                {{ $i18n.locale === 'ml' ? 'സാക്ഷ്യപത്രങ്ങൾ' : 'Testimonials Sent' }}
+              </h2>
+              <TestimonialChip
+                :sent-count="lead.testimonialsSentCount || 0"
+                :last-sent-at="lead.testimonialsLastSentAt"
+              />
+            </div>
+            <button
+              v-if="authStore.hasPermission('testimonial.send') && !lead.doNotContact && lead.status !== 'junk' && !lead.emergencyFlag"
+              type="button"
+              class="min-h-[36px] px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all"
+              @click="showMarkTestimonial = true"
+            >
+              <span>+</span>
+              <span>{{ $i18n.locale === 'ml' ? 'സാക്ഷ്യപത്രം അയക്കുക' : 'Send Testimonials' }}</span>
+            </button>
+          </div>
+
+          <!-- Empty State -->
+          <div v-if="testimonialSends.length === 0" class="py-6 text-center text-xs text-slate-500">
+            {{ $i18n.locale === 'ml' ? 'ഇതുവരെ സാക്ഷ്യപത്രങ്ങൾ അയച്ചിട്ടില്ല' : 'No testimonials have been sent to this lead yet.' }}
+          </div>
+
+          <!-- History List -->
+          <div v-else class="space-y-3">
+            <div
+              v-for="send in testimonialSends"
+              :key="send.id"
+              :class="[
+                'p-4 rounded-xl border transition-all text-xs space-y-2.5',
+                send.voidedAt
+                  ? 'border-rose-200 dark:border-rose-900/60 bg-rose-50/40 dark:bg-rose-950/20 opacity-80'
+                  : 'border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900/40'
+              ]"
+            >
+              <!-- Row 1: Channel, Date, Void Badge, Actions -->
+              <div class="flex items-center justify-between flex-wrap gap-2">
+                <div class="flex items-center gap-2">
+                  <span class="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-teal-100 dark:bg-teal-950 text-teal-800 dark:text-teal-200">
+                    {{ formatChannel(send.channel) }}
+                  </span>
+                  <span :class="['font-medium text-slate-500', send.voidedAt ? 'line-through' : '']">
+                    {{ formatDate(send.sentAt) }}
+                  </span>
+                  <span class="text-slate-400">&bull;</span>
+                  <span class="text-slate-600 dark:text-slate-400 font-medium">
+                    By {{ send.sentByUser?.name || 'Telecaller' }}
+                  </span>
+                </div>
+
+                <div class="flex items-center gap-2">
+                  <!-- Voided Badge -->
+                  <span
+                    v-if="send.voidedAt"
+                    class="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-800"
+                  >
+                    Voided
+                  </span>
+
+                  <!-- Edit Action (Same day, original sender, non-voided) -->
+                  <button
+                    v-if="!send.voidedAt && canEditSend(send)"
+                    type="button"
+                    class="text-xs text-teal-600 dark:text-teal-400 hover:underline font-semibold"
+                    @click="openEditSend(send)"
+                  >
+                    Edit
+                  </button>
+
+                  <!-- Undo / Void Action -->
+                  <button
+                    v-if="!send.voidedAt && authStore.hasPermission('testimonial.void')"
+                    type="button"
+                    class="text-xs text-rose-600 dark:text-rose-400 hover:underline font-semibold"
+                    @click="openVoidSend(send)"
+                  >
+                    Undo
+                  </button>
+                </div>
+              </div>
+
+              <!-- Testimonials Included -->
+              <div :class="['space-y-1', send.voidedAt ? 'line-through text-slate-400' : 'text-slate-800 dark:text-slate-200']">
+                <div
+                  v-for="item in send.items"
+                  :key="item.id"
+                  class="flex items-center gap-1.5 text-xs"
+                >
+                  <span class="text-xs">{{ getTypeIcon(item.testimonial?.type) }}</span>
+                  <span class="font-bold">{{ item.testimonial?.title }}</span>
+                  <a
+                    v-if="item.testimonial?.url"
+                    :href="item.testimonial.url"
+                    target="_blank"
+                    class="text-teal-600 dark:text-teal-400 underline text-[11px] ml-1"
+                  >
+                    View
+                  </a>
+                </div>
+              </div>
+
+              <!-- Note -->
+              <div v-if="send.note" :class="['text-xs text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-800 p-2.5 rounded-lg border border-slate-200/60 dark:border-slate-700/60', send.voidedAt ? 'line-through' : '']">
+                <span class="font-bold">Note:</span> {{ send.note }}
+              </div>
+
+              <!-- Override Reason Warning -->
+              <div v-if="send.overrideReason" class="text-[11px] font-medium text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 p-2 rounded-lg border border-amber-200 dark:border-amber-800/60">
+                ⚠️ <span class="font-bold">Manager Override:</span> {{ send.overrideReason }}
+              </div>
+
+              <!-- Void Reason & Details -->
+              <div v-if="send.voidedAt" class="text-[11px] text-rose-800 dark:text-rose-300 bg-rose-100/60 dark:bg-rose-950/40 p-2 rounded-lg border border-rose-300 dark:border-rose-800/60">
+                <span class="font-bold">Voided on {{ formatDate(send.voidedAt) }} by {{ send.voidedByUser?.name || 'Manager' }}:</span>
+                <span class="italic ml-1">"{{ send.voidReason }}"</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -436,6 +578,57 @@
         </div>
       </div>
     </div>
+
+    <!-- Mark Testimonial Drawer -->
+    <MarkTestimonialDrawer
+      :is-open="showMarkTestimonial"
+      :lead="lead"
+      @close="showMarkTestimonial = false"
+      @sent="onTestimonialSent"
+    />
+
+    <!-- Void Testimonial Modal -->
+    <VoidTestimonialModal
+      :is-open="showVoidModal"
+      :lead-id="lead?.id"
+      :send="selectedSendForVoid"
+      @close="showVoidModal = false"
+      @voided="onTestimonialVoided"
+    />
+
+    <!-- Edit Testimonial Send Modal -->
+    <div v-if="showEditModal" class="fixed inset-0 z-50 overflow-y-auto">
+      <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs" @click="showEditModal = false" />
+      <div class="flex min-h-full items-center justify-center p-4">
+        <div class="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-teal-100 dark:bg-teal-950 text-teal-700 dark:text-teal-300 flex items-center justify-center font-bold">
+              ✏️
+            </div>
+            <div>
+              <h3 class="text-base font-bold text-slate-900 dark:text-white">Edit Testimonial Send</h3>
+              <p class="text-xs text-slate-500">Same-day edit: Note and timestamp only</p>
+            </div>
+          </div>
+          <div class="space-y-3">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Sent Time</label>
+              <input v-model="editSentAt" type="datetime-local" class="w-full text-xs px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100" />
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Note (Optional)</label>
+              <textarea v-model="editNote" rows="3" class="w-full text-xs px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100" placeholder="Optional notes..."></textarea>
+            </div>
+          </div>
+          <div class="flex items-center justify-end gap-2 pt-2">
+            <button type="button" class="min-h-[40px] px-4 py-2 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800" @click="showEditModal = false">Cancel</button>
+            <button type="button" class="min-h-[40px] px-5 py-2 text-xs font-bold rounded-xl bg-teal-600 hover:bg-teal-700 text-white" :disabled="isSavingEdit" @click="submitEditSend">
+              {{ isSavingEdit ? 'Saving...' : 'Save Changes' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -444,6 +637,9 @@ import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import LogCallDrawer from '~/components/interaction/LogCallDrawer.vue';
 import BookAppointmentModal from '~/components/lead/BookAppointmentModal.vue';
+import TestimonialChip from '~/components/testimonials/TestimonialChip.vue';
+import MarkTestimonialDrawer from '~/components/testimonials/MarkTestimonialDrawer.vue';
+import VoidTestimonialModal from '~/components/testimonials/VoidTestimonialModal.vue';
 import { useAuthStore } from '~/stores/auth';
 
 const route = useRoute();
@@ -473,6 +669,16 @@ const closeNote = ref('');
 const isSubmittingClose = ref(false);
 const lostReasons = ref<any[]>([]);
 
+const testimonialSends = ref<any[]>([]);
+const showMarkTestimonial = ref(false);
+const showVoidModal = ref(false);
+const selectedSendForVoid = ref<any>(null);
+const showEditModal = ref(false);
+const selectedSendForEdit = ref<any>(null);
+const editSentAt = ref('');
+const editNote = ref('');
+const isSavingEdit = ref(false);
+
 const fetchLead = async () => {
   isLoading.value = true;
   try {
@@ -486,6 +692,24 @@ const fetchLead = async () => {
     console.error('Failed to load lead', err);
   } finally {
     isLoading.value = false;
+  }
+};
+
+const fetchTestimonialsHistory = async () => {
+  if (!route.params.id) return;
+  try {
+    const headers: Record<string, string> = {};
+    if (authStore.token) headers['authorization'] = `Bearer ${authStore.token}`;
+    const res = await fetch(`${apiBase}/leads/${route.params.id}/testimonials-sent`, {
+      headers,
+      credentials: 'include',
+    });
+    if (res.ok) {
+      const data = await res.json();
+      testimonialSends.value = data.sends || [];
+    }
+  } catch (err) {
+    console.error('Failed to load testimonials history', err);
   }
 };
 
@@ -503,9 +727,90 @@ const fetchLostReasons = async () => {
   }
 };
 
+const formatChannel = (ch: string) => {
+  switch (ch) {
+    case 'whatsapp': return 'WhatsApp';
+    case 'sms': return 'SMS';
+    case 'email': return 'Email';
+    case 'call_readout': return 'Call Readout';
+    case 'other': return 'Other';
+    default: return ch;
+  }
+};
+
+const getTypeIcon = (type?: string) => {
+  switch (type) {
+    case 'video': return '🎥';
+    case 'pdf': return '📄';
+    case 'image': return '🖼️';
+    default: return '📝';
+  }
+};
+
+const canEditSend = (send: any) => {
+  if (send.voidedAt) return false;
+  if (!send.sentBy || send.sentBy !== authStore.user?.id) return false;
+  const sentDate = new Date(send.sentAt);
+  const today = new Date();
+  return (
+    sentDate.getFullYear() === today.getFullYear() &&
+    sentDate.getMonth() === today.getMonth() &&
+    sentDate.getDate() === today.getDate()
+  );
+};
+
+const openEditSend = (send: any) => {
+  selectedSendForEdit.value = send;
+  const d = new Date(send.sentAt);
+  const tzOffset = d.getTimezoneOffset() * 60000;
+  editSentAt.value = new Date(d.getTime() - tzOffset).toISOString().slice(0, 16);
+  editNote.value = send.note || '';
+  showEditModal.value = true;
+};
+
+const submitEditSend = async () => {
+  if (!selectedSendForEdit.value || !lead.value) return;
+  isSavingEdit.value = true;
+  try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (authStore.token) headers['authorization'] = `Bearer ${authStore.token}`;
+    const res = await fetch(`${apiBase}/leads/${lead.value.id}/testimonials-sent/${selectedSendForEdit.value.id}`, {
+      method: 'PATCH',
+      headers,
+      credentials: 'include',
+      body: JSON.stringify({
+        note: editNote.value.trim() || undefined,
+        sent_at: editSentAt.value ? new Date(editSentAt.value).toISOString() : undefined,
+      }),
+    });
+    if (res.ok) {
+      showEditModal.value = false;
+      await Promise.all([fetchLead(), fetchTestimonialsHistory()]);
+    }
+  } catch (err) {
+    console.error('Failed to update testimonial send', err);
+  } finally {
+    isSavingEdit.value = false;
+  }
+};
+
+const openVoidSend = (send: any) => {
+  selectedSendForVoid.value = send;
+  showVoidModal.value = true;
+};
+
+const onTestimonialSent = async () => {
+  await Promise.all([fetchLead(), fetchTestimonialsHistory()]);
+};
+
+const onTestimonialVoided = async () => {
+  await Promise.all([fetchLead(), fetchTestimonialsHistory()]);
+};
+
 onMounted(() => {
   fetchLead();
   fetchLostReasons();
+  fetchTestimonialsHistory();
 });
 
 const formatDate = (dateStr: string) => {

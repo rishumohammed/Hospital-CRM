@@ -54,6 +54,10 @@ export const Permissions = {
   AUDIT_VIEW: 'audit.view',
   CADENCE_MANAGE: 'cadence.manage',
   ASSIGNMENT_RULE_MANAGE: 'assignment_rule.manage',
+  TESTIMONIAL_SEND: 'testimonial.send',
+  TESTIMONIAL_VOID: 'testimonial.void',
+  TESTIMONIAL_MANAGE: 'testimonial.manage',
+  TESTIMONIAL_VIEW: 'testimonial.view',
 } as const;
 
 export type PermissionCode = (typeof Permissions)[keyof typeof Permissions];
@@ -128,6 +132,8 @@ export const InteractionTypes = {
   STATUS_CHANGE: 'status_change',
   VISIT: 'visit',
   AFTERCARE_CALL: 'aftercare_call',
+  TESTIMONIAL_SENT: 'testimonial_sent',
+  TESTIMONIAL_VOID: 'testimonial_void',
 } as const;
 
 export type InteractionTypeCode = (typeof InteractionTypes)[keyof typeof InteractionTypes];
@@ -148,3 +154,22 @@ export const EscalationStatuses = {
 } as const;
 
 export type EscalationStatusCode = (typeof EscalationStatuses)[keyof typeof EscalationStatuses];
+
+export const TestimonialChannels = {
+  WHATSAPP: 'whatsapp',
+  SMS: 'sms',
+  EMAIL: 'email',
+  CALL_READOUT: 'call_readout',
+  OTHER: 'other',
+} as const;
+
+export type TestimonialChannelCode = (typeof TestimonialChannels)[keyof typeof TestimonialChannels];
+
+export const TestimonialTypes = {
+  VIDEO: 'video',
+  TEXT: 'text',
+  IMAGE: 'image',
+  PDF: 'pdf',
+} as const;
+
+export type TestimonialTypeCode = (typeof TestimonialTypes)[keyof typeof TestimonialTypes];

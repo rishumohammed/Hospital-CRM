@@ -117,6 +117,8 @@ export async function listTasks(filter: TaskFilterOptions, user: UserContext) {
             firstResponseDueAt: true,
             firstResponseAt: true,
             slaBreached: true,
+            testimonialsSentCount: true,
+            testimonialsLastSentAt: true,
             department: { select: { id: true, code: true, labelEn: true, labelMl: true } },
             source: { select: { id: true, code: true, labelEn: true, labelMl: true } },
           },

@@ -428,6 +428,38 @@
           </div>
           <p class="text-xs text-slate-400">Default: 5 years for customer records, 7 years for compliance audit logs</p>
         </div>
+
+        <!-- Testimonials Policy & Follow-up Card -->
+        <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm space-y-4">
+          <div class="flex items-center space-x-3 pb-3 border-b border-slate-100 dark:border-slate-700">
+            <span class="text-xl">📜</span>
+            <div>
+              <h2 class="text-base font-bold text-slate-900 dark:text-slate-100">Testimonials Policy & Follow-up</h2>
+              <p class="text-xs text-slate-500">Automated cadence follow-up task scheduling and library management</p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Follow-up Task Delay (Hours)</label>
+              <input
+                v-model.number="settingsForm.testimonial_followup_hours"
+                type="number"
+                min="0"
+                class="w-full min-h-[44px] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-teal-500"
+              />
+            </div>
+            <div class="flex items-end pb-1">
+              <NuxtLink
+                to="/admin/testimonials"
+                class="min-h-[44px] px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm"
+              >
+                <span>📜 Manage Testimonial Library →</span>
+              </NuxtLink>
+            </div>
+          </div>
+          <p class="text-xs text-slate-400">Default: 24 hours. When > 0, automatically schedules a telecaller follow-up task 'Check if the testimonials were seen'. Set to 0 to disable.</p>
+        </div>
       </div>
     </div>
 
@@ -600,6 +632,7 @@ const settingsForm = ref({
     leads_days: 1825,
     audit_days: 2555,
   },
+  testimonial_followup_hours: 24,
 });
 
 const showCreateUserModal = ref(false);
@@ -659,6 +692,7 @@ async function loadData() {
       if (setRes.sla_minutes) settingsForm.value.sla_minutes = { ...settingsForm.value.sla_minutes, ...setRes.sla_minutes };
       if (setRes.contact_rules) settingsForm.value.contact_rules = { ...settingsForm.value.contact_rules, ...setRes.contact_rules };
       if (setRes.retention_policies) settingsForm.value.retention_policies = { ...settingsForm.value.retention_policies, ...setRes.retention_policies };
+      if (setRes.testimonial_followup_hours !== undefined) settingsForm.value.testimonial_followup_hours = Number(setRes.testimonial_followup_hours);
     }
   } catch {
     // Handled silently
@@ -696,6 +730,12 @@ async function saveSettings() {
         headers,
         credentials: 'include',
         body: { value: settingsForm.value.retention_policies },
+      }),
+      $fetch(`${apiBase}/settings/testimonial_followup_hours`, {
+        method: 'PATCH',
+        headers,
+        credentials: 'include',
+        body: { value: settingsForm.value.testimonial_followup_hours },
       }),
     ]);
 

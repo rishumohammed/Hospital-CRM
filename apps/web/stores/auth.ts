@@ -93,11 +93,21 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  function hasPermission(permission: string): boolean {
+    if (!user.value) return false;
+    if (user.value.role?.code === 'owner') return true;
+    if (user.value.permissions && user.value.permissions[permission]) {
+      return user.value.permissions[permission] !== 'none';
+    }
+    return false;
+  }
+
   return {
     user,
     accessToken,
     token: accessToken,
     isAuthenticated,
+    hasPermission,
     login,
     verifyMfa,
     logout,

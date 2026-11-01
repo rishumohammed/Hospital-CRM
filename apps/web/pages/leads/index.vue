@@ -39,7 +39,51 @@
 
     <!-- Filters & Search Toolbar -->
     <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-3">
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+      <!-- Saved Views Bar -->
+      <div class="flex items-center gap-2 overflow-x-auto pb-1 border-b border-slate-100 dark:border-slate-700/80">
+        <button
+          type="button"
+          :class="[
+            'px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap min-h-[36px]',
+            activeSavedView === 'all'
+              ? 'bg-teal-600 text-white shadow-xs'
+              : 'bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+          ]"
+          @click="applySavedView('all')"
+        >
+          {{ $i18n.locale === 'ml' ? 'എല്ലാ ലീഡുകളും' : 'All Leads' }}
+        </button>
+
+        <button
+          type="button"
+          :class="[
+            'px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap min-h-[36px] flex items-center gap-1.5',
+            activeSavedView === 'not_sent'
+              ? 'bg-amber-600 text-white shadow-xs'
+              : 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 hover:bg-amber-100 dark:hover:bg-amber-900/60'
+          ]"
+          @click="applySavedView('not_sent')"
+        >
+          <span>📜</span>
+          <span>{{ $i18n.locale === 'ml' ? 'സാക്ഷ്യപത്രം അയക്കാത്തവ' : 'Not yet sent testimonials' }}</span>
+        </button>
+
+        <button
+          type="button"
+          :class="[
+            'px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap min-h-[36px] flex items-center gap-1.5',
+            activeSavedView === 'sent'
+              ? 'bg-emerald-600 text-white shadow-xs'
+              : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/60'
+          ]"
+          @click="applySavedView('sent')"
+        >
+          <span>✓</span>
+          <span>{{ $i18n.locale === 'ml' ? 'സാക്ഷ്യപത്രം അയച്ചവ' : 'Testimonials Sent' }}</span>
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
         <!-- Search Input -->
         <div class="lg:col-span-2 relative">
           <input
@@ -93,6 +137,19 @@
             <option value="">{{ $i18n.locale === 'ml' ? 'എല്ലാ ഭാഷകളും' : 'All Languages' }}</option>
             <option value="ml">മലയാളം (Malayalam)</option>
             <option value="en">English</option>
+          </select>
+        </div>
+
+        <!-- Testimonials Filter -->
+        <div>
+          <select
+            v-model="filters.testimonials"
+            @change="activeSavedView = filters.testimonials === 'not_sent' ? 'not_sent' : (filters.testimonials === 'sent' ? 'sent' : 'all'); fetchLeads()"
+            class="w-full h-11 px-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-xs font-medium focus:ring-2 focus:ring-teal-500"
+          >
+            <option value="">{{ $i18n.locale === 'ml' ? 'സാക്ഷ്യപത്രം: എല്ലാം' : 'Testimonials: All' }}</option>
+            <option value="sent">{{ $i18n.locale === 'ml' ? 'അയച്ചവ (Sent)' : 'Testimonials: Sent' }}</option>
+            <option value="not_sent">{{ $i18n.locale === 'ml' ? 'അയക്കാത്തവ (Not sent)' : 'Testimonials: Not sent' }}</option>
           </select>
         </div>
       </div>
@@ -161,6 +218,12 @@
               <span class="px-2 py-0.5 text-[11px] font-bold rounded-md bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800">
                 {{ formatStatus(lead.status) }}
               </span>
+
+              <!-- Testimonial Status Chip -->
+              <TestimonialChip
+                :sent-count="lead.testimonialsSentCount || 0"
+                :last-sent-at="lead.testimonialsLastSentAt"
+              />
 
               <!-- Language Tag -->
               <span class="px-1.5 py-0.5 text-[10px] font-mono font-bold rounded bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
@@ -328,9 +391,13 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue';
+import TestimonialChip from '~/components/testimonials/TestimonialChip.vue';
+import { useAuthStore } from '~/stores/auth';
 
+const authStore = useAuthStore();
 const config = useRuntimeConfig();
-const apiBase = config.public.apiBase || 'http://localhost:4000/api/v1';
+const rawApiBase = config.public.apiBase || 'http://localhost:4000/api/v1';
+const apiBase = rawApiBase.endsWith('/api/v1') ? rawApiBase : `${rawApiBase}/api/v1`;
 
 const leads = ref<any[]>([]);
 const isLoading = ref(true);
@@ -339,6 +406,7 @@ const showImportModal = ref(false);
 const importText = ref('');
 const isImporting = ref(false);
 const importResult = ref('');
+const activeSavedView = ref<'all' | 'not_sent' | 'sent'>('all');
 
 const pagination = reactive({
   page: 1,
@@ -352,9 +420,23 @@ const filters = reactive({
   status: '',
   priority: '',
   language: '',
+  testimonials: '',
 });
 
 let searchDebounce: any = null;
+
+const applySavedView = (view: 'all' | 'not_sent' | 'sent') => {
+  activeSavedView.value = view;
+  if (view === 'not_sent') {
+    filters.testimonials = 'not_sent';
+  } else if (view === 'sent') {
+    filters.testimonials = 'sent';
+  } else {
+    filters.testimonials = '';
+  }
+  pagination.page = 1;
+  fetchLeads();
+};
 
 const fetchLeads = async () => {
   isLoading.value = true;
@@ -368,8 +450,18 @@ const fetchLeads = async () => {
     if (filters.status) params.append('status', filters.status);
     if (filters.priority) params.append('priority', filters.priority);
     if (filters.language) params.append('language', filters.language);
+    if (filters.testimonials) params.append('testimonials', filters.testimonials);
+
+    if (activeSavedView.value === 'not_sent') {
+      params.append('sortBy', 'testimonials_last_sent_at');
+      params.append('sortOrder', 'asc');
+    }
+
+    const headers: Record<string, string> = {};
+    if (authStore.token) headers['authorization'] = `Bearer ${authStore.token}`;
 
     const res = await fetch(`${apiBase}/leads?${params.toString()}`, {
+      headers,
       credentials: 'include',
     });
 

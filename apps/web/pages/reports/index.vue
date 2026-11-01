@@ -154,6 +154,124 @@
           </table>
         </div>
       </div>
+
+      <!-- Testimonials Outreach & Association Analytics Card -->
+      <div v-if="testimonialsData" class="p-6 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b pb-4 border-slate-100 dark:border-slate-700">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-teal-100 dark:bg-teal-950 text-teal-700 dark:text-teal-300 flex items-center justify-center font-bold text-lg">
+              📜
+            </div>
+            <div>
+              <h3 class="text-base font-bold text-slate-900 dark:text-slate-100">
+                Testimonial Outreach & Outcome Association
+              </h3>
+              <p class="text-xs text-slate-500">
+                Evaluation of approved testimonial sharing and its correlation with appointment conversion
+              </p>
+            </div>
+          </div>
+          <span class="text-xs font-mono font-bold px-3 py-1 rounded-full bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800">
+            {{ testimonialsData.leadsWithTestimonials }} / {{ testimonialsData.totalLeads }} Leads Reached ({{ testimonialsData.percentage }}%)
+          </span>
+        </div>
+
+        <!-- Association Disclaimer Banner -->
+        <div class="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 flex items-start gap-3">
+          <span class="text-amber-600 text-lg leading-none mt-0.5">ℹ️</span>
+          <div class="text-xs text-amber-900 dark:text-amber-200 leading-relaxed">
+            <span class="font-bold">Observational Association Notice:</span>
+            Appointment booking rates for leads who received testimonials versus those who did not are reported as an observational association, not proof of cause. Multiple clinical and personal factors influence patient appointment decisions.
+          </div>
+        </div>
+
+        <!-- 3-Column Comparative Metrics -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700">
+            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Testimonials Sent Rate</p>
+            <p class="text-2xl font-black text-slate-900 dark:text-slate-100 mt-1">
+              {{ testimonialsData.percentage }}%
+            </p>
+            <p class="text-xs text-slate-400 mt-1">
+              {{ testimonialsData.leadsWithTestimonials }} of {{ testimonialsData.totalLeads }} total inquiries
+            </p>
+          </div>
+
+          <div class="p-4 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60">
+            <p class="text-xs font-semibold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider">With Testimonials: Booked</p>
+            <p class="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
+              {{ testimonialsData.appointmentBookedRate?.withTestimonials?.ratePercentage }}%
+            </p>
+            <p class="text-xs text-emerald-700 dark:text-emerald-300 mt-1">
+              {{ testimonialsData.appointmentBookedRate?.withTestimonials?.bookedCount }} of {{ testimonialsData.appointmentBookedRate?.withTestimonials?.totalLeads }} leads booked
+            </p>
+          </div>
+
+          <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700">
+            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Without Testimonials: Booked</p>
+            <p class="text-2xl font-black text-slate-700 dark:text-slate-300 mt-1">
+              {{ testimonialsData.appointmentBookedRate?.withoutTestimonials?.ratePercentage }}%
+            </p>
+            <p class="text-xs text-slate-400 mt-1">
+              {{ testimonialsData.appointmentBookedRate?.withoutTestimonials?.bookedCount }} of {{ testimonialsData.appointmentBookedRate?.withoutTestimonials?.totalLeads }} leads booked
+            </p>
+          </div>
+        </div>
+
+        <!-- 2-Column Breakdown: By Channel & By Telecaller -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+          <!-- Channel Breakdown -->
+          <div class="space-y-3">
+            <h4 class="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+              Sends by Channel
+            </h4>
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+              <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex flex-col">
+                <span class="text-slate-500">💬 WhatsApp</span>
+                <span class="text-lg font-bold text-slate-900 dark:text-slate-100 mt-1">{{ testimonialsData.sendsByChannel?.whatsapp || 0 }}</span>
+              </div>
+              <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex flex-col">
+                <span class="text-slate-500">✉️ SMS</span>
+                <span class="text-lg font-bold text-slate-900 dark:text-slate-100 mt-1">{{ testimonialsData.sendsByChannel?.sms || 0 }}</span>
+              </div>
+              <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex flex-col">
+                <span class="text-slate-500">📧 Email</span>
+                <span class="text-lg font-bold text-slate-900 dark:text-slate-100 mt-1">{{ testimonialsData.sendsByChannel?.email || 0 }}</span>
+              </div>
+              <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex flex-col">
+                <span class="text-slate-500">📞 Call Readout</span>
+                <span class="text-lg font-bold text-slate-900 dark:text-slate-100 mt-1">{{ testimonialsData.sendsByChannel?.call_readout || 0 }}</span>
+              </div>
+              <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex flex-col">
+                <span class="text-slate-500">📋 Other</span>
+                <span class="text-lg font-bold text-slate-900 dark:text-slate-100 mt-1">{{ testimonialsData.sendsByChannel?.other || 0 }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Telecaller Breakdown -->
+          <div class="space-y-3">
+            <h4 class="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+              Sends by Telecaller
+            </h4>
+            <div v-if="!testimonialsData.sendsByTelecaller || testimonialsData.sendsByTelecaller.length === 0" class="text-xs text-slate-400 p-4 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 text-center">
+              No testimonials sent during this period
+            </div>
+            <div v-else class="divide-y divide-slate-100 dark:divide-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden text-xs">
+              <div
+                v-for="tc in testimonialsData.sendsByTelecaller"
+                :key="tc.userId"
+                class="p-2.5 px-3.5 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-900/50"
+              >
+                <span class="font-bold text-slate-800 dark:text-slate-200">{{ tc.userName }}</span>
+                <span class="font-mono font-bold text-teal-600 bg-teal-50 dark:bg-teal-950/50 px-2 py-0.5 rounded-md">
+                  {{ tc.count }} sent
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Tab 2: Admission Desk Report -->
@@ -380,6 +498,7 @@ const admissionData = ref<any>(null);
 const aftercareData = ref<any>(null);
 const lostReasonsData = ref<any>(null);
 const sourceQualityData = ref<any>(null);
+const testimonialsData = ref<any>(null);
 
 const dateRanges = [
   { key: '7d', label: 'Last 7 Days' },
@@ -447,8 +566,15 @@ async function loadReportData() {
 
   const qs = query.toString() ? `?${query.toString()}` : '';
 
+  // Testimonials query uses from/to/branch_id
+  const tQuery = new URLSearchParams();
+  if (params.startDate) tQuery.append('from', params.startDate);
+  if (params.endDate) tQuery.append('to', params.endDate);
+  if (params.branchId) tQuery.append('branch_id', String(params.branchId));
+  const tqs = tQuery.toString() ? `?${tQuery.toString()}` : '';
+
   try {
-    const [sup, adm, aft, lost, src] = await Promise.all([
+    const [sup, adm, aft, lost, src, testm] = await Promise.all([
       $fetch(`${config.public.apiBase}/reports/support${qs}`, {
         headers: { authorization: `Bearer ${authStore.token}` },
       }),
@@ -464,6 +590,12 @@ async function loadReportData() {
       $fetch(`${config.public.apiBase}/reports/source-quality${qs}`, {
         headers: { authorization: `Bearer ${authStore.token}` },
       }),
+      $fetch(`${config.public.apiBase}/reports/testimonials${tqs}`, {
+        headers: { authorization: `Bearer ${authStore.token}` },
+      }).catch((err) => {
+        console.warn('Failed to load testimonials report:', err);
+        return null;
+      }),
     ]);
 
     supportData.value = sup;
@@ -471,6 +603,7 @@ async function loadReportData() {
     aftercareData.value = aft;
     lostReasonsData.value = lost;
     sourceQualityData.value = src;
+    testimonialsData.value = testm;
   } catch (err) {
     console.error('Failed to load reports:', err);
   } finally {

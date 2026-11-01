@@ -236,6 +236,18 @@
               </span>
             </div>
           </div>
+          <!-- Testimonials Status Chip & 2-tap Mark Sent -->
+          <div v-if="task.lead" class="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+            <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+              {{ t('testimonials.title') }}:
+            </span>
+            <TestimonialChip
+              :sent-count="task.lead.testimonialsSentCount || 0"
+              :last-sent-at="task.lead.testimonialsLastSentAt"
+              :show-action-button="true"
+              @mark-sent="openMarkTestimonial(task.lead)"
+            />
+          </div>
         </div>
 
         <!-- Action Buttons -->
@@ -292,6 +304,13 @@
       @close="isBookApptOpen = false"
       @booked="onApptBooked"
     />
+
+    <MarkTestimonialDrawer
+      :is-open="isMarkTestimonialOpen"
+      :lead="selectedLeadForTestimonial"
+      @close="isMarkTestimonialOpen = false"
+      @sent="onTestimonialSent"
+    />
   </div>
 </template>
 
@@ -302,11 +321,14 @@ import { useAuthStore } from '~/stores/auth';
 import QuickCreateDrawer from '~/components/lead/QuickCreateDrawer.vue';
 import LogCallDrawer from '~/components/interaction/LogCallDrawer.vue';
 import BookAppointmentModal from '~/components/lead/BookAppointmentModal.vue';
+import TestimonialChip from '~/components/testimonials/TestimonialChip.vue';
+import MarkTestimonialDrawer from '~/components/testimonials/MarkTestimonialDrawer.vue';
 
 const { t, locale } = useI18n();
 const authStore = useAuthStore();
 const config = useRuntimeConfig();
-const apiBase = config.public.apiBase || 'http://localhost:3001';
+const rawApiBase = config.public.apiBase || 'http://localhost:4000/api/v1';
+const apiBase = rawApiBase.endsWith('/api/v1') ? rawApiBase : `${rawApiBase}/api/v1`;
 
 const activeTeam = ref<'support' | 'admission' | 'aftercare'>('support');
 const activeTiming = ref<'overdue' | 'today' | 'upcoming'>('today');
@@ -320,7 +342,18 @@ const upcomingCount = ref(0);
 const isQuickCreateOpen = ref(false);
 const isLogCallOpen = ref(false);
 const isBookApptOpen = ref(false);
+const isMarkTestimonialOpen = ref(false);
+const selectedLeadForTestimonial = ref<any>(null);
 const selectedTask = ref<any>(null);
+
+const openMarkTestimonial = (lead: any) => {
+  selectedLeadForTestimonial.value = lead;
+  isMarkTestimonialOpen.value = true;
+};
+
+const onTestimonialSent = () => {
+  loadWorkQueue();
+};
 
 let countdownInterval: any = null;
 const nowTime = ref(Date.now());
@@ -331,7 +364,7 @@ const loadWorkQueue = async () => {
   isLoading.value = true;
   try {
     const res = await fetch(
-      `${apiBase}/api/v1/tasks?team=${activeTeam.value}&due=${activeTiming.value}&status=open`,
+      `${apiBase}/tasks?team=${activeTeam.value}&due=${activeTiming.value}&status=open`,
       {
         headers: { Authorization: `Bearer ${authStore.token}` },
       }
@@ -343,13 +376,13 @@ const loadWorkQueue = async () => {
 
     // Load counts for tabs
     const [odRes, tdRes, upRes] = await Promise.all([
-      fetch(`${apiBase}/api/v1/tasks?team=${activeTeam.value}&due=overdue&status=open&pageSize=1`, {
+      fetch(`${apiBase}/tasks?team=${activeTeam.value}&due=overdue&status=open&pageSize=1`, {
         headers: { Authorization: `Bearer ${authStore.token}` },
       }),
-      fetch(`${apiBase}/api/v1/tasks?team=${activeTeam.value}&due=today&status=open&pageSize=1`, {
+      fetch(`${apiBase}/tasks?team=${activeTeam.value}&due=today&status=open&pageSize=1`, {
         headers: { Authorization: `Bearer ${authStore.token}` },
       }),
-      fetch(`${apiBase}/api/v1/tasks?team=${activeTeam.value}&due=upcoming&status=open&pageSize=1`, {
+      fetch(`${apiBase}/tasks?team=${activeTeam.value}&due=upcoming&status=open&pageSize=1`, {
         headers: { Authorization: `Bearer ${authStore.token}` },
       }),
     ]);

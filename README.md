@@ -116,12 +116,13 @@ pnpm typecheck
 | **M6** | Admission Desk (In-Patient queue, Estimate Counseling, Deposit Gate) | ✅ Complete |
 | **M7** | Aftercare Desk (Post-treatment Cadences, Call Form, Doctor Escalations) | ✅ Complete |
 | **M8** | Reports, Watermarked CSV Exports, PWA & Final Polish (AT 12-15) | ✅ Complete |
+| **M9** | Testimonials Sent (Approved Library, Consent Enforcement, 2-Tap UX, Reports) | ✅ Complete |
 
 ---
 
-## Acceptance Test Suite (AT 1 to 15)
+## Acceptance Test Suite (AT 1 to 16)
 
-All 15 acceptance tests are implemented and verified green in the automated test suite:
+All acceptance tests are implemented and verified green in the automated test suite:
 
 - **AT 1**: Scope enforcement — Support telecaller 1 cannot open telecaller 2's lead by direct ID (HTTP 403 + forensic audit log written).
 - **AT 2**: Duplicate detection — Submitting a phone number active in the last 30 days is blocked with 409 conflict unless explicitly overridden with reason.
@@ -138,4 +139,13 @@ All 15 acceptance tests are implemented and verified green in the automated test
 - **AT 13**: PII log redaction — Pino logger automatically masks phone numbers, names, medical concerns, and passwords (`[REDACTED]`).
 - **AT 14**: Malayalam Unicode support — Malayalam text in concern and name fields saves, displays, and searches correctly across the database.
 - **AT 15**: Telecaller queue isolation — Telecaller lead list queries strictly return only own assigned leads (or unassigned in branch) and never another telecaller's leads.
+- **AT 16 (Testimonials Sent)**: 
+  - Own vs other lead scope enforcement on testimonial sends (403 Forbidden + audit entry).
+  - Inactive / unconfirmed consent testimonials blocked.
+  - WhatsApp/SMS/Email channel consent enforced (`CONSENT_MISSING`), overridable only by managers with reason.
+  - Blocking sends on leads marked `do_not_contact`, `junk`, or with active `emergency_flag`.
+  - Atomic send tracking: updates denormalized lead counters (`testimonials_sent_count`, `testimonials_last_sent_at`), writes `testimonial_sent` timeline interaction, and logs audit record.
+  - Soft voiding with mandatory reason: decrements counters, maintains struck-through audit trail, and writes `testimonial_void` interaction.
+  - Anti-PII phone check on testimonial title/summary creation.
+  - Telecaller outcome association report with appointment booking comparative rates and prominent disclaimer.
 
