@@ -578,17 +578,6 @@ const canViewAllLeads = computed(() => {
   return role === 'owner' || role === 'admin' || role === 'center_head' || role === 'telecaller_manager' || role === 'product_manager';
 });
 
-const activeScope = ref<'my' | 'all'>('all');
-
-watch(isManagement, (val) => {
-  if (val) {
-    activeScope.value = 'all';
-    fetchStaffMembers();
-  } else {
-    activeScope.value = 'my';
-  }
-}, { immediate: true });
-
 const staffMembers = ref<any[]>([]);
 
 const fetchStaffMembers = async () => {
@@ -608,6 +597,19 @@ const fetchStaffMembers = async () => {
     console.error('Failed to load staff list for filter', err);
   }
 };
+
+const activeScope = ref<'my' | 'all'>('all');
+
+watch(isManagement, (val) => {
+  if (val) {
+    activeScope.value = 'all';
+    if (import.meta.client) {
+      fetchStaffMembers();
+    }
+  } else {
+    activeScope.value = 'my';
+  }
+});
 
 const onEmployeeFilterChange = () => {
   pagination.page = 1;
