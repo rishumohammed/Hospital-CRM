@@ -14,6 +14,13 @@ export interface AuthUser {
   };
   branchIds: number[];
   teamCodes: string[];
+  roleName?: string;
+  roleCode?: string;
+  center?: {
+    id?: number;
+    code?: string;
+    name?: string;
+  };
   permissions?: Record<string, string>;
 }
 

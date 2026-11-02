@@ -527,12 +527,13 @@ const userInitials = computed(() => {
 // User Role Display Name
 const userRoleName = computed(() => {
   if (!authStore.user) return 'Staff';
-  const role = authStore.user.role;
+  const u = authStore.user;
+  const role: any = u.role;
   if (typeof role === 'object' && role) return role.name || role.code || 'Staff';
   if (typeof role === 'string' && role) return role;
-  if (authStore.user.roleName) return authStore.user.roleName;
-  if (authStore.user.roleCode) {
-    const code = authStore.user.roleCode;
+  if (u.roleName) return u.roleName;
+  if (u.roleCode) {
+    const code = u.roleCode;
     const roleMap: Record<string, string> = {
       owner: 'Managing Director',
       admin: 'IT Administrator',
