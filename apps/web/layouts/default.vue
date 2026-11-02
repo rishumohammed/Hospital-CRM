@@ -19,15 +19,15 @@
     >
       <!-- Sidebar Brand / Header -->
       <div class="h-16 flex items-center justify-between px-4 border-b border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm">
-        <NuxtLink to="/" class="flex items-center space-x-3 overflow-hidden focus:outline-none" @click="isMobileMenuOpen = false">
-          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-teal-600 to-emerald-500 flex items-center justify-center text-white shadow-md shadow-teal-500/25 flex-shrink-0">
-            <span class="font-semibold text-xl tracking-tight">H</span>
+        <NuxtLink to="/" class="flex items-center space-x-2.5 overflow-hidden focus:outline-none" @click="isMobileMenuOpen = false">
+          <div class="h-10 w-10 rounded-xl overflow-hidden bg-white border border-slate-200 flex items-center justify-center flex-shrink-0 shadow-2xs">
+            <img src="/logo.webp" alt="Samad's Elements" class="h-8 w-8 object-contain" />
           </div>
           <div v-show="!isCollapsed || isMobileMenuOpen" class="flex flex-col min-w-0 transition-opacity duration-200">
-            <span class="font-semibold text-base tracking-tight bg-gradient-to-r from-teal-700 to-emerald-600 dark:from-teal-400 dark:to-emerald-300 bg-clip-text text-transparent truncate">
+            <span class="font-semibold text-sm tracking-tight text-slate-900 truncate">
               {{ t('app_name') }}
             </span>
-            <p class="text-[10px] text-slate-500 dark:text-slate-400 font-medium tracking-wide uppercase truncate leading-none">
+            <p class="text-[10px] text-emerald-700 font-medium tracking-wide truncate leading-none">
               {{ t('tagline') }}
             </p>
           </div>

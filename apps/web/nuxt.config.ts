@@ -17,6 +17,11 @@ export default defineNuxtConfig({
     detectBrowserLanguage: false,
   },
 
+  colorMode: {
+    preference: 'light',
+    fallback: 'light',
+  },
+
   runtimeConfig: {
     public: {
       apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:4000/api/v1',
@@ -25,14 +30,14 @@ export default defineNuxtConfig({
 
   app: {
     head: {
-      title: 'Hospital CRM - Telecalling Module',
+      title: "Samad's Elements - Traditional Treatment Centre",
       meta: [
         { charset: 'utf-8' },
         { name: 'viewport', content: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no' },
-        { name: 'theme-color', content: '#0f766e' },
+        { name: 'theme-color', content: '#059669' },
         { name: 'apple-mobile-web-app-capable', content: 'yes' },
         { name: 'apple-mobile-web-app-status-bar-style', content: 'default' },
-        { name: 'description', content: 'In-house Hospital CRM Telecalling Module' },
+        { name: 'description', content: "Samad's Elements - Traditional Treatment Centre CRM" },
       ],
       link: [
         { rel: 'icon', type: 'image/svg+xml', href: '/icon.svg' },
