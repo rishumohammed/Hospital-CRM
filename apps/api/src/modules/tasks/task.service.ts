@@ -130,7 +130,7 @@ export async function listTasks(filter: TaskFilterOptions, user: UserContext) {
             productInterests: {
               include: {
                 product: {
-                  select: { id: true, name: true, sku: true, mrp: true },
+                  select: { id: true, name: true, sku: true, price: true },
                 },
               },
             },

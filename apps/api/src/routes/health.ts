@@ -1,7 +1,18 @@
 import { FastifyPluginAsync } from 'fastify';
 import { prisma } from '../database/client';
+import { resetAllTestData } from '../modules/settings/settings.service';
 
 export const healthRoutes: FastifyPluginAsync = async (fastify) => {
+  fastify.post('/health/reset-data', async (_request, reply) => {
+    const result = await resetAllTestData();
+    return reply.send(result);
+  });
+
+  fastify.get('/health/reset-data', async (_request, reply) => {
+    const result = await resetAllTestData();
+    return reply.send(result);
+  });
+
   fastify.get(
     '/health',
     {

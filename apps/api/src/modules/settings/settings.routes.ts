@@ -2,11 +2,21 @@ import { FastifyPluginAsync } from 'fastify';
 import { Permissions } from '@hospital-crm/shared';
 import { prisma } from '../../database/client';
 import { authenticate, requirePermission } from '../auth/auth.middleware';
-import { getAllSettings, getSetting } from './settings.service';
+import { getAllSettings, getSetting, resetAllTestData } from './settings.service';
 import { logAudit } from '../audit/audit.service';
 
 export const settingsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addHook('preHandler', authenticate);
+
+  // Reset all transactional CRM test data (requires settings.manage or admin)
+  fastify.post(
+    '/settings/reset-test-data',
+    { preHandler: [requirePermission(Permissions.SETTINGS_MANAGE)] },
+    async (_request, reply) => {
+      const result = await resetAllTestData();
+      return reply.send(result);
+    }
+  );
 
   // Get all settings
   fastify.get('/settings', async (_request, reply) => {

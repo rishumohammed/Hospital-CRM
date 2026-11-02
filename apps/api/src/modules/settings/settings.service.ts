@@ -71,3 +71,51 @@ export async function getAllSettings(): Promise<Record<string, any>> {
   }
   return result;
 }
+
+export async function resetAllTestData() {
+  // 1. Break circular / self references on leads and cases
+  await prisma.lead.updateMany({
+    data: {
+      referredFromLeadId: null,
+      convertedPatientId: null,
+      closedReasonId: null,
+      campaignId: null,
+      ownerId: null,
+    },
+  });
+
+  await prisma.case.updateMany({
+    data: {
+      leadId: null,
+      treatingDoctorId: null,
+      ownerId: null,
+      notStartedReasonId: null,
+      closureCodeId: null,
+    },
+  });
+
+  // 2. Clear transactional tables in foreign-key safe order
+  await prisma.leadProductInterest.deleteMany();
+  await prisma.productWaitlist.deleteMany();
+  await prisma.leadTestimonialSendItem.deleteMany();
+  await prisma.leadTestimonialSend.deleteMany();
+  await prisma.interaction.deleteMany();
+  await prisma.task.deleteMany();
+  await prisma.appointment.deleteMany();
+  await prisma.treatmentCheckin.deleteMany();
+  await prisma.escalation.deleteMany();
+  await prisma.scheduleExtensionRequest.deleteMany();
+  await prisma.scheduledVisit.deleteMany();
+  await prisma.visitSchedule.deleteMany();
+  await prisma.caseHandover.deleteMany();
+  await prisma.case.deleteMany();
+  await prisma.lead.deleteMany();
+  await prisma.patient.deleteMany();
+  await prisma.notification.deleteMany();
+  await prisma.export.deleteMany();
+
+  return {
+    success: true,
+    message: 'All transactional data cleared successfully. System configuration, roles, staff, picklists, and catalog are ready for fresh testing.',
+  };
+}

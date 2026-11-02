@@ -488,6 +488,33 @@
           </div>
           <p class="text-xs text-slate-400">Default: 24 hours. When > 0, automatically schedules a telecaller follow-up task 'Check if the testimonials were seen'. Set to 0 to disable.</p>
         </div>
+
+        <!-- Danger Zone: Reset & Clear Test Data -->
+        <div class="bg-rose-50/40 dark:bg-rose-950/20 rounded-2xl p-6 border border-rose-200 dark:border-rose-900/60 shadow-sm space-y-4">
+          <div class="flex items-center space-x-3 pb-3 border-b border-rose-200 dark:border-rose-900/40">
+            <span class="w-8 h-8 rounded-xl bg-rose-100 dark:bg-rose-900/50 flex items-center justify-center text-rose-600 dark:text-rose-400">
+              <UIcon name="i-heroicons-trash" class="w-4 h-4" />
+            </span>
+            <div>
+              <h2 class="text-base font-semibold text-rose-900 dark:text-rose-200">Reset &amp; Clear Operational Data</h2>
+              <p class="text-xs text-rose-600 dark:text-rose-400">Clear all test leads, calls, tasks, appointments, cases, and orders for manual testing.</p>
+            </div>
+          </div>
+
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div class="text-xs text-slate-600 dark:text-slate-400 max-w-xl space-y-1">
+              <p>✓ <strong>Preserved:</strong> Staff accounts, roles &amp; permissions, master picklists, product catalog, and SLA settings.</p>
+              <p>✗ <strong>Cleared:</strong> All leads, interaction logs, scheduled tasks, patient cases, visit schedules, and appointments.</p>
+            </div>
+            <NuxtLink
+              to="/admin/reset"
+              class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs tracking-wider uppercase shadow-sm transition-all min-h-[44px] active:scale-95 whitespace-nowrap"
+            >
+              <UIcon name="i-heroicons-trash" class="w-4 h-4" />
+              <span>Clear All Test Data</span>
+            </NuxtLink>
+          </div>
+        </div>
       </div>
     </div>
 
