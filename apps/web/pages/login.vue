@@ -160,6 +160,8 @@ function fillDemo(email: string) {
   errorMessage.value = '';
 }
 
+import { getRoleHomeRoute } from '~/utils/role-routes';
+
 async function handleLogin() {
   errorMessage.value = '';
   loading.value = true;
@@ -169,7 +171,8 @@ async function handleLogin() {
       tempToken.value = res.tempToken;
       mfaStep.value = true;
     } else if (res.success) {
-      navigateTo('/');
+      const target = getRoleHomeRoute(authStore.user);
+      navigateTo(target);
     }
   } catch (err: any) {
     const message = err.data?.error?.message || err.message || 'Login failed';
@@ -185,7 +188,8 @@ async function handleMfaVerify() {
   try {
     const res = await authStore.verifyMfa(tempToken.value, mfaCode.value);
     if (res.success) {
-      navigateTo('/');
+      const target = getRoleHomeRoute(authStore.user);
+      navigateTo(target);
     }
   } catch (err: any) {
     const message = err.data?.error?.message || err.message || 'MFA Verification failed';

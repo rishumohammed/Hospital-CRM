@@ -29,8 +29,8 @@
         </div>
       </div>
 
-      <!-- Live Executive KPI Metrics Controls & Switcher -->
-      <div class="mt-6 pt-5 border-t border-teal-600/50 flex flex-col gap-4">
+      <!-- 1. Executive KPI Section: Only for Owner, Admins, Center Head, Managers -->
+      <div v-if="isExecutive" class="mt-6 pt-5 border-t border-teal-600/50 flex flex-col gap-4">
         <div class="flex items-center justify-between flex-wrap gap-3">
           <!-- View Switcher Tabs -->
           <div class="inline-flex p-1 rounded-2xl bg-teal-950/50 border border-teal-500/30 text-xs shadow-inner">
@@ -362,10 +362,149 @@
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- Analytics Graphs Section: Daily Leads & Conversion Ratio -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- 2. Telecaller Action Center: For Callers and Sales Executives -->
+      <div v-else-if="isTelecaller || isProductStaff" class="mt-6 pt-5 border-t border-teal-600/50 flex flex-col gap-4">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <div class="flex items-center gap-2">
+            <span class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-teal-950/60 border border-teal-500/30 text-teal-100 flex items-center gap-1.5">
+              <UIcon name="i-heroicons-phone-arrow-up-right" class="w-4 h-4 text-teal-300" />
+              <span>Telecaller Daily Workstation</span>
+            </span>
+            <span class="text-xs text-teal-200/90 font-medium hidden sm:inline">Active calling tasks and response SLAs</span>
+          </div>
+          <NuxtLink
+            to="/leads"
+            class="text-xs font-semibold text-teal-100 hover:text-white flex items-center gap-1.5 transition-all px-3 py-1.5 rounded-xl bg-teal-800/50 hover:bg-teal-700/60 border border-teal-500/30 shadow-xs"
+          >
+            <UIcon name="i-heroicons-user-group" class="w-3.5 h-3.5 text-teal-300" />
+            <span>Open All Leads</span>
+            <UIcon name="i-heroicons-arrow-right" class="w-3.5 h-3.5" />
+          </NuxtLink>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <!-- Calls Due Today -->
+          <div class="rounded-2xl p-4 bg-teal-900/40 border border-teal-500/20 backdrop-blur-sm flex flex-col justify-between">
+            <p class="text-[11px] text-teal-200/90 font-semibold uppercase tracking-wider">Calls Due Today</p>
+            <p class="mt-1 font-bold text-2xl text-white tracking-tight">{{ todayCount }}</p>
+            <span class="text-[10px] text-teal-200/80 mt-1 flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+              <span>Scheduled follow-ups</span>
+            </span>
+          </div>
+
+          <!-- Overdue Tasks -->
+          <div class="rounded-2xl p-4 bg-teal-900/40 border border-teal-500/20 backdrop-blur-sm flex flex-col justify-between" :class="overdueCount > 0 ? 'border-rose-400/50' : ''">
+            <p class="text-[11px] text-teal-200/90 font-semibold uppercase tracking-wider">Overdue Tasks</p>
+            <p class="mt-1 font-bold text-2xl tracking-tight" :class="overdueCount > 0 ? 'text-rose-300' : 'text-emerald-300'">{{ overdueCount }}</p>
+            <span class="text-[10px] text-teal-200/80 mt-1 flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full" :class="overdueCount > 0 ? 'bg-rose-400 animate-ping' : 'bg-emerald-400'"></span>
+              <span>{{ overdueCount > 0 ? 'Immediate action required' : 'All clear' }}</span>
+            </span>
+          </div>
+
+          <!-- Active Queue Size -->
+          <div class="rounded-2xl p-4 bg-teal-900/40 border border-teal-500/20 backdrop-blur-sm flex flex-col justify-between">
+            <p class="text-[11px] text-teal-200/90 font-semibold uppercase tracking-wider">Current Queue Items</p>
+            <p class="mt-1 font-bold text-2xl text-white tracking-tight">{{ tasks.length }}</p>
+            <span class="text-[10px] text-teal-200/80 mt-1 flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-teal-300"></span>
+              <span>In {{ activeTiming }} filter</span>
+            </span>
+          </div>
+
+          <!-- SLA Guidelines -->
+          <div class="rounded-2xl p-4 bg-teal-900/40 border border-teal-500/20 backdrop-blur-sm flex flex-col justify-between">
+            <p class="text-[11px] text-teal-200/90 font-semibold uppercase tracking-wider">Target SLA</p>
+            <p class="mt-1 font-bold text-lg text-emerald-300 tracking-tight">&lt; 5m Ads &bull; 15m Web</p>
+            <span class="text-[10px] text-teal-200/80 mt-1 flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+              <span>Calling hours: 9 AM - 8 PM</span>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Doctor Clinical Workspace Card -->
+      <div v-else-if="isDoctor" class="mt-6 pt-5 border-t border-teal-600/50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div class="flex items-center gap-4">
+          <div class="w-12 h-12 rounded-2xl bg-teal-950/60 border border-teal-400/30 flex items-center justify-center text-2xl shadow-inner">
+            🩺
+          </div>
+          <div>
+            <h2 class="text-base font-bold text-white">Doctor Clinical Workspace</h2>
+            <p class="text-xs text-teal-100/80 mt-0.5">
+              Review outpatient consultations, manage admitted inpatient rounds, and resolve 1-hour red-flag clinical escalations.
+            </p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <NuxtLink
+            to="/doctor"
+            class="px-4 py-2.5 rounded-xl bg-white text-teal-900 hover:bg-teal-50 font-semibold text-xs tracking-wide transition-all shadow-md flex items-center gap-2 whitespace-nowrap"
+          >
+            <UIcon name="i-heroicons-calendar-days" class="w-4 h-4 text-teal-700" />
+            <span>Open Doctor Desk</span>
+            <UIcon name="i-heroicons-arrow-right" class="w-3.5 h-3.5" />
+          </NuxtLink>
+        </div>
+      </div>
+
+      <!-- 4. Inpatient Specialist Workspace Card -->
+      <div v-else-if="isAdmissionSpecialist" class="mt-6 pt-5 border-t border-teal-600/50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div class="flex items-center gap-4">
+          <div class="w-12 h-12 rounded-2xl bg-teal-950/60 border border-teal-400/30 flex items-center justify-center text-2xl shadow-inner">
+            🛏️
+          </div>
+          <div>
+            <h2 class="text-base font-bold text-white">Inpatient &amp; Bed Allocation Hub</h2>
+            <p class="text-xs text-teal-100/80 mt-0.5">
+              Coordinate bed reservations, pre-admission checklists, and streamline patient inpatient intake.
+            </p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <NuxtLink
+            to="/admission"
+            class="px-4 py-2.5 rounded-xl bg-white text-teal-900 hover:bg-teal-50 font-semibold text-xs tracking-wide transition-all shadow-md flex items-center gap-2 whitespace-nowrap"
+          >
+            <UIcon name="i-heroicons-building-office-2" class="w-4 h-4 text-teal-700" />
+            <span>Open Admission Desk</span>
+            <UIcon name="i-heroicons-arrow-right" class="w-3.5 h-3.5" />
+          </NuxtLink>
+        </div>
+      </div>
+
+      <!-- 5. Aftercare Specialist Workspace Card -->
+      <div v-else-if="isAftercareSpecialist" class="mt-6 pt-5 border-t border-teal-600/50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div class="flex items-center gap-4">
+          <div class="w-12 h-12 rounded-2xl bg-teal-950/60 border border-teal-400/30 flex items-center justify-center text-2xl shadow-inner">
+            🌿
+          </div>
+          <div>
+            <h2 class="text-base font-bold text-white">Patient Recovery &amp; Aftercare Hub</h2>
+            <p class="text-xs text-teal-100/80 mt-0.5">
+              Execute post-treatment check-ins, record patient feedback, track kit dispatches, and trigger red-flag escalations.
+            </p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <NuxtLink
+            to="/aftercare"
+            class="px-4 py-2.5 rounded-xl bg-white text-teal-900 hover:bg-teal-50 font-semibold text-xs tracking-wide transition-all shadow-md flex items-center gap-2 whitespace-nowrap"
+          >
+            <UIcon name="i-heroicons-heart" class="w-4 h-4 text-rose-600" />
+            <span>Open Aftercare Desk</span>
+            <UIcon name="i-heroicons-arrow-right" class="w-3.5 h-3.5" />
+          </NuxtLink>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Analytics Graphs Section: Daily Leads & Conversion Ratio (Only for Executives/Managers) -->
+  <div v-if="isExecutive" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <!-- Graph 1: Daily Inquiries Trend (Last 14 Days) -->
       <div class="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-between">
         <div>
@@ -587,6 +726,7 @@
       <!-- Team Queue Tabs -->
       <div class="flex space-x-2 overflow-x-auto pb-1 sm:pb-0">
         <button
+          v-if="canViewSupportDesk"
           type="button"
           :class="[
             'px-4 py-2.5 text-sm font-semibold rounded-xl transition-all whitespace-nowrap min-h-[44px]',
@@ -599,6 +739,7 @@
           {{ t('desks.support_title') }}
         </button>
         <button
+          v-if="canViewAdmissionDesk"
           type="button"
           :class="[
             'px-4 py-2.5 text-sm font-semibold rounded-xl transition-all whitespace-nowrap min-h-[44px]',
@@ -611,6 +752,7 @@
           {{ t('desks.admission_title') }}
         </button>
         <button
+          v-if="canViewAftercareDesk"
           type="button"
           :class="[
             'px-4 py-2.5 text-sm font-semibold rounded-xl transition-all whitespace-nowrap min-h-[44px]',
@@ -906,15 +1048,41 @@ const activeTiming = ref<'overdue' | 'today' | 'upcoming'>('today');
 const tasks = ref<any[]>([]);
 const isLoading = ref(true);
 
+const userRoleCode = computed(() => {
+  const u = authStore.user;
+  if (!u) return '';
+  return (u.role?.code || (u as any).roleCode || (typeof u.role === 'string' ? u.role : '')).toLowerCase();
+});
+
+const isExecutive = computed(() => {
+  const code = userRoleCode.value;
+  return ['owner', 'admin', 'super_admin', 'center_head', 'telecaller_manager', 'auditor'].includes(code);
+});
+
+const isDoctor = computed(() => userRoleCode.value === 'doctor');
+const isAdmissionSpecialist = computed(() => ['admission_specialist', 'ipd_manager'].includes(userRoleCode.value));
+const isAftercareSpecialist = computed(() => ['aftercare_executive', 'treatment_followup_executive'].includes(userRoleCode.value));
+const isTelecaller = computed(() => ['support_telecaller', 'caller'].includes(userRoleCode.value));
+const isProductStaff = computed(() => ['product_sales_executive', 'product_caller', 'product_manager'].includes(userRoleCode.value));
+
+const canViewSupportDesk = computed(() => {
+  return isExecutive.value || isTelecaller.value || authStore.hasPermission('lead.view');
+});
+
+const canViewAdmissionDesk = computed(() => {
+  return isExecutive.value || isAdmissionSpecialist.value || isDoctor.value || authStore.hasPermission('case.view');
+});
+
+const canViewAftercareDesk = computed(() => {
+  return isExecutive.value || isAftercareSpecialist.value || isDoctor.value || authStore.hasPermission('case.view');
+});
+
 const canViewProductDesk = computed(() => {
   return (
     authStore.hasPermission('product_lead.view') ||
     authStore.hasPermission('product.view') ||
-    authStore.user?.role?.code === 'product_sales_executive' ||
-    authStore.user?.role?.code === 'product_manager' ||
-    authStore.user?.role?.code === 'super_admin' ||
-    authStore.user?.role?.code === 'owner' ||
-    authStore.user?.role?.code === 'admin'
+    isProductStaff.value ||
+    isExecutive.value
   );
 });
 
@@ -1246,14 +1414,19 @@ onMounted(async () => {
     navigateTo('/login');
     return;
   }
-  if (authStore.user?.role?.code === 'admission_specialist') {
+  const code = userRoleCode.value;
+  if (code === 'admission_specialist' || code === 'ipd_manager') {
     activeTeam.value = 'admission';
-  } else if (authStore.user?.role?.code === 'aftercare_executive') {
+  } else if (code === 'aftercare_executive' || code === 'treatment_followup_executive') {
     activeTeam.value = 'aftercare';
+  } else if (code === 'product_sales_executive' || code === 'product_caller') {
+    activeTeam.value = 'product';
+  } else {
+    activeTeam.value = 'support';
   }
   await Promise.all([
     loadWorkQueue(),
-    loadDashboardMetrics()
+    isExecutive.value ? loadDashboardMetrics() : Promise.resolve()
   ]);
   countdownInterval = setInterval(() => {
     nowTime.value = Date.now();
