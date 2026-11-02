@@ -4,13 +4,13 @@
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
       <div>
         <h1 class="text-2xl font-semibold text-slate-900 dark:text-slate-100 flex items-center space-x-2">
-          <span>Support Desk: Leads</span>
+          <span>{{ activeLeadType === 'product' ? 'Product Desk: Leads' : 'Support Desk: Leads' }}</span>
           <span class="text-xs px-2.5 py-1 rounded-full bg-teal-100 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 font-semibold">
             {{ pagination.total }} Total
           </span>
         </h1>
         <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-          Respond to new inquiries within SLA, qualify patients, and book appointments
+          {{ activeLeadType === 'product' ? 'Respond to customer product inquiries, cross-sell remedies, and track orders' : 'Respond to new inquiries within SLA, qualify patients, and book appointments' }}
         </p>
       </div>
 
@@ -27,8 +27,8 @@
       </div>
     </div>
 
-    <!-- Treatment vs Product Leads Top Toggle Bar -->
-    <div v-if="canViewTreatmentLeads || canViewProductLeads" class="flex items-center gap-2 border-b border-slate-200 dark:border-slate-700 pb-2">
+    <!-- Treatment vs Product Leads Top Toggle Bar: Only show if user has access to BOTH -->
+    <div v-if="canViewTreatmentLeads && canViewProductLeads" class="flex items-center gap-2 border-b border-slate-200 dark:border-slate-700 pb-2">
       <button
         v-if="canViewTreatmentLeads"
         type="button"
@@ -516,8 +516,24 @@ const applySavedView = (view: 'all' | 'not_sent' | 'sent') => {
 
 const activeScope = ref<'my' | 'all'>('my');
 
-const canViewTreatmentLeads = computed(() => authStore.hasPermission('lead.view'));
-const canViewProductLeads = computed(() => authStore.hasPermission('product_lead.view'));
+const userRoleCode = computed(() => {
+  const u = authStore.user;
+  if (!u) return '';
+  return (u.role?.code || (u as any).roleCode || (typeof u.role === 'string' ? u.role : '')).toLowerCase();
+});
+
+const isProductStaff = computed(() => {
+  return ['product_sales_executive', 'product_caller', 'product_manager'].includes(userRoleCode.value);
+});
+
+const canViewTreatmentLeads = computed(() => {
+  if (isProductStaff.value && !['owner', 'admin'].includes(userRoleCode.value)) return false;
+  return authStore.hasPermission('lead.view');
+});
+
+const canViewProductLeads = computed(() => {
+  return isProductStaff.value || authStore.hasPermission('product_lead.view');
+});
 
 const activeLeadType = ref<'treatment' | 'product'>('treatment');
 
@@ -528,8 +544,8 @@ const setLeadType = (type: 'treatment' | 'product') => {
 };
 
 const canViewAllLeads = computed(() => {
-  const role = authStore.user?.role?.code;
-  return role === 'owner' || role === 'admin' || role === 'center_head' || role === 'telecaller_manager';
+  const role = userRoleCode.value;
+  return role === 'owner' || role === 'admin' || role === 'center_head' || role === 'telecaller_manager' || role === 'product_manager';
 });
 
 const setScope = (scope: 'my' | 'all') => {
@@ -583,8 +599,13 @@ const fetchLeads = async () => {
   }
 };
 
-onMounted(() => {
-  if (!canViewTreatmentLeads.value && canViewProductLeads.value) {
+onMounted(async () => {
+  if (!authStore.token && !authStore.user) {
+    await authStore.fetchMe();
+  }
+  if (isProductStaff.value && !['owner', 'admin', 'center_head', 'telecaller_manager'].includes(userRoleCode.value)) {
+    activeLeadType.value = 'product';
+  } else if (!canViewTreatmentLeads.value && canViewProductLeads.value) {
     activeLeadType.value = 'product';
   }
   fetchLeads();

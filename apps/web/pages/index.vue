@@ -996,6 +996,7 @@
     <!-- Drawers & Modals -->
     <QuickCreateDrawer
       :is-open="isQuickCreateOpen"
+      :default-lead-type="isProductStaff ? 'product' : 'treatment'"
       @close="isQuickCreateOpen = false"
       @lead-created="onLeadCreated"
     />

@@ -34,8 +34,11 @@
 
         <!-- Form Body -->
         <form @submit.prevent="submitLead" class="flex-1 overflow-y-auto p-6 space-y-4">
-          <!-- Lead Type Toggle -->
-          <div class="grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-700">
+          <!-- Lead Type Toggle: Only shown for Management/Admins who oversee both departments -->
+          <div
+            v-if="canToggleLeadType"
+            class="grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-700"
+          >
             <button
               type="button"
               :class="[
@@ -300,10 +303,37 @@ const form = reactive({
   overrideReason: '',
 });
 
+const userRoleCode = computed(() => {
+  const u = authStore.user;
+  if (!u) return '';
+  return (u.role?.code || (u as any).roleCode || (typeof u.role === 'string' ? u.role : '')).toLowerCase();
+});
+
+const isProductStaff = computed(() => {
+  return ['product_sales_executive', 'product_caller', 'product_manager'].includes(userRoleCode.value);
+});
+
+const isTreatmentStaff = computed(() => {
+  return ['support_telecaller', 'caller', 'doctor', 'admission_specialist', 'aftercare_executive'].includes(userRoleCode.value);
+});
+
+const canToggleLeadType = computed(() => {
+  const isMgmt = ['owner', 'admin', 'super_admin', 'center_head', 'telecaller_manager', 'auditor'].includes(userRoleCode.value);
+  return isMgmt && authStore.hasPermission('lead.create') && authStore.hasPermission('product_lead.create');
+});
+
 watch(
-  () => props.defaultLeadType,
-  (val) => {
-    if (val) form.leadType = val;
+  () => [props.isOpen, props.defaultLeadType],
+  ([open, defaultType]) => {
+    if (open) {
+      if (defaultType) {
+        form.leadType = defaultType as 'treatment' | 'product';
+      } else if (isProductStaff.value) {
+        form.leadType = 'product';
+      } else {
+        form.leadType = 'treatment';
+      }
+    }
   },
   { immediate: true }
 );

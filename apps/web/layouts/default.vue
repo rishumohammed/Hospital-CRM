@@ -436,9 +436,14 @@ const coreNavItems = computed(() => {
   ];
   const role = userRoleCode.value;
 
-  // Leads: Only for Telecallers & Management
-  const isLeadHandler = ['owner', 'admin', 'center_head', 'telecaller_manager', 'support_telecaller', 'caller'].includes(role);
-  if (isLeadHandler && authStore.hasPermission('lead.view')) {
+  // Leads: For Support Telecallers, Product Callers, and Management
+  const isLeadHandler = [
+    'owner', 'admin', 'center_head', 'telecaller_manager',
+    'support_telecaller', 'caller',
+    'product_sales_executive', 'product_caller', 'product_manager'
+  ].includes(role);
+  const canSeeLeads = isLeadHandler && (authStore.hasPermission('lead.view') || authStore.hasPermission('product_lead.view'));
+  if (canSeeLeads) {
     items.push({ to: '/leads', label: t('nav.leads'), icon: 'i-heroicons-user-group' });
   }
 
