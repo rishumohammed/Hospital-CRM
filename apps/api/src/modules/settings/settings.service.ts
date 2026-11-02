@@ -113,11 +113,17 @@ export async function resetAllTestData() {
   await prisma.patient.deleteMany();
   await prisma.campaignProduct.deleteMany();
   await prisma.productCampaign.deleteMany();
+  await prisma.productRelation.deleteMany();
+  await prisma.productPriceHistory.deleteMany();
+  await prisma.productStockHistory.deleteMany();
+  await prisma.product.deleteMany();
+  await prisma.productCategory.updateMany({ data: { parentId: null } });
+  await prisma.productCategory.deleteMany();
   await prisma.notification.deleteMany();
   await prisma.export.deleteMany();
 
   return {
     success: true,
-    message: 'All transactional data and marketing campaigns cleared successfully. Products, categories, staff, and system settings are ready for fresh testing.',
+    message: 'All transactional data, marketing campaigns, products, and categories cleared successfully. Catalog is completely clean for fresh setup.',
   };
 }

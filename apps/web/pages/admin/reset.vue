@@ -25,7 +25,7 @@
           <li>Telecaller tasks &amp; queues: <strong class="text-emerald-600">0 records</strong></li>
           <li>Patient cases &amp; follow-up visits: <strong class="text-emerald-600">0 records</strong></li>
           <li>Staff logins &amp; roles: <strong class="text-teal-600">Preserved &amp; Active</strong></li>
-          <li>Products &amp; Categories: <strong class="text-teal-600">Preserved</strong></li>
+          <li>Products &amp; Categories: <strong class="text-emerald-600">0 records (Fresh Setup)</strong></li>
         </ul>
       </div>
 
