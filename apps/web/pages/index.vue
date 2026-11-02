@@ -29,83 +29,256 @@
         </div>
       </div>
 
-      <!-- Live Executive KPI Metrics Grid -->
-      <div class="mt-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-6 border-t border-teal-600/50">
-        <!-- 1. Total Leads -->
-        <div class="bg-teal-900/40 rounded-xl p-3.5 border border-teal-500/20 backdrop-blur-sm flex flex-col justify-between">
-          <div>
-            <p class="text-[11px] text-teal-200 font-semibold uppercase tracking-wider">Total Leads</p>
-            <p class="mt-1 font-semibold text-2xl text-white">
-              {{ supportMetrics?.totalLeads ?? '—' }}
-            </p>
+      <!-- Live Executive KPI Metrics Controls & Switcher -->
+      <div class="mt-6 pt-5 border-t border-teal-600/50 flex flex-col gap-4">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <!-- View Switcher Tabs -->
+          <div class="inline-flex p-1 rounded-xl bg-teal-950/40 border border-teal-500/30 text-xs">
+            <button
+              type="button"
+              @click="activeMetricTab = 'all'"
+              :class="[
+                'px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5',
+                activeMetricTab === 'all'
+                  ? 'bg-white text-teal-900 shadow-sm'
+                  : 'text-teal-200 hover:text-white'
+              ]"
+            >
+              <span>⚡</span>
+              <span>All Operations</span>
+            </button>
+            <button
+              type="button"
+              @click="activeMetricTab = 'clinical'"
+              :class="[
+                'px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5',
+                activeMetricTab === 'clinical'
+                  ? 'bg-white text-teal-900 shadow-sm'
+                  : 'text-teal-200 hover:text-white'
+              ]"
+            >
+              <span>🏥</span>
+              <span>Consultation Leads</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-teal-800 text-teal-100 font-mono">{{ supportMetrics?.totalLeads || 0 }}</span>
+            </button>
+            <button
+              type="button"
+              @click="activeMetricTab = 'product'"
+              :class="[
+                'px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5',
+                activeMetricTab === 'product'
+                  ? 'bg-white text-teal-900 shadow-sm'
+                  : 'text-teal-200 hover:text-white'
+              ]"
+            >
+              <span>🛍️</span>
+              <span>Product Leads</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-teal-800 text-teal-100 font-mono">{{ productMetrics?.kpis?.totalLeads || 0 }}</span>
+            </button>
           </div>
-          <span class="text-[10px] text-teal-200/80 mt-1.5 flex items-center gap-1 font-normal">
-            <span class="w-1.5 h-1.5 rounded-full bg-teal-300"></span>
-            <span>New Inquiries: {{ supportMetrics?.newLeads || 0 }}</span>
-          </span>
+
+          <div class="flex items-center gap-2">
+            <NuxtLink
+              v-if="activeMetricTab === 'product' || activeMetricTab === 'all'"
+              to="/reports/products"
+              class="text-xs font-semibold text-teal-100 hover:text-white flex items-center gap-1 transition-colors px-2.5 py-1 rounded-lg bg-teal-800/40 border border-teal-500/20"
+            >
+              <UIcon name="i-heroicons-chart-pie" class="w-3.5 h-3.5" />
+              <span>Product Reports</span>
+              <UIcon name="i-heroicons-arrow-right" class="w-3.5 h-3.5" />
+            </NuxtLink>
+            <NuxtLink
+              v-if="activeMetricTab === 'clinical' || activeMetricTab === 'all'"
+              to="/reports"
+              class="text-xs font-semibold text-teal-100 hover:text-white flex items-center gap-1 transition-colors px-2.5 py-1 rounded-lg bg-teal-800/40 border border-teal-500/20"
+            >
+              <UIcon name="i-heroicons-chart-bar" class="w-3.5 h-3.5" />
+              <span>Hospital Reports</span>
+              <UIcon name="i-heroicons-arrow-right" class="w-3.5 h-3.5" />
+            </NuxtLink>
+          </div>
         </div>
 
-        <!-- 2. Conversion Ratio -->
-        <div class="bg-teal-900/40 rounded-xl p-3.5 border border-teal-500/20 backdrop-blur-sm flex flex-col justify-between">
-          <div>
-            <p class="text-[11px] text-teal-200 font-semibold uppercase tracking-wider">Conversion Ratio</p>
-            <p class="mt-1 font-semibold text-2xl text-emerald-300">
-              {{ supportMetrics?.conversionRate ?? 0 }}%
-            </p>
+        <!-- 1. Clinical / Support Consultation Leads Grid -->
+        <div v-if="activeMetricTab === 'all' || activeMetricTab === 'clinical'" class="space-y-2">
+          <div v-if="activeMetricTab === 'all'" class="flex items-center justify-between text-xs font-semibold text-teal-200 uppercase tracking-wider">
+            <span class="flex items-center gap-1.5">
+              <span>🏥</span>
+              <span>Clinical &amp; Consultation Desk Leads</span>
+            </span>
+            <span class="text-[11px] text-teal-300 font-normal font-mono">Patient inquiries &amp; appointments</span>
           </div>
-          <span class="text-[10px] text-emerald-200/90 mt-1.5 flex items-center gap-1 font-normal">
-            <span>✓ {{ supportMetrics?.convertedLeads || 0 }} converted</span>
-          </span>
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <!-- 1. Total Leads -->
+            <div class="bg-teal-900/40 rounded-xl p-3.5 border border-teal-500/20 backdrop-blur-sm flex flex-col justify-between">
+              <div>
+                <p class="text-[11px] text-teal-200 font-semibold uppercase tracking-wider">Total Leads</p>
+                <p class="mt-1 font-semibold text-2xl text-white">
+                  {{ supportMetrics?.totalLeads ?? '—' }}
+                </p>
+              </div>
+              <span class="text-[10px] text-teal-200/80 mt-1.5 flex items-center gap-1 font-normal">
+                <span class="w-1.5 h-1.5 rounded-full bg-teal-300"></span>
+                <span>New Inquiries: {{ supportMetrics?.newLeads || 0 }}</span>
+              </span>
+            </div>
+
+            <!-- 2. Conversion Ratio -->
+            <div class="bg-teal-900/40 rounded-xl p-3.5 border border-teal-500/20 backdrop-blur-sm flex flex-col justify-between">
+              <div>
+                <p class="text-[11px] text-teal-200 font-semibold uppercase tracking-wider">Conversion Ratio</p>
+                <p class="mt-1 font-semibold text-2xl text-emerald-300">
+                  {{ supportMetrics?.conversionRate ?? 0 }}%
+                </p>
+              </div>
+              <span class="text-[10px] text-emerald-200/90 mt-1.5 flex items-center gap-1 font-normal">
+                <span>✓ {{ supportMetrics?.convertedLeads || 0 }} converted</span>
+              </span>
+            </div>
+
+            <!-- 3. Today's Follow-ups Due -->
+            <div class="bg-teal-900/40 rounded-xl p-3.5 border border-teal-500/20 backdrop-blur-sm flex flex-col justify-between">
+              <div>
+                <p class="text-[11px] text-teal-200 font-semibold uppercase tracking-wider">{{ t('common.today') }} Due</p>
+                <p class="mt-1 font-semibold text-2xl text-amber-300">{{ todayCount }}</p>
+              </div>
+              <span class="text-[10px] text-amber-200/90 mt-1.5 flex items-center gap-1 font-normal">
+                <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                <span>Current shift queue</span>
+              </span>
+            </div>
+
+            <!-- 4. Overdue Tasks -->
+            <div class="bg-teal-900/40 rounded-xl p-3.5 border border-teal-500/20 backdrop-blur-sm flex flex-col justify-between">
+              <div>
+                <p class="text-[11px] text-teal-200 font-semibold uppercase tracking-wider">{{ t('common.overdue') }}</p>
+                <p class="mt-1 font-semibold text-2xl text-rose-300">{{ overdueCount }}</p>
+              </div>
+              <span class="text-[10px] text-rose-200/90 mt-1.5 flex items-center gap-1 font-normal">
+                <span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+                <span>SLA breach alerts</span>
+              </span>
+            </div>
+
+            <!-- 5. Consultations Booked -->
+            <div class="bg-teal-900/40 rounded-xl p-3.5 border border-teal-500/20 backdrop-blur-sm flex flex-col justify-between">
+              <div>
+                <p class="text-[11px] text-teal-200 font-semibold uppercase tracking-wider">Booked Appts</p>
+                <p class="mt-1 font-semibold text-2xl text-teal-100">
+                  {{ (supportMetrics?.appointmentBookedLeads || 0) + (supportMetrics?.visitedLeads || 0) }}
+                </p>
+              </div>
+              <span class="text-[10px] text-teal-200/90 mt-1.5 flex items-center gap-1 font-normal">
+                <span>Booking Rate: {{ supportMetrics?.bookingRate || 0 }}%</span>
+              </span>
+            </div>
+
+            <!-- 6. Response SLA -->
+            <div class="bg-teal-900/40 rounded-xl p-3.5 border border-teal-500/20 backdrop-blur-sm flex flex-col justify-between">
+              <div>
+                <p class="text-[11px] text-teal-200 font-semibold uppercase tracking-wider">SLA Compliance</p>
+                <p class="mt-1 font-semibold text-2xl text-emerald-300">
+                  {{ supportMetrics?.sla?.complianceRate ?? 96 }}%
+                </p>
+              </div>
+              <div class="mt-1.5 flex items-center space-x-1.5 text-[10px] text-teal-200/90 font-normal">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>Avg ~{{ supportMetrics?.sla?.avgResponseMinutes ?? 12 }}m Response</span>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <!-- 3. Today's Follow-ups Due -->
-        <div class="bg-teal-900/40 rounded-xl p-3.5 border border-teal-500/20 backdrop-blur-sm flex flex-col justify-between">
-          <div>
-            <p class="text-[11px] text-teal-200 font-semibold uppercase tracking-wider">{{ t('common.today') }} Due</p>
-            <p class="mt-1 font-semibold text-2xl text-amber-300">{{ todayCount }}</p>
+        <!-- 2. Product & Formulation Leads Grid -->
+        <div v-if="activeMetricTab === 'all' || activeMetricTab === 'product'" class="space-y-2">
+          <div v-if="activeMetricTab === 'all'" class="flex items-center justify-between text-xs font-semibold text-teal-200 uppercase tracking-wider">
+            <span class="flex items-center gap-1.5">
+              <span>🛍️</span>
+              <span>Product &amp; Campaign Sales Leads</span>
+            </span>
+            <span class="text-[11px] text-teal-300 font-normal font-mono">Formulation orders &amp; campaign ROI</span>
           </div>
-          <span class="text-[10px] text-amber-200/90 mt-1.5 flex items-center gap-1 font-normal">
-            <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
-            <span>Current shift queue</span>
-          </span>
-        </div>
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <!-- P1. Total Product Leads -->
+            <div class="bg-teal-900/40 rounded-xl p-3.5 border border-teal-500/20 backdrop-blur-sm flex flex-col justify-between">
+              <div>
+                <p class="text-[11px] text-teal-200 font-semibold uppercase tracking-wider">Product Leads</p>
+                <p class="mt-1 font-semibold text-2xl text-white">
+                  {{ productMetrics?.kpis?.totalLeads ?? 0 }}
+                </p>
+              </div>
+              <span class="text-[10px] text-teal-200/80 mt-1.5 flex items-center gap-1 font-normal">
+                <span class="w-1.5 h-1.5 rounded-full bg-teal-300"></span>
+                <span>New Inquiries: {{ newProductLeadsCount }}</span>
+              </span>
+            </div>
 
-        <!-- 4. Overdue Tasks -->
-        <div class="bg-teal-900/40 rounded-xl p-3.5 border border-teal-500/20 backdrop-blur-sm flex flex-col justify-between">
-          <div>
-            <p class="text-[11px] text-teal-200 font-semibold uppercase tracking-wider">{{ t('common.overdue') }}</p>
-            <p class="mt-1 font-semibold text-2xl text-rose-300">{{ overdueCount }}</p>
-          </div>
-          <span class="text-[10px] text-rose-200/90 mt-1.5 flex items-center gap-1 font-normal">
-            <span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
-            <span>SLA breach alerts</span>
-          </span>
-        </div>
+            <!-- P2. Product Conversion Rate -->
+            <div class="bg-teal-900/40 rounded-xl p-3.5 border border-teal-500/20 backdrop-blur-sm flex flex-col justify-between">
+              <div>
+                <p class="text-[11px] text-teal-200 font-semibold uppercase tracking-wider">Product Conversion</p>
+                <p class="mt-1 font-semibold text-2xl text-emerald-300">
+                  {{ productMetrics?.kpis?.conversionRate ?? '0%' }}
+                </p>
+              </div>
+              <span class="text-[10px] text-emerald-200/90 mt-1.5 flex items-center gap-1 font-normal">
+                <span>✓ {{ productMetrics?.kpis?.convertedLeads || 0 }} converted</span>
+              </span>
+            </div>
 
-        <!-- 5. Consultations Booked -->
-        <div class="bg-teal-900/40 rounded-xl p-3.5 border border-teal-500/20 backdrop-blur-sm flex flex-col justify-between">
-          <div>
-            <p class="text-[11px] text-teal-200 font-semibold uppercase tracking-wider">Booked Appts</p>
-            <p class="mt-1 font-semibold text-2xl text-teal-100">
-              {{ (supportMetrics?.appointmentBookedLeads || 0) + (supportMetrics?.visitedLeads || 0) }}
-            </p>
-          </div>
-          <span class="text-[10px] text-teal-200/90 mt-1.5 flex items-center gap-1 font-normal">
-            <span>Booking Rate: {{ supportMetrics?.bookingRate || 0 }}%</span>
-          </span>
-        </div>
+            <!-- P3. Total Confirmed Revenue -->
+            <div class="bg-teal-900/40 rounded-xl p-3.5 border border-teal-500/20 backdrop-blur-sm flex flex-col justify-between">
+              <div>
+                <p class="text-[11px] text-teal-200 font-semibold uppercase tracking-wider">Product Revenue</p>
+                <p class="mt-1 font-semibold text-2xl text-amber-300">
+                  ₹{{ (productMetrics?.kpis?.totalRevenue || 0).toLocaleString() }}
+                </p>
+              </div>
+              <span class="text-[10px] text-amber-200/90 mt-1.5 flex items-center gap-1 font-normal">
+                <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                <span>Confirmed orders</span>
+              </span>
+            </div>
 
-        <!-- 6. Response SLA -->
-        <div class="bg-teal-900/40 rounded-xl p-3.5 border border-teal-500/20 backdrop-blur-sm flex flex-col justify-between">
-          <div>
-            <p class="text-[11px] text-teal-200 font-semibold uppercase tracking-wider">SLA Compliance</p>
-            <p class="mt-1 font-semibold text-2xl text-emerald-300">
-              {{ supportMetrics?.sla?.complianceRate ?? 96 }}%
-            </p>
-          </div>
-          <div class="mt-1.5 flex items-center space-x-1.5 text-[10px] text-teal-200/90 font-normal">
-            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span>Avg ~{{ supportMetrics?.sla?.avgResponseMinutes ?? 12 }}m Response</span>
+            <!-- P4. Campaign Volume -->
+            <div class="bg-teal-900/40 rounded-xl p-3.5 border border-teal-500/20 backdrop-blur-sm flex flex-col justify-between">
+              <div>
+                <p class="text-[11px] text-teal-200 font-semibold uppercase tracking-wider">Campaign Leads</p>
+                <p class="mt-1 font-semibold text-2xl text-teal-100">
+                  {{ totalCampaignLeadsCount }}
+                </p>
+              </div>
+              <span class="text-[10px] text-teal-200/90 mt-1.5 flex items-center gap-1 font-normal">
+                <span>Across {{ productMetrics?.campaigns?.length || 0 }} campaigns</span>
+              </span>
+            </div>
+
+            <!-- P5. Average Order Value -->
+            <div class="bg-teal-900/40 rounded-xl p-3.5 border border-teal-500/20 backdrop-blur-sm flex flex-col justify-between">
+              <div>
+                <p class="text-[11px] text-teal-200 font-semibold uppercase tracking-wider">Avg Order Value</p>
+                <p class="mt-1 font-semibold text-2xl text-teal-100">
+                  ₹{{ avgProductOrderValue.toLocaleString() }}
+                </p>
+              </div>
+              <span class="text-[10px] text-teal-200/90 mt-1.5 flex items-center gap-1 font-normal">
+                <span>Per converted buyer</span>
+              </span>
+            </div>
+
+            <!-- P6. Active Pipeline Inquiries -->
+            <div class="bg-teal-900/40 rounded-xl p-3.5 border border-teal-500/20 backdrop-blur-sm flex flex-col justify-between">
+              <div>
+                <p class="text-[11px] text-teal-200 font-semibold uppercase tracking-wider">Active Pipeline</p>
+                <p class="mt-1 font-semibold text-2xl text-emerald-300">
+                  {{ inPipelineProductLeadsCount }}
+                </p>
+              </div>
+              <div class="mt-1.5 flex items-center space-x-1.5 text-[10px] text-teal-200/90 font-normal">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>Contacted &amp; negotiating</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -661,8 +834,35 @@ const upcomingCount = ref(0);
 
 // Dashboard Executive Metrics & Trends
 const supportMetrics = ref<any>(null);
+const productMetrics = ref<any>(null);
+const activeMetricTab = ref<'all' | 'clinical' | 'product'>('all');
 const isLoadingMetrics = ref(true);
 const hoveredDay = ref<any>(null);
+
+const newProductLeadsCount = computed(() => {
+  if (!productMetrics.value?.statusBreakdown) return 0;
+  const item = productMetrics.value.statusBreakdown.find((s: any) => s.status === 'new');
+  return item?.count || 0;
+});
+
+const inPipelineProductLeadsCount = computed(() => {
+  if (!productMetrics.value?.statusBreakdown) return 0;
+  const inPipeline = productMetrics.value.statusBreakdown.filter(
+    (s: any) => ['contacted', 'qualified', 'negotiation', 'order_pending'].includes(s.status)
+  );
+  return inPipeline.reduce((sum: number, s: any) => sum + (s.count || 0), 0);
+});
+
+const totalCampaignLeadsCount = computed(() => {
+  if (!productMetrics.value?.campaigns) return 0;
+  return productMetrics.value.campaigns.reduce((sum: number, c: any) => sum + (c.leadsCount || 0), 0);
+});
+
+const avgProductOrderValue = computed(() => {
+  const kpis = productMetrics.value?.kpis;
+  if (!kpis || !kpis.convertedLeads || kpis.convertedLeads === 0) return 0;
+  return Math.round((kpis.totalRevenue || 0) / kpis.convertedLeads);
+});
 
 const isQuickCreateOpen = ref(false);
 const isLogCallOpen = ref(false);
@@ -787,11 +987,17 @@ const loadDashboardMetrics = async () => {
   if (!authStore.token) return;
   isLoadingMetrics.value = true;
   try {
-    const res = await fetch(`${apiBase}/reports/support`, {
-      headers: { Authorization: `Bearer ${authStore.token}` },
-    });
-    if (res.ok) {
-      supportMetrics.value = await res.json();
+    const headers = { Authorization: `Bearer ${authStore.token}` };
+    const [supportRes, productRes] = await Promise.allSettled([
+      fetch(`${apiBase}/reports/support`, { headers }),
+      fetch(`${apiBase}/reports/product-leads`, { headers }),
+    ]);
+
+    if (supportRes.status === 'fulfilled' && supportRes.value.ok) {
+      supportMetrics.value = await supportRes.value.json();
+    }
+    if (productRes.status === 'fulfilled' && productRes.value.ok) {
+      productMetrics.value = await productRes.value.json();
     }
   } catch (err) {
     console.error('Failed to load dashboard metrics', err);

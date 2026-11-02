@@ -32,6 +32,14 @@
           <span>Campaigns</span>
         </NuxtLink>
 
+        <NuxtLink
+          to="/reports/products"
+          class="min-h-[40px] px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 font-semibold text-xs transition-all flex items-center gap-1.5 shadow-2xs"
+        >
+          <UIcon name="i-heroicons-chart-pie" class="w-4 h-4 text-teal-600" />
+          <span>Product Analytics</span>
+        </NuxtLink>
+
         <!-- Bulk Stock Update Modal Trigger -->
         <button
           v-if="canUpdateStock"

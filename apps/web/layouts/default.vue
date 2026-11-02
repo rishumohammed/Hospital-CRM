@@ -441,15 +441,6 @@ const productNavItems = computed(() => {
   if (authStore.hasPermission('product.view') || authStore.hasPermission('product_lead.view')) {
     items.push({ to: '/products', label: 'Product Catalog', icon: 'i-heroicons-shopping-bag' });
   }
-  if (authStore.hasPermission('product_category.manage') || authStore.hasPermission('product.view')) {
-    items.push({ to: '/products/categories', label: 'Categories', icon: 'i-heroicons-rectangle-stack' });
-  }
-  if (authStore.hasPermission('product_campaign.manage') || authStore.hasPermission('product_lead.view')) {
-    items.push({ to: '/products/campaigns', label: 'Campaigns', icon: 'i-heroicons-megaphone' });
-  }
-  if (authStore.hasPermission('product_report.view') || authStore.hasPermission('report.view')) {
-    items.push({ to: '/reports/products', label: 'Product Analytics', icon: 'i-heroicons-chart-pie' });
-  }
   return items;
 });
 

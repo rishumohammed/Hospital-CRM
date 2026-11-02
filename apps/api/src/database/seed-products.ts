@@ -34,20 +34,22 @@ export async function seedProductModule() {
 
   // First pass: Roots
   for (const cat of categoryDefs.filter(c => !c.parentCode)) {
+    const slug = cat.code.toLowerCase().replace(/_/g, '-');
     categoriesByCode[cat.code] = await prisma.productCategory.upsert({
-      where: { code: cat.code },
+      where: { slug },
       update: { name: cat.name, description: cat.description, active: true },
-      create: { code: cat.code, name: cat.name, description: cat.description, active: true },
+      create: { slug, name: cat.name, description: cat.description, active: true },
     });
   }
 
   // Second pass: Subcategories
   for (const cat of categoryDefs.filter(c => c.parentCode)) {
     const parent = categoriesByCode[cat.parentCode!];
+    const slug = cat.code.toLowerCase().replace(/_/g, '-');
     categoriesByCode[cat.code] = await prisma.productCategory.upsert({
-      where: { code: cat.code },
+      where: { slug },
       update: { name: cat.name, description: cat.description, parentId: parent?.id, active: true },
-      create: { code: cat.code, name: cat.name, description: cat.description, parentId: parent?.id, active: true },
+      create: { slug, name: cat.name, description: cat.description, parentId: parent?.id, active: true },
     });
   }
   console.log(`✓ Seeded ${Object.keys(categoriesByCode).length} Product Categories (2-level hierarchy)`);
@@ -384,8 +386,7 @@ export async function seedProductModule() {
       update: {
         name: p.name,
         categoryId: category.id,
-        mrp: p.mrp,
-        taxPercent: p.taxPercent,
+        price: p.mrp,
         prescriptionRequired: p.prescriptionRequired,
         refillDays: p.refillDays,
         packSize: p.packSize,
@@ -402,8 +403,7 @@ export async function seedProductModule() {
         sku: p.sku,
         name: p.name,
         categoryId: category.id,
-        mrp: p.mrp,
-        taxPercent: p.taxPercent,
+        price: p.mrp,
         prescriptionRequired: p.prescriptionRequired,
         refillDays: p.refillDays,
         packSize: p.packSize,
@@ -456,8 +456,7 @@ export async function seedProductModule() {
           relatedProductId: toP.id,
           relationType: rel.type,
           talkingPoint: rel.point,
-          sortOrder: rel.sort,
-          createdById: prodMgr.id,
+          sort: rel.sort,
         },
       });
     }
@@ -632,7 +631,7 @@ export async function seedProductModule() {
           leadId: lead.id,
           productId: product.id,
           quantity: ls.qty,
-          unitPriceAtTime: product.mrp,
+          unitPriceAtTime: product.price,
           status: ls.status === 'converted' ? 'accepted' : (ls.status === 'closed' ? 'declined' : 'interested'),
           origin: 'campaign',
           prescriptionVerified: product.prescriptionRequired && ls.status === 'converted',

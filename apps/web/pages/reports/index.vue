@@ -15,6 +15,14 @@
       </div>
 
       <div class="flex items-center space-x-2">
+        <NuxtLink
+          to="/reports/products"
+          class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 text-sm font-semibold flex items-center gap-2 shadow-2xs transition-all min-h-[44px]"
+        >
+          <UIcon name="i-heroicons-chart-pie" class="w-4 h-4 text-teal-600" />
+          <span>Product Analytics</span>
+        </NuxtLink>
+
         <button
           type="button"
           @click="selectTab('exports')"
@@ -78,6 +86,14 @@
       >
         {{ tab.label }}
       </button>
+
+      <NuxtLink
+        to="/reports/products"
+        class="px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-all min-h-[44px] bg-white dark:bg-slate-800 text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-slate-700 border border-teal-200 dark:border-teal-800 flex items-center gap-1.5"
+      >
+        <UIcon name="i-heroicons-chart-pie" class="w-4 h-4 text-teal-600" />
+        <span>Product Analytics →</span>
+      </NuxtLink>
     </div>
 
     <!-- Loading State -->
