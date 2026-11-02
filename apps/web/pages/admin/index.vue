@@ -254,8 +254,7 @@
             <thead>
               <tr class="bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 text-xs uppercase tracking-wider font-semibold border-b border-slate-100 dark:border-slate-700">
                 <th class="py-3 px-4">Code</th>
-                <th class="py-3 px-4">Label (English)</th>
-                <th class="py-3 px-4">Label (Malayalam)</th>
+                <th class="py-3 px-4">Label</th>
                 <th v-if="selectedPicklistType === 'call-outcomes'" class="py-3 px-4">Scope</th>
                 <th class="py-3 px-4">Sort</th>
                 <th class="py-3 px-4">Status</th>
@@ -273,9 +272,6 @@
                 </td>
                 <td class="py-3 px-4 font-semibold text-slate-900 dark:text-slate-100">
                   {{ item.labelEn }}
-                </td>
-                <td class="py-3 px-4 text-xs text-slate-500 dark:text-slate-400">
-                  {{ item.labelMl || '—' }}
                 </td>
                 <td v-if="selectedPicklistType === 'call-outcomes'" class="py-3 px-4">
                   <span
@@ -759,29 +755,16 @@
             <p class="text-[11px] text-slate-400 mt-1">Unique alphanumeric uppercase key used in system logic</p>
           </div>
 
-          <!-- Label English -->
+          <!-- Label -->
           <div>
             <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-              Label (English) <span class="text-rose-500">*</span>
+              Label <span class="text-rose-500">*</span>
             </label>
             <input
               v-model="picklistForm.labelEn"
               type="text"
               required
               placeholder="e.g. WhatsApp Inbound"
-              class="w-full min-h-[44px] px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-teal-500"
-            />
-          </div>
-
-          <!-- Label Malayalam -->
-          <div>
-            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-              Label (Malayalam) <span class="text-xs text-slate-400 font-normal">(Optional)</span>
-            </label>
-            <input
-              v-model="picklistForm.labelMl"
-              type="text"
-              placeholder="e.g. വാട്ട്‌സ്ആപ്പ്"
               class="w-full min-h-[44px] px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-teal-500"
             />
           </div>
@@ -1424,8 +1407,7 @@ const filteredPicklistItems = computed(() => {
   return items.filter(
     (i) =>
       (i.code && i.code.toLowerCase().includes(q)) ||
-      (i.labelEn && i.labelEn.toLowerCase().includes(q)) ||
-      (i.labelMl && i.labelMl.toLowerCase().includes(q))
+      (i.labelEn && i.labelEn.toLowerCase().includes(q))
   );
 });
 
@@ -1668,7 +1650,7 @@ async function savePicklistItem() {
     if (isEditingPicklist.value) {
       const payload: any = {
         labelEn: picklistForm.value.labelEn,
-        labelMl: picklistForm.value.labelMl,
+        labelMl: picklistForm.value.labelEn,
         sort: picklistForm.value.sort,
         active: picklistForm.value.active,
       };
@@ -1685,7 +1667,7 @@ async function savePicklistItem() {
       const payload: any = {
         code: picklistForm.value.code,
         labelEn: picklistForm.value.labelEn,
-        labelMl: picklistForm.value.labelMl,
+        labelMl: picklistForm.value.labelEn,
         sort: picklistForm.value.sort,
         active: picklistForm.value.active,
       };
