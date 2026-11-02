@@ -610,6 +610,26 @@ export async function advanceCaseStage(
   if (input.notStartedReasonId !== undefined) updateData.notStartedReasonId = input.notStartedReasonId;
   if (input.closureCodeId !== undefined) updateData.closureCodeId = input.closureCodeId;
 
+  let isEnteringInpatientTreatment = false;
+  if (input.stage === CaseStages.IN_TREATMENT) {
+    const isInPatient = patientCase.careType === CareTypes.IN_PATIENT || patientCase.advisedAdmission;
+    if (isInPatient) {
+      isEnteringInpatientTreatment = true;
+      updateData.team = 'treatment_followup';
+      updateData.setting = 'inpatient';
+
+      // Sticky assignment: keep current owner if they are already in treatment_followup
+      let followupOwnerId = patientCase.ownerId;
+      if (patientCase.team !== 'treatment_followup') {
+        const roundRobinId = await assignTreatmentFollowupRoundRobin(patientCase.branchId);
+        if (roundRobinId) {
+          followupOwnerId = roundRobinId;
+        }
+      }
+      updateData.ownerId = followupOwnerId;
+    }
+  }
+
   const result = await prisma.$transaction(async (tx: any) => {
     const updated = await tx.case.update({
       where: { id: caseId },
@@ -632,6 +652,27 @@ export async function advanceCaseStage(
       input.stage === CaseStages.COMPLETED
     ) {
       await cancelOpenCadenceTasks(tx, 'case', caseId);
+    }
+
+    // In-Patient Handover to Treatment Follow-up Desk
+    if (isEnteringInpatientTreatment) {
+      await tx.caseHandover.create({
+        data: {
+          caseId,
+          fromTeam: patientCase.team || 'admission',
+          toTeam: 'treatment_followup',
+          fromUserId: user.id,
+          toUserId: updateData.ownerId || patientCase.ownerId,
+          note: input.note || 'In-patient admitted. Handed over to Treatment Follow-up Desk.',
+          at: now,
+        },
+      });
+
+      // Apply inpatient check-in cadence (Day 1, 4, 7, etc.)
+      await applyCadence(tx, 'case', caseId, 'inpatient.checkin', now, {
+        ownerId: updateData.ownerId || patientCase.ownerId || undefined,
+        priority: 'warm',
+      });
     }
 
     // Record stage transition interaction
@@ -661,6 +702,67 @@ export async function advanceCaseStage(
   });
 
   return result;
+}
+
+/**
+ * Assigns a case via round-robin to an active treatment follow-up executive in the branch.
+ */
+export async function assignTreatmentFollowupRoundRobin(branchId: number): Promise<number | null> {
+  const executives = await prisma.user.findMany({
+    where: {
+      status: 'active',
+      available: true,
+      role: { code: 'treatment_followup_executive' },
+      userBranches: { some: { branchId } },
+      userTeams: { some: { team: { code: 'treatment_followup' } } },
+    },
+    select: {
+      id: true,
+      _count: {
+        select: {
+          ownedCases: {
+            where: {
+              team: 'treatment_followup',
+              archivedAt: null,
+            },
+          },
+        },
+      },
+      ownedCases: {
+        where: { archivedAt: null },
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+        select: { createdAt: true },
+      },
+    },
+  });
+
+  if (executives.length === 0) {
+    // Fallback: any active user in treatment_followup team or role
+    const fallback = await prisma.user.findFirst({
+      where: {
+        status: 'active',
+        available: true,
+        OR: [
+          { role: { code: 'treatment_followup_executive' } },
+          { userTeams: { some: { team: { code: 'treatment_followup' } } } },
+        ],
+      },
+      select: { id: true },
+    });
+    return fallback ? fallback.id : null;
+  }
+
+  executives.sort((a: any, b: any) => {
+    const countDiff = a._count.ownedCases - b._count.ownedCases;
+    if (countDiff !== 0) return countDiff;
+
+    const aTime = a.ownedCases[0]?.createdAt.getTime() || 0;
+    const bTime = b.ownedCases[0]?.createdAt.getTime() || 0;
+    return aTime - bTime;
+  });
+
+  return executives[0].id;
 }
 
 /**
@@ -794,6 +896,19 @@ export async function markTreatmentCompleted(
       },
     });
 
+    // Cancel remaining open treatment follow-up tasks on this case BEFORE creating aftercare cadence tasks
+    await tx.task.updateMany({
+      where: {
+        caseId,
+        status: 'open',
+        type: { in: ['call', 'reminder', 'review'] },
+      },
+      data: {
+        status: 'cancelled',
+        updatedAt: now,
+      },
+    });
+
     // Acceptance Test 9: Create aftercare cadence tasks
     // For in-patient: case.aftercare_inpatient (days 2, 7, 30, 90 post-discharge)
     // For OPD/procedure: case.aftercare_opd (days 7, 30, 90 post-treatment)
@@ -803,6 +918,31 @@ export async function markTreatmentCompleted(
     await applyCadence(tx, 'case', caseId, cadenceKey, baseDate, {
       ownerId: newOwnerId || undefined,
       priority: 'warm',
+    });
+
+    // Record handover from Treatment Follow-up to Aftercare Desk
+    await tx.caseHandover.create({
+      data: {
+        caseId,
+        fromTeam: patientCase.team || 'treatment_followup',
+        toTeam: 'aftercare',
+        fromUserId: user.id,
+        toUserId: newOwnerId,
+        note: input.note || 'Treatment marked completed. Handed over to Aftercare Desk.',
+        at: now,
+      },
+    });
+
+    // Close any active or paused schedules on this case
+    await tx.visitSchedule.updateMany({
+      where: {
+        caseId,
+        status: { in: ['active', 'paused'] },
+      },
+      data: {
+        status: 'completed',
+        updatedAt: now,
+      },
     });
 
     // Record status change interaction
@@ -924,4 +1064,33 @@ export async function closeCase(
   });
 
   return result;
+}
+
+/**
+ * Returns the timeline of handovers for a case.
+ */
+export async function getCaseHandovers(caseId: number, user: UserContext): Promise<any[]> {
+  const patientCase = await prisma.case.findFirst({
+    where: {
+      id: caseId,
+      archivedAt: null,
+      ...scopeWhere(user, 'case', Permissions.CASE_VIEW),
+    },
+  });
+
+  if (!patientCase) {
+    const err = new Error('Case not found');
+    (err as any).statusCode = 404;
+    (err as any).code = 'NOT_FOUND';
+    throw err;
+  }
+
+  return prisma.caseHandover.findMany({
+    where: { caseId },
+    include: {
+      fromUser: { select: { id: true, name: true, email: true } },
+      toUser: { select: { id: true, name: true, email: true } },
+    },
+    orderBy: { at: 'desc' },
+  });
 }

@@ -418,6 +418,67 @@ export async function getSupportReport(
   const bookingRate = totalLeads > 0 ? Math.round(((appointmentBookedLeads + visitedLeads) / totalLeads) * 100) : 0;
   const conversionRate = totalLeads > 0 ? Math.round((convertedLeads / totalLeads) * 100) : 0;
 
+  // 14-day Daily Trend
+  const dailyMap: Record<string, { date: string; label: string; leads: number; converted: number; booked: number }> = {};
+  const nowDay = new Date();
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(nowDay.getTime() - i * 24 * 60 * 60 * 1000);
+    const key = d.toISOString().split('T')[0];
+    const label = `${monthNames[d.getMonth()]} ${d.getDate()}`;
+    dailyMap[key] = { date: key, label, leads: 0, converted: 0, booked: 0 };
+  }
+
+  for (const l of leads) {
+    const leadDateKey = l.createdAt.toISOString().split('T')[0];
+    if (dailyMap[leadDateKey]) {
+      dailyMap[leadDateKey].leads++;
+      if (l.status === LeadStatuses.CONVERTED) {
+        dailyMap[leadDateKey].converted++;
+      }
+      if (
+        l.status === LeadStatuses.APPOINTMENT_BOOKED ||
+        l.status === 'visited' ||
+        l.status === LeadStatuses.CONVERTED
+      ) {
+        dailyMap[leadDateKey].booked++;
+      }
+    }
+  }
+
+  const dailyTrend = Object.values(dailyMap);
+
+  // Conversion Funnel
+  const inBookedOrDone = Math.min(totalLeads, appointmentBookedLeads + visitedLeads);
+  const inPipeline = Math.min(totalLeads, inProgressLeads + inBookedOrDone);
+
+  const conversionFunnel = [
+    {
+      stage: 'Total Inquiries',
+      count: totalLeads,
+      percentage: 100,
+      color: 'teal',
+    },
+    {
+      stage: 'Contacted / Qualified',
+      count: inPipeline,
+      percentage: totalLeads > 0 ? Math.min(100, Math.round((inPipeline / totalLeads) * 100)) : 0,
+      color: 'blue',
+    },
+    {
+      stage: 'Consultation Booked',
+      count: inBookedOrDone,
+      percentage: totalLeads > 0 ? Math.min(100, Math.round((inBookedOrDone / totalLeads) * 100)) : 0,
+      color: 'amber',
+    },
+    {
+      stage: 'Converted Patient',
+      count: convertedLeads,
+      percentage: totalLeads > 0 ? Math.min(100, Math.round((convertedLeads / totalLeads) * 100)) : 0,
+      color: 'emerald',
+    },
+  ];
+
   return {
     totalLeads,
     newLeads,
@@ -429,6 +490,8 @@ export async function getSupportReport(
     emergencyRedirects,
     bookingRate,
     conversionRate,
+    dailyTrend,
+    conversionFunnel,
     sla: {
       complianceRate: slaComplianceRate,
       avgResponseMinutes,
@@ -682,3 +745,268 @@ export async function getSourceQualityReport(
     overallDeposits: results.reduce((sum, s) => sum + s.totalDepositCollected, 0),
   };
 }
+
+/**
+ * Treatment Follow-up Manager Dashboard Report
+ */
+export async function getTreatmentFollowupReport(
+  params: { branchId?: number; doctorId?: number; therapyId?: number; from?: string; to?: string },
+  user: UserContext
+) {
+  const caseWhere: any = {
+    archivedAt: null,
+    team: 'treatment_followup',
+    ...scopeWhere(user, 'case', Permissions.FOLLOWUP_REPORT),
+  };
+
+  if (params.branchId) caseWhere.branchId = params.branchId;
+  if (params.doctorId) caseWhere.treatingDoctorId = params.doctorId;
+
+  const cases = await prisma.case.findMany({
+    where: caseWhere,
+    include: {
+      patient: true,
+      branch: true,
+      treatingDoctor: { select: { id: true, name: true } },
+      owner: { select: { id: true, name: true } },
+      schedules: {
+        where: params.therapyId ? { therapyId: params.therapyId } : {},
+        include: {
+          therapy: true,
+          visits: {
+            include: { missedReason: true },
+          },
+        },
+      },
+      treatmentCheckins: true,
+      escalations: {
+        where: { escalationType: { in: ['adherence', 'inpatient_concern'] } },
+      },
+    },
+  });
+
+  const todayStr = new Date().toISOString().split('T')[0];
+  let activeSchedulesCount = 0;
+  let todayVisitsExpected = 0;
+  let todayVisitsAttended = 0;
+  let totalDueVisits = 0;
+  let totalAttendedVisits = 0;
+  let totalMissedVisits = 0;
+  let recoveredWithin24h = 0;
+  const missedReasonCounts: Record<string, { label: string; count: number }> = {};
+  let highRiskCount = 0;
+  let mediumRiskCount = 0;
+  let lowRiskCount = 0;
+  let completedCourses = 0;
+  let droppedOutCourses = 0;
+  let checkinsTotal = 0;
+  let checkinsOnTime = 0;
+  let totalEscalationDecisionMinutes = 0;
+  let decidedEscalationsCount = 0;
+
+  for (const c of cases) {
+    if (c.adherenceRisk === 'high') highRiskCount++;
+    else if (c.adherenceRisk === 'medium') mediumRiskCount++;
+    else lowRiskCount++;
+
+    for (const s of c.schedules) {
+      if (s.status === 'active') activeSchedulesCount++;
+      if (s.status === 'completed') completedCourses++;
+      if (s.status === 'cancelled') droppedOutCourses++;
+
+      for (const v of s.visits) {
+        const vDateStr = v.scheduledDate.toISOString().split('T')[0];
+        if (vDateStr === todayStr) {
+          todayVisitsExpected++;
+          if (v.status === 'attended') todayVisitsAttended++;
+        }
+
+        if (v.status === 'attended' || v.status === 'missed') {
+          totalDueVisits++;
+          if (v.status === 'attended') {
+            totalAttendedVisits++;
+          } else {
+            totalMissedVisits++;
+            const reasonKey = v.missedReason?.code || 'other';
+            const reasonLabel = v.missedReason?.labelEn || 'Other';
+            if (!missedReasonCounts[reasonKey]) {
+              missedReasonCounts[reasonKey] = { label: reasonLabel, count: 0 };
+            }
+            missedReasonCounts[reasonKey].count++;
+
+            // Check if there is an attended visit or interaction within 24h
+            const vTime = v.scheduledDate.getTime();
+            const hasRecovery = s.visits.some(
+              (other: any) =>
+                other.status === 'attended' &&
+                other.scheduledDate.getTime() > vTime &&
+                other.scheduledDate.getTime() <= vTime + 24 * 60 * 60 * 1000
+            );
+            if (hasRecovery) recoveredWithin24h++;
+          }
+        }
+      }
+    }
+
+    // In-patient check-ins
+    for (const chk of c.treatmentCheckins) {
+      checkinsTotal++;
+      if (chk.nextCheckinAt && chk.occurredAt <= chk.nextCheckinAt) {
+        checkinsOnTime++;
+      } else {
+        checkinsOnTime++;
+      }
+    }
+
+    // Escalations
+    for (const esc of c.escalations) {
+      if (esc.decidedAt) {
+        const diffMins = Math.round((esc.decidedAt.getTime() - esc.createdAt.getTime()) / (1000 * 60));
+        totalEscalationDecisionMinutes += diffMins;
+        decidedEscalationsCount++;
+      }
+    }
+  }
+
+  const attendanceRate = totalDueVisits > 0 ? Math.round((totalAttendedVisits / totalDueVisits) * 100 * 10) / 10 : 100;
+  const recoveryRate = totalMissedVisits > 0 ? Math.round((recoveredWithin24h / totalMissedVisits) * 100 * 10) / 10 : 0;
+  const avgDecisionTimeMinutes =
+    decidedEscalationsCount > 0 ? Math.round(totalEscalationDecisionMinutes / decidedEscalationsCount) : 0;
+
+  return {
+    activeSchedulesCount,
+    todayVisitsExpected,
+    todayVisitsAttended,
+    attendanceRate,
+    totalMissedVisits,
+    recoveredWithin24h,
+    recoveryRate,
+    riskSummary: {
+      high: highRiskCount,
+      medium: mediumRiskCount,
+      low: lowRiskCount,
+    },
+    missedReasons: Object.values(missedReasonCounts),
+    completedCourses,
+    droppedOutCourses,
+    checkinsTotal,
+    checkinsOnTime,
+    avgDecisionTimeMinutes,
+    totalCases: cases.length,
+  };
+}
+
+/**
+ * Adherence Report: detailed patient risk list & cohort metrics
+ */
+export async function getAdherenceReport(
+  params: { branchId?: number; doctorId?: number; risk?: string; from?: string; to?: string },
+  user: UserContext
+) {
+  const where: any = {
+    archivedAt: null,
+    team: 'treatment_followup',
+    ...scopeWhere(user, 'case', Permissions.FOLLOWUP_REPORT),
+  };
+
+  if (params.branchId) where.branchId = params.branchId;
+  if (params.doctorId) where.treatingDoctorId = params.doctorId;
+  if (params.risk) where.adherenceRisk = params.risk;
+
+  const cases = await prisma.case.findMany({
+    where,
+    include: {
+      patient: true,
+      branch: true,
+      treatingDoctor: { select: { id: true, name: true } },
+      owner: { select: { id: true, name: true } },
+      schedules: {
+        include: { therapy: true },
+      },
+    },
+    orderBy: [{ consecutiveMissed: 'desc' }, { attendanceRate: 'asc' }],
+  });
+
+  return {
+    cases: cases.map((c) => ({
+      id: c.id,
+      patientName: c.patient.name,
+      patientCode: c.patient.patientCode,
+      mobile: c.patient.mobileNorm,
+      branchName: c.branch.name,
+      doctorName: c.treatingDoctor?.name || 'Unassigned',
+      ownerName: c.owner?.name || 'Unassigned',
+      adherenceRisk: c.adherenceRisk,
+      attendanceRate: c.attendanceRate ? Number(c.attendanceRate) : 100,
+      consecutiveMissed: c.consecutiveMissed,
+      lastAttendedAt: c.lastAttendedAt,
+      nextVisitAt: c.nextVisitAt,
+      setting: c.setting,
+      schedulesCount: c.schedules.length,
+    })),
+    totalCount: cases.length,
+  };
+}
+
+/**
+ * Missed Reasons Report: counts and percentages per missed reason code
+ */
+export async function getMissedReasonsReport(
+  params: { branchId?: number; therapyId?: number; from?: string; to?: string },
+  user: UserContext
+) {
+  const where: any = {
+    status: 'missed',
+  };
+
+  if (params.branchId) {
+    where.case = { branchId: params.branchId };
+  } else if (user.roleCode !== 'owner' && user.roleCode !== 'admin') {
+    where.case = { branchId: { in: user.branchIds } };
+  }
+
+  if (params.therapyId) {
+    where.schedule = { therapyId: params.therapyId };
+  }
+
+  if (params.from || params.to) {
+    where.scheduledDate = {};
+    if (params.from) where.scheduledDate.gte = new Date(params.from);
+    if (params.to) where.scheduledDate.lte = new Date(params.to);
+  }
+
+  const visits = await prisma.scheduledVisit.findMany({
+    where,
+    include: {
+      missedReason: true,
+      schedule: { include: { therapy: true } },
+    },
+  });
+
+  const reasonMap: Record<string, { code: string; labelEn: string; labelMl: string; count: number }> = {};
+
+  for (const v of visits) {
+    const code = v.missedReason?.code || 'other';
+    const labelEn = v.missedReason?.labelEn || 'Other';
+    const labelMl = v.missedReason?.labelMl || 'മറ്റുള്ളവ';
+
+    if (!reasonMap[code]) {
+      reasonMap[code] = { code, labelEn, labelMl, count: 0 };
+    }
+    reasonMap[code].count++;
+  }
+
+  const total = visits.length;
+  const reasons = Object.values(reasonMap).map((r) => ({
+    ...r,
+    percentage: total > 0 ? Math.round((r.count / total) * 100 * 10) / 10 : 0,
+  }));
+
+  reasons.sort((a, b) => b.count - a.count);
+
+  return {
+    reasons,
+    totalMissedVisits: total,
+  };
+}
+

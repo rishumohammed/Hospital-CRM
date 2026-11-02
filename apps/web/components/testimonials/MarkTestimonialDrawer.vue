@@ -12,11 +12,11 @@
       <!-- Drawer Header -->
       <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900/80 rounded-t-3xl md:rounded-none">
         <div class="flex items-center space-x-3">
-          <div class="w-10 h-10 rounded-xl bg-teal-100 dark:bg-teal-950 text-teal-700 dark:text-teal-300 flex items-center justify-center font-bold text-lg">
+          <div class="w-10 h-10 rounded-xl bg-teal-100 dark:bg-teal-950 text-teal-700 dark:text-teal-300 flex items-center justify-center font-semibold text-lg">
             📜
           </div>
           <div>
-            <h2 class="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+            <h2 class="text-base sm:text-lg font-semibold text-slate-900 dark:text-white">
               {{ t('testimonials.mark_sent_title') }}
             </h2>
             <p class="text-xs text-slate-500 dark:text-slate-400">
@@ -41,7 +41,7 @@
           v-if="errorMessage"
           class="p-4 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-xs font-medium space-y-1"
         >
-          <div class="flex items-center gap-1.5 font-bold">
+          <div class="flex items-center gap-1.5 font-semibold">
             <span>⚠️</span>
             <span>Error</span>
           </div>
@@ -50,7 +50,7 @@
 
         <!-- 1. Channel Selector: Large Radio Buttons -->
         <div>
-          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
             {{ t('testimonials.send_channel') }}
           </label>
           <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
@@ -77,7 +77,7 @@
                   <span v-if="selectedChannel === ch.value" class="w-1.5 h-1.5 rounded-full bg-white"></span>
                 </span>
               </div>
-              <span class="text-xs font-bold mt-2 truncate">{{ ch.label }}</span>
+              <span class="text-xs font-semibold mt-2 truncate">{{ ch.label }}</span>
             </button>
           </div>
         </div>
@@ -87,14 +87,14 @@
           v-if="isConsentMissing"
           class="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 space-y-2"
         >
-          <div class="flex items-center gap-2 font-bold text-xs">
+          <div class="flex items-center gap-2 font-semibold text-xs">
             <span class="text-base">⚠️</span>
             <span>{{ t('testimonials.consent_missing_warning', { channel: selectedChannel.toUpperCase() }) }}</span>
           </div>
 
           <!-- Supervisor Override Field -->
           <div v-if="canOverride" class="pt-2 border-t border-amber-200 dark:border-amber-800/80 space-y-1.5">
-            <label class="block text-xs font-bold text-amber-950 dark:text-amber-200">
+            <label class="block text-xs font-semibold text-amber-950 dark:text-amber-200">
               {{ t('testimonials.override_reason') }}
             </label>
             <input
@@ -115,11 +115,11 @@
           class="p-4 rounded-xl bg-teal-50/70 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800/80 space-y-3"
         >
           <div class="flex items-center justify-between">
-            <span class="text-xs font-bold text-teal-900 dark:text-teal-200 flex items-center gap-1.5">
+            <span class="text-xs font-semibold text-teal-900 dark:text-teal-200 flex items-center gap-1.5">
               <span>💬</span>
               <span>WhatsApp Prefilled Message</span>
             </span>
-            <span class="text-[11px] font-mono px-2 py-0.5 rounded bg-teal-100 dark:bg-teal-900/60 text-teal-800 dark:text-teal-200 font-bold">
+            <span class="text-[11px] font-mono px-2 py-0.5 rounded bg-teal-100 dark:bg-teal-900/60 text-teal-800 dark:text-teal-200 font-semibold">
               Includes Mandatory Disclaimer
             </span>
           </div>
@@ -133,7 +133,7 @@
           <button
             type="button"
             :disabled="isConsentMissing && (!canOverride || !overrideReason.trim())"
-            class="w-full py-2.5 px-4 rounded-xl bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-all"
+            class="w-full py-2.5 px-4 rounded-xl bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-semibold text-xs flex items-center justify-center gap-2 shadow-xs transition-all"
             @click="handleOpenWhatsApp"
           >
             <span>📱</span>
@@ -144,7 +144,7 @@
         <!-- 2. Testimonial Library Picker -->
         <div>
           <div class="flex items-center justify-between mb-2">
-            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
               {{ t('testimonials.select_items') }} ({{ selectedTestimonialIds.length }} selected)
             </label>
             <button
@@ -193,14 +193,14 @@
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2 flex-wrap">
                   <span class="text-sm">{{ getTypeIcon(item.type) }}</span>
-                  <span class="font-bold text-xs text-slate-900 dark:text-slate-100 truncate">
+                  <span class="font-semibold text-xs text-slate-900 dark:text-slate-100 truncate">
                     {{ item.title }}
                   </span>
-                  <span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                  <span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold uppercase bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
                     {{ item.language }}
                   </span>
                   <span v-if="item.department" class="px-1.5 py-0.5 rounded text-[10px] bg-teal-50 dark:bg-teal-950 text-teal-700 dark:text-teal-300 font-medium">
-                    {{ locale === 'ml' ? item.department.labelMl : item.department.labelEn }}
+                    {{ item.department.labelEn }}
                   </span>
                 </div>
                 <p class="text-xs text-slate-600 dark:text-slate-400 mt-1 line-clamp-2 leading-relaxed">
@@ -223,7 +223,7 @@
         <!-- 3. Note & Sent Time -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
               {{ t('testimonials.sent_at') }}
             </label>
             <input
@@ -233,7 +233,7 @@
             />
           </div>
           <div>
-            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
               {{ t('testimonials.notes_optional') }}
             </label>
             <input
@@ -251,7 +251,7 @@
       <div class="p-4 sm:p-5 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/90 flex items-center justify-end gap-3">
         <button
           type="button"
-          class="min-h-[44px] px-5 py-2 rounded-xl border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold transition-colors"
+          class="min-h-[44px] px-5 py-2 rounded-xl border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold transition-colors"
           @click="close"
         >
           {{ t('common.cancel') }}
@@ -260,7 +260,7 @@
         <button
           type="button"
           :disabled="isSubmitting || selectedTestimonialIds.length === 0 || (isConsentMissing && (!canOverride || !overrideReason.trim()))"
-          class="min-h-[44px] px-6 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold shadow-md shadow-teal-600/20 transition-all flex items-center gap-2"
+          class="min-h-[44px] px-6 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold shadow-md shadow-teal-600/20 transition-all flex items-center gap-2"
           @click="submitSend"
         >
           <span v-if="isSubmitting" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
@@ -281,7 +281,7 @@
         </div>
 
         <div>
-          <h3 class="text-lg font-bold text-slate-900 dark:text-white">
+          <h3 class="text-lg font-semibold text-slate-900 dark:text-white">
             {{ t('testimonials.whatsapp_confirm_title') }}
           </h3>
           <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
@@ -292,7 +292,7 @@
         <div class="grid grid-cols-2 gap-3 pt-2">
           <button
             type="button"
-            class="min-h-[44px] px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold"
+            class="min-h-[44px] px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold"
             @click="showWhatsAppConfirmSheet = false"
           >
             {{ t('testimonials.whatsapp_confirm_no') }}
@@ -300,7 +300,7 @@
           <button
             type="button"
             :disabled="isSubmitting"
-            class="min-h-[44px] px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-sm"
+            class="min-h-[44px] px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold shadow-sm"
             @click="submitSend"
           >
             {{ t('testimonials.whatsapp_confirm_yes') }}
@@ -401,11 +401,7 @@ function updateWhatsAppMessage() {
   const selectedItem = library.value.find((i) => selectedTestimonialIds.value.includes(i.id));
   const link = selectedItem ? selectedItem.url : 'https://example.com/testimonials';
 
-  if (props.lead?.language === 'ml' || locale.value === 'ml') {
-    whatsappMessage.value = `നമസ്കാരം ${patientName}, ഞാൻ ${centerName}-ൽ നിന്ന് ${callerName} ആണ്. ഞങ്ങളുടെ ഒരു രോഗിയുടെ അനുഭവം അവരുടെ അനുമതിയോടെ പങ്കിടുന്നു: ${link}. ഫലം ഓരോ വ്യക്തിക്കും വ്യത്യസ്തമായിരിക്കും. ദയവായി ഒരു ഡോക്ടറെ സമീപിക്കുക. ഞങ്ങൾക്ക് സഹായിക്കാൻ സന്തോഷമേയുള്ളൂ. ഡോക്ടറുമായി എപ്പോൾ സംസാരിക്കാൻ കഴിയും?`;
-  } else {
-    whatsappMessage.value = `Hello ${patientName}, this is ${callerName} from ${centerName}. Here is the experience of one of our patients, shared with their permission: ${link}. Results vary from person to person. Please consult a doctor. We would be glad to help you. When would you like to speak to our doctor?`;
-  }
+  whatsappMessage.value = `Hello ${patientName}, this is ${callerName} from ${centerName}. Here is the experience of one of our patients, shared with their permission: ${link}. Results vary from person to person. Please consult a doctor. We would be glad to help you. When would you like to speak to our doctor?`;
 }
 
 watch(

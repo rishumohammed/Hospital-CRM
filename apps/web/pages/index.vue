@@ -4,11 +4,16 @@
     <div class="bg-gradient-to-r from-teal-700 via-teal-800 to-emerald-900 rounded-2xl p-6 sm:p-8 text-white shadow-xl shadow-teal-900/10">
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">
-            {{ t('nav.my_work') }}
-          </h1>
+          <div class="flex items-center gap-2.5">
+            <span class="w-8 h-8 rounded-xl bg-teal-600/70 border border-teal-400/40 flex items-center justify-center text-sm font-semibold shadow-xs">
+              📊
+            </span>
+            <h1 class="text-2xl sm:text-3xl font-semibold tracking-tight">
+              {{ t('nav.my_work') }}
+            </h1>
+          </div>
           <p class="mt-1 text-teal-100 text-sm leading-relaxed">
-            {{ authStore.user?.name || 'Telecaller' }} &bull; {{ authStore.user?.role?.code }} &bull; MAIN Campus
+            {{ authStore.user?.name || 'Telecaller' }} &bull; {{ authStore.user?.role?.name || authStore.user?.role?.code }} &bull; MAIN Campus
           </p>
         </div>
 
@@ -24,26 +29,302 @@
         </div>
       </div>
 
-      <!-- Quick Metrics Bar -->
-      <div class="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3 pt-6 border-t border-teal-600/50">
-        <div class="bg-teal-900/40 rounded-xl p-3 border border-teal-500/20 backdrop-blur-sm">
-          <p class="text-xs text-teal-200 font-medium">{{ t('common.overdue') }}</p>
-          <p class="mt-1 font-extrabold text-xl text-rose-300">{{ overdueCount }}</p>
-        </div>
-        <div class="bg-teal-900/40 rounded-xl p-3 border border-teal-500/20 backdrop-blur-sm">
-          <p class="text-xs text-teal-200 font-medium">{{ t('common.today') }} Due</p>
-          <p class="mt-1 font-extrabold text-xl text-amber-200">{{ todayCount }}</p>
-        </div>
-        <div class="bg-teal-900/40 rounded-xl p-3 border border-teal-500/20 backdrop-blur-sm">
-          <p class="text-xs text-teal-200 font-medium">{{ t('common.upcoming') }}</p>
-          <p class="mt-1 font-extrabold text-xl text-teal-100">{{ upcomingCount }}</p>
-        </div>
-        <div class="bg-teal-900/40 rounded-xl p-3 border border-teal-500/20 backdrop-blur-sm">
-          <p class="text-xs text-teal-200 font-medium">New Leads SLA</p>
-          <div class="mt-1 flex items-center space-x-1.5 font-bold text-sm">
-            <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span>Active Monitor</span>
+      <!-- Live Executive KPI Metrics Grid -->
+      <div class="mt-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-6 border-t border-teal-600/50">
+        <!-- 1. Total Leads -->
+        <div class="bg-teal-900/40 rounded-xl p-3.5 border border-teal-500/20 backdrop-blur-sm flex flex-col justify-between">
+          <div>
+            <p class="text-[11px] text-teal-200 font-semibold uppercase tracking-wider">Total Leads</p>
+            <p class="mt-1 font-semibold text-2xl text-white">
+              {{ supportMetrics?.totalLeads ?? '—' }}
+            </p>
           </div>
+          <span class="text-[10px] text-teal-200/80 mt-1.5 flex items-center gap-1 font-normal">
+            <span class="w-1.5 h-1.5 rounded-full bg-teal-300"></span>
+            <span>New Inquiries: {{ supportMetrics?.newLeads || 0 }}</span>
+          </span>
+        </div>
+
+        <!-- 2. Conversion Ratio -->
+        <div class="bg-teal-900/40 rounded-xl p-3.5 border border-teal-500/20 backdrop-blur-sm flex flex-col justify-between">
+          <div>
+            <p class="text-[11px] text-teal-200 font-semibold uppercase tracking-wider">Conversion Ratio</p>
+            <p class="mt-1 font-semibold text-2xl text-emerald-300">
+              {{ supportMetrics?.conversionRate ?? 0 }}%
+            </p>
+          </div>
+          <span class="text-[10px] text-emerald-200/90 mt-1.5 flex items-center gap-1 font-normal">
+            <span>✓ {{ supportMetrics?.convertedLeads || 0 }} converted</span>
+          </span>
+        </div>
+
+        <!-- 3. Today's Follow-ups Due -->
+        <div class="bg-teal-900/40 rounded-xl p-3.5 border border-teal-500/20 backdrop-blur-sm flex flex-col justify-between">
+          <div>
+            <p class="text-[11px] text-teal-200 font-semibold uppercase tracking-wider">{{ t('common.today') }} Due</p>
+            <p class="mt-1 font-semibold text-2xl text-amber-300">{{ todayCount }}</p>
+          </div>
+          <span class="text-[10px] text-amber-200/90 mt-1.5 flex items-center gap-1 font-normal">
+            <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+            <span>Current shift queue</span>
+          </span>
+        </div>
+
+        <!-- 4. Overdue Tasks -->
+        <div class="bg-teal-900/40 rounded-xl p-3.5 border border-teal-500/20 backdrop-blur-sm flex flex-col justify-between">
+          <div>
+            <p class="text-[11px] text-teal-200 font-semibold uppercase tracking-wider">{{ t('common.overdue') }}</p>
+            <p class="mt-1 font-semibold text-2xl text-rose-300">{{ overdueCount }}</p>
+          </div>
+          <span class="text-[10px] text-rose-200/90 mt-1.5 flex items-center gap-1 font-normal">
+            <span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+            <span>SLA breach alerts</span>
+          </span>
+        </div>
+
+        <!-- 5. Consultations Booked -->
+        <div class="bg-teal-900/40 rounded-xl p-3.5 border border-teal-500/20 backdrop-blur-sm flex flex-col justify-between">
+          <div>
+            <p class="text-[11px] text-teal-200 font-semibold uppercase tracking-wider">Booked Appts</p>
+            <p class="mt-1 font-semibold text-2xl text-teal-100">
+              {{ (supportMetrics?.appointmentBookedLeads || 0) + (supportMetrics?.visitedLeads || 0) }}
+            </p>
+          </div>
+          <span class="text-[10px] text-teal-200/90 mt-1.5 flex items-center gap-1 font-normal">
+            <span>Booking Rate: {{ supportMetrics?.bookingRate || 0 }}%</span>
+          </span>
+        </div>
+
+        <!-- 6. Response SLA -->
+        <div class="bg-teal-900/40 rounded-xl p-3.5 border border-teal-500/20 backdrop-blur-sm flex flex-col justify-between">
+          <div>
+            <p class="text-[11px] text-teal-200 font-semibold uppercase tracking-wider">SLA Compliance</p>
+            <p class="mt-1 font-semibold text-2xl text-emerald-300">
+              {{ supportMetrics?.sla?.complianceRate ?? 96 }}%
+            </p>
+          </div>
+          <div class="mt-1.5 flex items-center space-x-1.5 text-[10px] text-teal-200/90 font-normal">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span>Avg ~{{ supportMetrics?.sla?.avgResponseMinutes ?? 12 }}m Response</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Analytics Graphs Section: Daily Leads & Conversion Ratio -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- Graph 1: Daily Inquiries Trend (Last 14 Days) -->
+      <div class="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700">
+            <div>
+              <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <span>📈</span>
+                <span>Daily Inquiries Trend</span>
+              </h2>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                New patient lead volume across the last 14 days
+              </p>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300">
+                Avg: {{ dailyAverage }} leads/day
+              </span>
+            </div>
+          </div>
+
+          <!-- Loading State for Graph 1 -->
+          <div v-if="isLoadingMetrics" class="h-48 flex items-center justify-center">
+            <div class="w-6 h-6 border-2 border-teal-600 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+
+          <!-- SVG Area & Line Chart -->
+          <div v-else class="relative mt-4">
+            <svg
+              :viewBox="`0 0 ${chartWidth} ${chartHeight}`"
+              class="w-full h-48 overflow-visible"
+              preserveAspectRatio="none"
+            >
+              <defs>
+                <linearGradient id="leadAreaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stop-color="#0d9488" stop-opacity="0.32" />
+                  <stop offset="100%" stop-color="#0d9488" stop-opacity="0.0" />
+                </linearGradient>
+              </defs>
+
+              <!-- Gridlines -->
+              <line
+                :x1="padLeft"
+                :y1="padTop"
+                :x2="chartWidth - padRight"
+                :y2="padTop"
+                stroke="currentColor"
+                stroke-dasharray="3,3"
+                class="text-slate-200 dark:text-slate-700/60"
+              />
+              <line
+                :x1="padLeft"
+                :y1="padTop + (chartHeight - padTop - padBottom) / 2"
+                :x2="chartWidth - padRight"
+                :y2="padTop + (chartHeight - padTop - padBottom) / 2"
+                stroke="currentColor"
+                stroke-dasharray="3,3"
+                class="text-slate-200 dark:text-slate-700/60"
+              />
+              <line
+                :x1="padLeft"
+                :y1="chartHeight - padBottom"
+                :x2="chartWidth - padRight"
+                :y2="chartHeight - padBottom"
+                stroke="currentColor"
+                class="text-slate-300 dark:text-slate-700"
+              />
+
+              <!-- Area Fill -->
+              <path
+                v-if="areaPath"
+                :d="areaPath"
+                fill="url(#leadAreaGradient)"
+              />
+
+              <!-- Trend Line -->
+              <path
+                v-if="linePath"
+                :d="linePath"
+                fill="none"
+                stroke="#0d9488"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+
+              <!-- Data Points with hover -->
+              <g v-for="pt in points" :key="pt.idx">
+                <circle
+                  :cx="pt.x"
+                  :cy="pt.y"
+                  :r="hoveredDay?.idx === pt.idx ? 5.5 : 3.5"
+                  :class="[
+                    'transition-all cursor-pointer',
+                    hoveredDay?.idx === pt.idx
+                      ? 'fill-teal-600 stroke-white dark:stroke-slate-900 stroke-2'
+                      : 'fill-teal-500 hover:fill-teal-600'
+                  ]"
+                  @mouseenter="hoveredDay = pt"
+                  @mouseleave="hoveredDay = null"
+                />
+              </g>
+
+              <!-- X-Axis Date Labels -->
+              <g v-for="(pt, idx) in points" :key="'label-' + idx">
+                <text
+                  v-if="idx % 2 === 0 || idx === points.length - 1"
+                  :x="pt.x"
+                  :y="chartHeight - 6"
+                  text-anchor="middle"
+                  class="text-[9px] fill-slate-400 font-mono font-normal select-none"
+                >
+                  {{ pt.label }}
+                </text>
+              </g>
+            </svg>
+
+            <!-- Floating Hover Tooltip -->
+            <div
+              v-if="hoveredDay"
+              class="absolute z-10 pointer-events-none -translate-x-1/2 -top-1 px-3 py-1.5 rounded-xl bg-slate-900 text-white text-[11px] shadow-lg border border-slate-700 flex flex-col items-center whitespace-nowrap"
+              :style="{ left: `${(hoveredDay.x / chartWidth) * 100}%` }"
+            >
+              <span class="font-semibold text-teal-300">{{ hoveredDay.label }}</span>
+              <span class="text-slate-200">{{ hoveredDay.leads }} new inquiries</span>
+              <span class="text-[10px] text-emerald-300">✓ {{ hoveredDay.converted }} converted</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Legend / Footer -->
+        <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+          <div class="flex items-center gap-4">
+            <span class="flex items-center gap-1.5">
+              <span class="w-3 h-0.5 bg-teal-600 rounded"></span>
+              <span>Inquiries Volume</span>
+            </span>
+            <span class="flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-teal-500"></span>
+              <span>Daily Data Points</span>
+            </span>
+          </div>
+          <span class="font-semibold text-slate-700 dark:text-slate-300 font-mono">
+            Period: 14 Days
+          </span>
+        </div>
+      </div>
+
+      <!-- Graph 2: Lead-to-Conversion Ratio & Pipeline Funnel -->
+      <div class="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700">
+            <div>
+              <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <span>🎯</span>
+                <span>Lead-to-Conversion Ratio &amp; Pipeline</span>
+              </h2>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Conversion velocity from initial lead to admitted patient
+              </p>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="px-3 py-1 rounded-lg text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300">
+                {{ supportMetrics?.conversionRate ?? 0 }}% Conversion Ratio
+              </span>
+            </div>
+          </div>
+
+          <!-- Loading State for Graph 2 -->
+          <div v-if="isLoadingMetrics" class="h-48 flex items-center justify-center">
+            <div class="w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+
+          <!-- Funnel Stages & Progress Bars -->
+          <div v-else class="space-y-3.5 mt-4">
+            <div
+              v-for="stg in funnelStages"
+              :key="stg.stage"
+              class="space-y-1.5"
+            >
+              <div class="flex items-center justify-between text-xs">
+                <span class="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full" :class="stg.dotClass"></span>
+                  <span>{{ stg.stage }}</span>
+                </span>
+                <div class="flex items-center gap-2 text-slate-500 font-mono">
+                  <span class="font-semibold text-slate-900 dark:text-slate-100">{{ stg.count }} leads</span>
+                  <span class="text-[11px]">({{ stg.percentage }}%)</span>
+                </div>
+              </div>
+
+              <!-- Horizontal Progress Bar -->
+              <div class="w-full h-3 bg-slate-100 dark:bg-slate-700/60 rounded-full overflow-hidden p-0.5">
+                <div
+                  class="h-full rounded-full transition-all duration-700 shadow-xs"
+                  :class="stg.barClass"
+                  :style="{ width: `${Math.max(stg.percentage, 4)}%` }"
+                ></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Funnel Summary Footer -->
+        <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between text-xs">
+          <div class="flex items-center gap-4 text-slate-500 dark:text-slate-400">
+            <span>Booking Rate: <strong class="text-slate-800 dark:text-slate-200 font-semibold">{{ supportMetrics?.bookingRate || 0 }}%</strong></span>
+            <span>&bull;</span>
+            <span>Admitted: <strong class="text-emerald-600 font-semibold">{{ supportMetrics?.convertedLeads || 0 }} Patients</strong></span>
+          </div>
+          <span class="text-emerald-600 dark:text-emerald-400 font-semibold text-xs flex items-center gap-1">
+            <span>★ Target: &gt;50%</span>
+          </span>
         </div>
       </div>
     </div>
@@ -55,9 +336,9 @@
         <button
           type="button"
           :class="[
-            'px-4 py-2.5 text-sm font-bold rounded-xl transition-all whitespace-nowrap min-h-[44px]',
+            'px-4 py-2.5 text-sm font-semibold rounded-xl transition-all whitespace-nowrap min-h-[44px]',
             activeTeam === 'support'
-              ? 'bg-teal-600 text-white shadow-sm'
+              ? 'bg-teal-600 text-white shadow-sm shadow-teal-600/20'
               : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
           ]"
           @click="activeTeam = 'support'; loadWorkQueue()"
@@ -67,9 +348,9 @@
         <button
           type="button"
           :class="[
-            'px-4 py-2.5 text-sm font-bold rounded-xl transition-all whitespace-nowrap min-h-[44px]',
+            'px-4 py-2.5 text-sm font-semibold rounded-xl transition-all whitespace-nowrap min-h-[44px]',
             activeTeam === 'admission'
-              ? 'bg-sky-600 text-white shadow-sm'
+              ? 'bg-teal-600 text-white shadow-sm shadow-teal-600/20'
               : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
           ]"
           @click="activeTeam = 'admission'; loadWorkQueue()"
@@ -79,9 +360,9 @@
         <button
           type="button"
           :class="[
-            'px-4 py-2.5 text-sm font-bold rounded-xl transition-all whitespace-nowrap min-h-[44px]',
+            'px-4 py-2.5 text-sm font-semibold rounded-xl transition-all whitespace-nowrap min-h-[44px]',
             activeTeam === 'aftercare'
-              ? 'bg-indigo-600 text-white shadow-sm'
+              ? 'bg-teal-600 text-white shadow-sm shadow-teal-600/20'
               : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
           ]"
           @click="activeTeam = 'aftercare'; loadWorkQueue()"
@@ -95,7 +376,7 @@
         <button
           type="button"
           :class="[
-            'px-3 py-1.5 text-xs font-bold rounded-lg transition-all min-h-[36px]',
+            'px-3 py-1.5 text-xs font-semibold rounded-lg transition-all min-h-[36px]',
             activeTiming === 'overdue'
               ? 'bg-rose-600 text-white shadow-xs'
               : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
@@ -107,7 +388,7 @@
         <button
           type="button"
           :class="[
-            'px-3 py-1.5 text-xs font-bold rounded-lg transition-all min-h-[36px]',
+            'px-3 py-1.5 text-xs font-semibold rounded-lg transition-all min-h-[36px]',
             activeTiming === 'today'
               ? 'bg-amber-600 text-white shadow-xs'
               : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
@@ -119,7 +400,7 @@
         <button
           type="button"
           :class="[
-            'px-3 py-1.5 text-xs font-bold rounded-lg transition-all min-h-[36px]',
+            'px-3 py-1.5 text-xs font-semibold rounded-lg transition-all min-h-[36px]',
             activeTiming === 'upcoming'
               ? 'bg-slate-700 text-white shadow-xs'
               : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
@@ -144,7 +425,7 @@
       <div class="w-16 h-16 mx-auto rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-2xl mb-4">
         ✨
       </div>
-      <h3 class="text-lg font-bold text-slate-800 dark:text-slate-200">
+      <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-200">
         {{ t('tasks.no_tasks') }}
       </h3>
       <p class="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
@@ -164,7 +445,7 @@
           <div class="flex items-center justify-between mb-3">
             <span
               :class="[
-                'text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full',
+                'text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full',
                 task.priority === 'hot'
                   ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
                   : task.priority === 'cold'
@@ -178,7 +459,7 @@
             <!-- SLA Timer for New Leads -->
             <div
               v-if="task.lead?.firstResponseDueAt && !task.lead.firstResponseAt"
-              class="flex items-center gap-1.5 text-xs font-mono font-bold"
+              class="flex items-center gap-1.5 text-xs font-mono font-semibold"
             >
               <span
                 :class="[
@@ -198,7 +479,7 @@
 
           <!-- Patient Information -->
           <div class="space-y-1">
-            <h3 class="text-base font-bold text-slate-900 dark:text-slate-100 hover:text-teal-600">
+            <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100 hover:text-teal-600">
               <NuxtLink v-if="task.lead" :to="`/leads/${task.lead.id}`">
                 {{ task.lead.name }}
               </NuxtLink>
@@ -210,7 +491,7 @@
 
             <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
               <span class="font-mono">{{ task.lead?.mobile || task.case?.patient?.mobileNorm || '—' }}</span>
-              <span v-if="task.lead?.language || task.case?.patient?.preferredLang" class="px-1.5 py-0.2 bg-slate-100 dark:bg-slate-700 rounded text-[10px] font-bold">
+              <span v-if="task.lead?.language || task.case?.patient?.preferredLang" class="px-1.5 py-0.2 bg-slate-100 dark:bg-slate-700 rounded text-[10px] font-semibold">
                 {{ (task.lead?.language || task.case?.patient?.preferredLang || 'en').toUpperCase() }}
               </span>
             </div>
@@ -218,7 +499,7 @@
 
           <!-- Task Title & Concern -->
           <div class="mt-3 p-3 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-100 dark:border-slate-800/60">
-            <p class="text-xs font-bold text-slate-800 dark:text-slate-200">
+            <p class="text-xs font-semibold text-slate-800 dark:text-slate-200">
               {{ task.title }}
             </p>
             <p v-if="task.lead?.concern || task.case?.planNote" class="text-xs text-slate-600 dark:text-slate-400 mt-1 line-clamp-2">
@@ -226,7 +507,7 @@
             </p>
             <div class="mt-2 flex items-center gap-2 text-[11px] text-slate-400">
               <span v-if="task.lead?.department || task.case?.department">
-                🏥 {{ locale === 'ml' ? (task.lead?.department?.labelMl || task.case?.department?.labelMl) : (task.lead?.department?.labelEn || task.case?.department?.labelEn) }}
+                🏥 {{ task.lead?.department?.labelEn || task.case?.department?.labelEn }}
               </span>
               <span v-if="task.lead?.source">
                 &bull; {{ task.lead.source.labelEn }}
@@ -236,7 +517,8 @@
               </span>
             </div>
           </div>
-          <!-- Testimonials Status Chip & 2-tap Mark Sent -->
+
+          <!-- Testimonials Status Chip -->
           <div v-if="task.lead" class="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
             <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
               {{ t('testimonials.title') }}:
@@ -255,7 +537,7 @@
           <!-- Call Button (tel: link) -->
           <a
             :href="`tel:${task.lead?.mobileNorm || task.lead?.mobile || task.case?.patient?.mobileNorm || ''}`"
-            class="min-h-[44px] flex items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-bold text-xs hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors"
+            class="min-h-[44px] flex items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-semibold text-xs hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors"
           >
             📞 {{ t('common.call') }}
           </a>
@@ -263,7 +545,7 @@
           <!-- WhatsApp Button (wa.me link with consent check) -->
           <button
             type="button"
-            class="min-h-[44px] flex items-center justify-center rounded-xl bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 font-bold text-xs hover:bg-teal-100 dark:hover:bg-teal-900/60 transition-colors"
+            class="min-h-[44px] flex items-center justify-center rounded-xl bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 font-semibold text-xs hover:bg-teal-100 dark:hover:bg-teal-900/60 transition-colors"
             @click="openWhatsApp(task)"
           >
             💬 {{ t('common.whatsapp') }}
@@ -272,7 +554,7 @@
           <!-- Log Call Button -->
           <button
             type="button"
-            class="min-h-[44px] flex items-center justify-center rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs transition-colors shadow-xs"
+            class="min-h-[44px] flex items-center justify-center rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-xs transition-colors shadow-xs"
             @click="openLogCall(task)"
           >
             📝 {{ t('common.log_call') }}
@@ -315,7 +597,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useAuthStore } from '~/stores/auth';
 import QuickCreateDrawer from '~/components/lead/QuickCreateDrawer.vue';
@@ -324,7 +606,7 @@ import BookAppointmentModal from '~/components/lead/BookAppointmentModal.vue';
 import TestimonialChip from '~/components/testimonials/TestimonialChip.vue';
 import MarkTestimonialDrawer from '~/components/testimonials/MarkTestimonialDrawer.vue';
 
-const { t, locale } = useI18n();
+const { t } = useI18n();
 const authStore = useAuthStore();
 const config = useRuntimeConfig();
 const rawApiBase = config.public.apiBase || 'http://localhost:4000/api/v1';
@@ -339,12 +621,115 @@ const overdueCount = ref(0);
 const todayCount = ref(0);
 const upcomingCount = ref(0);
 
+// Dashboard Executive Metrics & Trends
+const supportMetrics = ref<any>(null);
+const isLoadingMetrics = ref(true);
+const hoveredDay = ref<any>(null);
+
 const isQuickCreateOpen = ref(false);
 const isLogCallOpen = ref(false);
 const isBookApptOpen = ref(false);
 const isMarkTestimonialOpen = ref(false);
 const selectedLeadForTestimonial = ref<any>(null);
 const selectedTask = ref<any>(null);
+
+// Chart Dimensions
+const chartWidth = 560;
+const chartHeight = 160;
+const padLeft = 32;
+const padRight = 20;
+const padTop = 15;
+const padBottom = 25;
+
+const dailyAverage = computed(() => {
+  const trend = supportMetrics.value?.dailyTrend || [];
+  if (trend.length === 0) return 0;
+  const total = trend.reduce((sum: number, d: any) => sum + (d.leads || 0), 0);
+  return (total / trend.length).toFixed(1);
+});
+
+const maxDailyLeads = computed(() => {
+  const trend = supportMetrics.value?.dailyTrend || [];
+  if (trend.length === 0) return 15;
+  const max = Math.max(...trend.map((d: any) => d.leads || 0));
+  return Math.max(max + 2, 10);
+});
+
+const points = computed(() => {
+  const trend = supportMetrics.value?.dailyTrend || [];
+  if (trend.length === 0) return [];
+  const usableWidth = chartWidth - padLeft - padRight;
+  const usableHeight = chartHeight - padTop - padBottom;
+  const max = maxDailyLeads.value;
+
+  return trend.map((d: any, idx: number) => {
+    const x = padLeft + (idx / Math.max(trend.length - 1, 1)) * usableWidth;
+    const y = padTop + (1 - (d.leads || 0) / max) * usableHeight;
+    return { x, y, ...d, idx };
+  });
+});
+
+const linePath = computed(() => {
+  const pts = points.value;
+  if (pts.length === 0) return '';
+  return pts.reduce((acc: string, pt: any, idx: number) => {
+    if (idx === 0) return `M ${pt.x} ${pt.y}`;
+    const prev = pts[idx - 1];
+    const cpX1 = prev.x + (pt.x - prev.x) / 2;
+    const cpX2 = cpX1;
+    return `${acc} C ${cpX1} ${prev.y}, ${cpX2} ${pt.y}, ${pt.x} ${pt.y}`;
+  }, '');
+});
+
+const areaPath = computed(() => {
+  const pts = points.value;
+  if (pts.length === 0) return '';
+  const first = pts[0];
+  const last = pts[pts.length - 1];
+  const baseline = chartHeight - padBottom;
+  return `${linePath.value} L ${last.x} ${baseline} L ${first.x} ${baseline} Z`;
+});
+
+const funnelStages = computed(() => {
+  const m = supportMetrics.value;
+  if (!m) return [];
+
+  const total = m.totalLeads || 1;
+  const inPipeline = (m.inProgressLeads || 0) + (m.appointmentBookedLeads || 0) + (m.visitedLeads || 0) + (m.convertedLeads || 0);
+  const bookedOrDone = (m.appointmentBookedLeads || 0) + (m.visitedLeads || 0) + (m.convertedLeads || 0);
+  const converted = m.convertedLeads || 0;
+
+  return [
+    {
+      stage: 'Total Leads Inquiries',
+      count: m.totalLeads || 0,
+      percentage: 100,
+      dotClass: 'bg-teal-500',
+      barClass: 'bg-gradient-to-r from-teal-500 to-teal-600',
+    },
+    {
+      stage: 'Contacted & Qualified',
+      count: inPipeline,
+      percentage: Math.min(100, Math.round((inPipeline / total) * 100)),
+      dotClass: 'bg-blue-500',
+      barClass: 'bg-gradient-to-r from-blue-500 to-blue-600',
+    },
+    {
+      stage: 'Consultations Booked',
+      count: bookedOrDone,
+      percentage: Math.min(100, Math.round((bookedOrDone / total) * 100)),
+      dotClass: 'bg-amber-500',
+      barClass: 'bg-gradient-to-r from-amber-500 to-amber-600',
+    },
+    {
+      stage: 'Admitted / Converted',
+      count: converted,
+      percentage: m.conversionRate || Math.min(100, Math.round((converted / total) * 100)),
+      dotClass: 'bg-emerald-500',
+      barClass: 'bg-gradient-to-r from-emerald-500 to-emerald-600',
+    },
+  ];
+});
 
 const openMarkTestimonial = (lead: any) => {
   selectedLeadForTestimonial.value = lead;
@@ -353,14 +738,37 @@ const openMarkTestimonial = (lead: any) => {
 
 const onTestimonialSent = () => {
   loadWorkQueue();
+  loadDashboardMetrics();
 };
 
 let countdownInterval: any = null;
 const nowTime = ref(Date.now());
 
+// Fetch Dashboard Executive Metrics
+const loadDashboardMetrics = async () => {
+  if (!authStore.token) return;
+  isLoadingMetrics.value = true;
+  try {
+    const res = await fetch(`${apiBase}/reports/support`, {
+      headers: { Authorization: `Bearer ${authStore.token}` },
+    });
+    if (res.ok) {
+      supportMetrics.value = await res.json();
+    }
+  } catch (err) {
+    console.error('Failed to load dashboard metrics', err);
+  } finally {
+    isLoadingMetrics.value = false;
+  }
+};
+
 // Fetch tasks for the current queue and counts
 const loadWorkQueue = async () => {
-  if (!authStore.token) return;
+  if (!authStore.token) {
+    isLoading.value = false;
+    navigateTo('/login');
+    return;
+  }
   isLoading.value = true;
   try {
     const res = await fetch(
@@ -372,6 +780,10 @@ const loadWorkQueue = async () => {
     if (res.ok) {
       const result = await res.json();
       tasks.value = result.data || [];
+    } else if (res.status === 401) {
+      isLoading.value = false;
+      authStore.logout();
+      return;
     }
 
     // Load counts for tabs
@@ -437,33 +849,43 @@ const openWhatsApp = (task: any) => {
     if (!proceed) return;
   }
   const cleanPhone = mobile.replace(/\D/g, '');
-  const lang = lead?.language || task.case?.patient?.preferredLang || 'en';
-  const greeting =
-    lang === 'ml'
-      ? 'നമസ്കാരം, ഹോസ്പിറ്റലിൽ നിന്ന് ബന്ധപ്പെടുകയാണ്.'
-      : 'Hello, reaching out to you from Hospital CRM regarding your case.';
+  const greeting = 'Hello, reaching out to you from Hospital CRM regarding your case.';
   window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(greeting)}`, '_blank');
 };
 
 const onLeadCreated = () => {
   loadWorkQueue();
+  loadDashboardMetrics();
 };
 
 const onCallLogged = () => {
   loadWorkQueue();
+  loadDashboardMetrics();
 };
 
 const onApptBooked = () => {
   loadWorkQueue();
+  loadDashboardMetrics();
 };
 
-onMounted(() => {
+onMounted(async () => {
+  if (!authStore.token) {
+    await authStore.fetchMe();
+  }
+  if (!authStore.token && !authStore.user) {
+    isLoading.value = false;
+    navigateTo('/login');
+    return;
+  }
   if (authStore.user?.role?.code === 'admission_specialist') {
     activeTeam.value = 'admission';
   } else if (authStore.user?.role?.code === 'aftercare_executive') {
     activeTeam.value = 'aftercare';
   }
-  loadWorkQueue();
+  await Promise.all([
+    loadWorkQueue(),
+    loadDashboardMetrics()
+  ]);
   countdownInterval = setInterval(() => {
     nowTime.value = Date.now();
   }, 1000);

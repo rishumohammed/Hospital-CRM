@@ -6,6 +6,8 @@ export const Roles = {
   SUPPORT_TELECALLER: 'support_telecaller',
   ADMISSION_SPECIALIST: 'admission_specialist',
   AFTERCARE_EXECUTIVE: 'aftercare_executive',
+  TREATMENT_FOLLOWUP_EXECUTIVE: 'treatment_followup_executive',
+  FRONT_OFFICE: 'front_office',
   DOCTOR: 'doctor',
   AUDITOR: 'auditor',
 } as const;
@@ -16,6 +18,7 @@ export const Teams = {
   SUPPORT: 'support',
   ADMISSION: 'admission',
   AFTERCARE: 'aftercare',
+  TREATMENT_FOLLOWUP: 'treatment_followup',
 } as const;
 
 export type TeamCode = (typeof Teams)[keyof typeof Teams];
@@ -58,6 +61,13 @@ export const Permissions = {
   TESTIMONIAL_VOID: 'testimonial.void',
   TESTIMONIAL_MANAGE: 'testimonial.manage',
   TESTIMONIAL_VIEW: 'testimonial.view',
+  SCHEDULE_VIEW: 'schedule.view',
+  SCHEDULE_MANAGE: 'schedule.manage',
+  SCHEDULE_APPROVE_EXTENSION: 'schedule.approve_extension',
+  VISIT_VIEW: 'visit.view',
+  VISIT_MARK: 'visit.mark',
+  CHECKIN_CREATE: 'checkin.create',
+  FOLLOWUP_REPORT: 'followup.report',
 } as const;
 
 export type PermissionCode = (typeof Permissions)[keyof typeof Permissions];
@@ -134,6 +144,9 @@ export const InteractionTypes = {
   AFTERCARE_CALL: 'aftercare_call',
   TESTIMONIAL_SENT: 'testimonial_sent',
   TESTIMONIAL_VOID: 'testimonial_void',
+  VISIT_REMINDER: 'visit_reminder',
+  VISIT_RECOVERY: 'visit_recovery',
+  TREATMENT_CHECKIN: 'treatment_checkin',
 } as const;
 
 export type InteractionTypeCode = (typeof InteractionTypes)[keyof typeof InteractionTypes];
@@ -155,6 +168,14 @@ export const EscalationStatuses = {
 
 export type EscalationStatusCode = (typeof EscalationStatuses)[keyof typeof EscalationStatuses];
 
+export const EscalationTypes = {
+  CLINICAL_RED_FLAG: 'clinical_red_flag',
+  ADHERENCE: 'adherence',
+  INPATIENT_CONCERN: 'inpatient_concern',
+} as const;
+
+export type EscalationTypeCode = (typeof EscalationTypes)[keyof typeof EscalationTypes];
+
 export const TestimonialChannels = {
   WHATSAPP: 'whatsapp',
   SMS: 'sms',
@@ -173,3 +194,82 @@ export const TestimonialTypes = {
 } as const;
 
 export type TestimonialTypeCode = (typeof TestimonialTypes)[keyof typeof TestimonialTypes];
+
+export const ScheduleSettings = {
+  OPD: 'opd',
+  INPATIENT: 'inpatient',
+} as const;
+
+export type ScheduleSettingCode = (typeof ScheduleSettings)[keyof typeof ScheduleSettings];
+
+export const FrequencyTypes = {
+  DAILY: 'daily',
+  ALTERNATE_DAYS: 'alternate_days',
+  WEEKLY: 'weekly',
+  EVERY_N_DAYS: 'every_n_days',
+  CUSTOM_WEEKDAYS: 'custom_weekdays',
+  CUSTOM_DATES: 'custom_dates',
+} as const;
+
+export type FrequencyTypeCode = (typeof FrequencyTypes)[keyof typeof FrequencyTypes];
+
+export const ScheduleStatuses = {
+  ACTIVE: 'active',
+  PAUSED: 'paused',
+  COMPLETED: 'completed',
+  CANCELLED: 'cancelled',
+} as const;
+
+export type ScheduleStatusCode = (typeof ScheduleStatuses)[keyof typeof ScheduleStatuses];
+
+export const VisitStatuses = {
+  PLANNED: 'planned',
+  REMINDED: 'reminded',
+  ATTENDED: 'attended',
+  MISSED: 'missed',
+  RESCHEDULED: 'rescheduled',
+  CANCELLED: 'cancelled',
+  EXCUSED: 'excused',
+} as const;
+
+export type VisitStatusCode = (typeof VisitStatuses)[keyof typeof VisitStatuses];
+
+export const AdherenceRisks = {
+  LOW: 'low',
+  MEDIUM: 'medium',
+  HIGH: 'high',
+} as const;
+
+export type AdherenceRiskCode = (typeof AdherenceRisks)[keyof typeof AdherenceRisks];
+
+export const CheckinChannels = {
+  CALL: 'call',
+  BEDSIDE: 'bedside',
+} as const;
+
+export type CheckinChannelCode = (typeof CheckinChannels)[keyof typeof CheckinChannels];
+
+export const PatientConditions = {
+  COMFORTABLE: 'comfortable',
+  UNCOMFORTABLE: 'uncomfortable',
+  UNWELL: 'unwell',
+} as const;
+
+export type PatientConditionCode = (typeof PatientConditions)[keyof typeof PatientConditions];
+
+export const TherapiesPlannedStatuses = {
+  YES: 'yes',
+  PARTLY: 'partly',
+  NO: 'no',
+} as const;
+
+export type TherapiesPlannedStatusCode = (typeof TherapiesPlannedStatuses)[keyof typeof TherapiesPlannedStatuses];
+
+export const ExtensionRequestStatuses = {
+  PENDING: 'pending',
+  APPROVED: 'approved',
+  REJECTED: 'rejected',
+} as const;
+
+export type ExtensionRequestStatusCode = (typeof ExtensionRequestStatuses)[keyof typeof ExtensionRequestStatuses];
+

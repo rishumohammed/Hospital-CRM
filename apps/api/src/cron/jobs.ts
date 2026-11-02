@@ -299,3 +299,395 @@ export async function checkUnansweredEscalations(prisma: PrismaClient, now = new
 
   return { pendingCount: pendingEscalations.length, notificationsSent };
 }
+
+/**
+ * Checks for unmarked visits where 1 hour (or unmarked_visit_grace_minutes) has elapsed
+ * since the end of the time window, and notifies the case owner (executive).
+ */
+export async function checkUnmarkedVisits(prisma: PrismaClient, now = new Date()) {
+  // 1. Fetch grace period setting (default 60 minutes)
+  const graceSetting = await prisma.setting.findUnique({
+    where: { key: 'unmarked_visit_grace_minutes' },
+  });
+  const graceMinutes = (graceSetting?.value as number) || 60;
+
+  // 2. Find planned visits for today or earlier
+  const plannedVisits = await prisma.scheduledVisit.findMany({
+    where: {
+      status: 'planned',
+      scheduledDate: { lte: now },
+    },
+    include: {
+      case: {
+        include: {
+          patient: true,
+          owner: true,
+        },
+      },
+      schedule: {
+        include: {
+          therapy: true,
+        },
+      },
+    },
+  });
+
+  let unmarkedCount = 0;
+  let notificationsSent = 0;
+
+  for (const visit of plannedVisits) {
+    const vDate = new Date(visit.scheduledDate);
+    const [h, m] = visit.windowEnd.split(':').map((x) => parseInt(x, 10));
+    vDate.setHours(h || 11, m || 0, 0, 0);
+
+    const deadline = new Date(vDate.getTime() + graceMinutes * 60 * 1000);
+
+    if (now >= deadline) {
+      unmarkedCount++;
+
+      // Notify executive owner
+      if (visit.case.ownerId) {
+        const existing = await prisma.notification.findFirst({
+          where: {
+            userId: visit.case.ownerId,
+            type: 'visit_unmarked',
+            body: { contains: `Visit #${visit.id}` },
+          },
+        });
+
+        if (!existing) {
+          await prisma.notification.create({
+            data: {
+              userId: visit.case.ownerId,
+              type: 'visit_unmarked',
+              title: `⚠️ Unmarked Visit: ${visit.case.patient?.name || 'Patient'}`,
+              body: `Visit #${visit.id} (${visit.schedule.therapy.labelEn}) on ${visit.windowStart}-${visit.windowEnd} has not been marked. Please verify attendance.`,
+              link: `/treatment-followup`,
+            },
+          });
+          notificationsSent++;
+        }
+      }
+    }
+  }
+
+  return { unmarkedCount, notificationsSent };
+}
+
+/**
+ * Escalation checker for treatment escalations:
+ * - adherence: assigned to treating doctor, SLA 24h. Notify telecaller manager if undecided.
+ * - inpatient_concern: assigned to ward nurse & doctor, SLA 1h. Notify telecaller manager at 1h, center head at 2h.
+ */
+export async function checkUnansweredTreatmentEscalations(prisma: PrismaClient, now = new Date()) {
+  const pending = await prisma.escalation.findMany({
+    where: {
+      status: 'pending',
+      escalationType: { in: ['adherence', 'inpatient_concern'] },
+    },
+    include: {
+      case: {
+        include: {
+          patient: true,
+          branch: true,
+        },
+      },
+    },
+  });
+
+  let notificationsSent = 0;
+  const twoHoursAgo = subHours(now, 2);
+
+  for (const esc of pending) {
+    const isOverdue = new Date(esc.dueAt) <= now;
+    const isOlderThan2h = new Date(esc.createdAt) <= twoHoursAgo;
+
+    if (esc.escalationType === 'adherence') {
+      if (isOverdue) {
+        // Notify telecaller manager
+        const managers = await prisma.user.findMany({
+          where: {
+            role: { code: 'telecaller_manager' },
+            status: 'active',
+            userBranches: { some: { branchId: esc.case.branchId } },
+          },
+        });
+
+        for (const mgr of managers) {
+          const existing = await prisma.notification.findFirst({
+            where: {
+              userId: mgr.id,
+              type: 'adherence_escalation_overdue',
+              body: { contains: `Escalation #${esc.id}` },
+            },
+          });
+
+          if (!existing) {
+            await prisma.notification.create({
+              data: {
+                userId: mgr.id,
+                type: 'adherence_escalation_overdue',
+                title: `⚠️ Adherence Escalation Overdue (>24h)`,
+                body: `Escalation #${esc.id} for patient ${esc.case.patient.name} has had no doctor decision for 24 hours.`,
+                link: `/doctor`,
+              },
+            });
+            notificationsSent++;
+          }
+        }
+      }
+    } else if (esc.escalationType === 'inpatient_concern') {
+      if (isOlderThan2h) {
+        // Notify Center Head at 2 hours
+        const centerHeads = await prisma.user.findMany({
+          where: {
+            role: { code: 'center_head' },
+            status: 'active',
+            userBranches: { some: { branchId: esc.case.branchId } },
+          },
+        });
+
+        for (const ch of centerHeads) {
+          const existing = await prisma.notification.findFirst({
+            where: {
+              userId: ch.id,
+              type: 'inpatient_concern_centerhead',
+              body: { contains: `Escalation #${esc.id}` },
+            },
+          });
+
+          if (!existing) {
+            await prisma.notification.create({
+              data: {
+                userId: ch.id,
+                type: 'inpatient_concern_centerhead',
+                title: `🚨 CRITICAL: In-Patient Concern Unanswered (>2h)`,
+                body: `Escalation #${esc.id} for patient ${esc.case.patient.name} at ${esc.case.branch.name} has had no decision for over 2 hours.`,
+                link: `/doctor`,
+              },
+            });
+            notificationsSent++;
+          }
+        }
+      } else if (isOverdue) {
+        // Notify Telecaller Manager at 1 hour
+        const managers = await prisma.user.findMany({
+          where: {
+            role: { code: 'telecaller_manager' },
+            status: 'active',
+            userBranches: { some: { branchId: esc.case.branchId } },
+          },
+        });
+
+        for (const mgr of managers) {
+          const existing = await prisma.notification.findFirst({
+            where: {
+              userId: mgr.id,
+              type: 'inpatient_concern_manager',
+              body: { contains: `Escalation #${esc.id}` },
+            },
+          });
+
+          if (!existing) {
+            await prisma.notification.create({
+              data: {
+                userId: mgr.id,
+                type: 'inpatient_concern_manager',
+                title: `⚠️ In-Patient Concern Decision Overdue (>1h)`,
+                body: `Escalation #${esc.id} for patient ${esc.case.patient.name} decision overdue.`,
+                link: `/doctor`,
+              },
+            });
+            notificationsSent++;
+          }
+        }
+      }
+    }
+  }
+
+  return { pendingCount: pending.length, notificationsSent };
+}
+
+/**
+ * Recomputes adherence metrics for all active treatment cases every 15 minutes
+ */
+export async function recomputeAllAdherenceRisks(prisma: PrismaClient, now = new Date()) {
+  const activeCases = await prisma.case.findMany({
+    where: {
+      team: 'treatment_followup',
+      archivedAt: null,
+    },
+    include: {
+      scheduledVisits: {
+        select: {
+          scheduledDate: true,
+          status: true,
+        },
+      },
+    },
+  });
+
+  const thresholdSetting = await prisma.setting.findUnique({
+    where: { key: 'adherence_thresholds' },
+  });
+  const thresholds = (thresholdSetting?.value as any) || { mediumRiskRate: 80, highRiskRate: 60 };
+
+  let updatedCount = 0;
+
+  for (const c of activeCases) {
+    const dueVisits = c.scheduledVisits.filter((v: any) => v.status === 'attended' || v.status === 'missed');
+    const attended = dueVisits.filter((v: any) => v.status === 'attended');
+    const attRate = dueVisits.length > 0 ? Math.round((attended.length / dueVisits.length) * 100 * 10) / 10 : 100.0;
+
+    const sortedDue = [...dueVisits].sort((a: any, b: any) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime());
+    let consecutiveMissed = 0;
+    for (const v of sortedDue) {
+      if (v.status === 'missed') consecutiveMissed++;
+      else break;
+    }
+
+    let risk: 'low' | 'medium' | 'high' = 'low';
+    const last3 = sortedDue.slice(0, 3);
+    const missedInLast3 = last3.filter((v: any) => v.status === 'missed').length;
+
+    if (consecutiveMissed >= 2 || (dueVisits.length > 0 && attRate < thresholds.highRiskRate)) {
+      risk = 'high';
+    } else if (missedInLast3 >= 1 || (dueVisits.length > 0 && attRate < thresholds.mediumRiskRate)) {
+      risk = 'medium';
+    }
+
+    await prisma.case.update({
+      where: { id: c.id },
+      data: {
+        attendanceRate: attRate,
+        consecutiveMissed,
+        adherenceRisk: risk,
+        updatedAt: now,
+      },
+    });
+    updatedCount++;
+  }
+
+  return { activeCasesCount: activeCases.length, updatedCount };
+}
+
+/**
+ * Nightly maintenance job (runs at 00:30):
+ * 1. Generates missing reminder tasks for next 14 days
+ * 2. Moves visits on newly added holidays
+ * 3. Flags schedules whose end date has passed or all visits attended as Ready to Complete
+ */
+export async function runNightlyTreatmentMaintenance(prisma: PrismaClient, now = new Date()) {
+  // 1. Find all active schedules
+  const activeSchedules = await prisma.visitSchedule.findMany({
+    where: { status: 'active' },
+    include: {
+      case: { include: { branch: true, patient: true, lead: true } },
+      visits: { orderBy: { sessionNo: 'asc' } },
+    },
+  });
+
+  let remindersCreated = 0;
+  let visitsMoved = 0;
+  let schedulesReadyToComplete = 0;
+
+  const fourteenDaysOut = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+
+  // Fetch branch_holidays
+  const holidaySetting = await prisma.setting.findUnique({
+    where: { key: 'branch_holidays' },
+  });
+  const rawHolidays = (holidaySetting?.value as any) || [];
+  const holidays: string[] = [];
+  if (Array.isArray(rawHolidays)) {
+    for (const h of rawHolidays) {
+      if (typeof h === 'string') holidays.push(h);
+      else if (h?.date) holidays.push(h.date);
+    }
+  }
+
+  for (const schedule of activeSchedules) {
+    const isDnc = Boolean(schedule.case.lead?.doNotContact);
+
+    // Check holiday conflicts and move if needed
+    for (const visit of schedule.visits) {
+      if (visit.status === 'planned') {
+        const dateStr = visit.scheduledDate.toISOString().split('T')[0];
+        if (holidays.includes(dateStr)) {
+          // Holiday match: move to next open day
+          const nextDay = new Date(visit.scheduledDate);
+          nextDay.setDate(nextDay.getDate() + 1);
+
+          await prisma.scheduledVisit.update({
+            where: { id: visit.id },
+            data: {
+              scheduledDate: nextDay,
+              movedFromDate: visit.scheduledDate,
+              movedReason: 'Branch closed / holiday',
+              updatedAt: now,
+            },
+          });
+          visitsMoved++;
+        }
+
+        // Generate missing reminder tasks
+        if (!isDnc && visit.scheduledDate <= fourteenDaysOut && visit.scheduledDate >= now) {
+          const eveningBefore = new Date(visit.scheduledDate);
+          eveningBefore.setDate(eveningBefore.getDate() - 1);
+          eveningBefore.setHours(17, 0, 0, 0);
+
+          if (eveningBefore > now) {
+            const existingTask = await prisma.task.findFirst({
+              where: {
+                caseId: schedule.caseId,
+                cadenceKey: 'visit.reminder',
+                dueAt: eveningBefore,
+              },
+            });
+
+            if (!existingTask) {
+              const taskOwnerId = schedule.case.ownerId || schedule.createdBy || 1;
+              await prisma.task.create({
+                data: {
+                  caseId: schedule.caseId,
+                  cadenceKey: 'visit.reminder',
+                  cadenceStep: 1,
+                  title: `Reminder: Session ${visit.sessionNo} tomorrow`,
+                  type: 'reminder',
+                  priority: 'warm',
+                  dueAt: eveningBefore,
+                  status: 'open',
+                  ownerId: taskOwnerId,
+                },
+              });
+              remindersCreated++;
+            }
+          }
+        }
+      }
+    }
+
+    // Check if ready to complete
+    const plannedRemaining = schedule.visits.filter((v: any) => v.status === 'planned').length;
+    const isPastEnd = schedule.endDate && new Date(schedule.endDate) < now;
+
+    if (plannedRemaining === 0 || isPastEnd) {
+      schedulesReadyToComplete++;
+      // Notify executive if not already completed
+      if (schedule.case.ownerId) {
+        await prisma.notification.create({
+          data: {
+            userId: schedule.case.ownerId,
+            type: 'schedule_ready_to_complete',
+            title: `Treatment Schedule Ready to Complete: ${schedule.case.patient.name}`,
+            body: `All visits have concluded. Please verify outcome and mark Treatment Completed.`,
+            link: `/cases/${schedule.caseId}`,
+          },
+        });
+      }
+    }
+  }
+
+  return { remindersCreated, visitsMoved, schedulesReadyToComplete };
+}
+

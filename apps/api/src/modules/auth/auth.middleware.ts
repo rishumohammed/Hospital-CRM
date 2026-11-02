@@ -13,17 +13,17 @@ declare module 'fastify' {
 export async function authenticate(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   let token: string | undefined;
 
-  // 1. Try reading from signed or unsigned cookies
-  if (request.cookies) {
-    token = request.cookies.accessToken || request.cookies.token;
-  }
-
-  // 2. Try Authorization Bearer header
-  if (!token && request.headers.authorization) {
+  // 1. Try Authorization Bearer header first (explicit client token)
+  if (request.headers.authorization) {
     const parts = request.headers.authorization.split(' ');
     if (parts.length === 2 && parts[0] === 'Bearer') {
       token = parts[1];
     }
+  }
+
+  // 2. Fallback to signed or unsigned cookies
+  if (!token && request.cookies) {
+    token = request.cookies.accessToken || request.cookies.token;
   }
 
   let payload: TokenPayload | null = token ? verifyAccessToken(token) : null;

@@ -69,6 +69,14 @@ model User {
   testimonialsApproved Testimonial[] @relation("TestimonialApprover")
   testimonialSends LeadTestimonialSend[] @relation("TestimonialSender")
   testimonialVoids LeadTestimonialSend[] @relation("TestimonialVoider")
+  createdSchedules VisitSchedule[] @relation("ScheduleCreator")
+  doctorSchedules VisitSchedule[] @relation("ScheduleDoctor")
+  requestedExtensions ScheduleExtensionRequest[] @relation("ExtensionRequester")
+  decidedExtensions ScheduleExtensionRequest[] @relation("ExtensionDecider")
+  markedVisits ScheduledVisit[] @relation("VisitMarker")
+  treatmentCheckins TreatmentCheckin[] @relation("CheckinUser")
+  handoversSent CaseHandover[] @relation("HandoverFromUser")
+  handoversReceived CaseHandover[] @relation("HandoverToUser")
 
   @@index([roleId])
   @@index([status])
@@ -359,6 +367,13 @@ model Case {
   closureCodeId          Int?           @map("closure_code_id") @db.UnsignedInt
   ownerId                Int?           @map("owner_id") @db.UnsignedInt
   team                   String         @default("admission") @db.VarChar(30)
+  attendanceRate         Decimal?       @map("attendance_rate") @db.Decimal(5, 2)
+  consecutiveMissed      Int            @default(0) @map("consecutive_missed")
+  lastAttendedAt         DateTime?      @map("last_attended_at")
+  nextVisitAt            DateTime?      @map("next_visit_at")
+  adherenceRisk          String         @default("low") @map("adherence_risk") @db.VarChar(20) // low | medium | high
+  expectedDischargeDate  DateTime?      @map("expected_discharge_date")
+  setting                String?        @db.VarChar(20) // opd | inpatient
   createdAt              DateTime       @default(now()) @map("created_at")
   updatedAt              DateTime       @updatedAt @map("updated_at")
   archivedAt             DateTime?      @map("archived_at")
@@ -376,6 +391,10 @@ model Case {
   tasks                  Task[]
   interactions           Interaction[]
   escalations            Escalation[]
+  schedules              VisitSchedule[]
+  scheduledVisits        ScheduledVisit[]
+  treatmentCheckins      TreatmentCheckin[]
+  handovers              CaseHandover[]
 
   @@index([patientId])
   @@index([leadId])
@@ -383,6 +402,8 @@ model Case {
   @@index([branchId])
   @@index([ownerId])
   @@index([team])
+  @@index([setting])
+  @@index([adherenceRisk])
   @@map("cases")
 }
 
@@ -481,6 +502,8 @@ model Escalation {
   decidedAt        DateTime? @map("decided_at")
   dueAt            DateTime  @map("due_at")
   status           String    @default("pending") @db.VarChar(20) // pending | decided | cancelled
+  escalationType   String    @default("clinical_red_flag") @map("escalation_type") @db.VarChar(50)
+  wardNotified     Boolean   @default(false) @map("ward_notified")
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt @map("updated_at")
 
@@ -488,11 +511,13 @@ model Escalation {
   raisedUser       User      @relation("EscalationRaisedBy", fields: [raisedBy], references: [id])
   assignedDoctor   User?     @relation("EscalationDoctor", fields: [assignedDoctorId], references: [id])
   decidedUser      User?     @relation("EscalationDecidedBy", fields: [decidedBy], references: [id])
+  treatmentCheckin TreatmentCheckin?
 
   @@index([caseId])
   @@index([assignedDoctorId])
   @@index([status])
   @@index([dueAt])
+  @@index([escalationType])
   @@map("escalations")
 }
 
@@ -706,4 +731,177 @@ model LeadTestimonialSendItem {
   @@index([sendId])
   @@index([testimonialId])
   @@map("lead_testimonial_send_items")
+}
+
+// ==========================================
+// Treatment Follow-up Desk Models
+// ==========================================
+
+model Therapy {
+  id        Int      @id @default(autoincrement()) @db.UnsignedInt
+  code      String   @unique @db.VarChar(50)
+  labelEn   String   @map("label_en") @db.VarChar(100)
+  labelMl   String   @map("label_ml") @db.VarChar(100)
+  active    Boolean  @default(true)
+  sort      Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  schedules VisitSchedule[]
+
+  @@map("therapies")
+}
+
+model MissedReason {
+  id        Int      @id @default(autoincrement()) @db.UnsignedInt
+  code      String   @unique @db.VarChar(50)
+  labelEn   String   @map("label_en") @db.VarChar(100)
+  labelMl   String   @map("label_ml") @db.VarChar(100)
+  active    Boolean  @default(true)
+  sort      Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  visits    ScheduledVisit[]
+
+  @@map("missed_reasons")
+}
+
+model VisitSchedule {
+  id              Int       @id @default(autoincrement()) @db.UnsignedInt
+  caseId          Int       @map("case_id") @db.UnsignedInt
+  setting         String    @default("opd") @db.VarChar(20) // opd | inpatient
+  therapyId       Int       @map("therapy_id") @db.UnsignedInt
+  frequencyType   String    @map("frequency_type") @db.VarChar(30)
+  intervalN       Int?      @map("interval_n")
+  weekdays        Json?
+  customDates     Json?     @map("custom_dates")
+  startDate       DateTime  @map("start_date")
+  endDate         DateTime? @map("end_date")
+  totalSessions   Int?      @map("total_sessions")
+  windowStart     String    @default("09:00") @map("window_start") @db.VarChar(10)
+  windowEnd       String    @default("11:00") @map("window_end") @db.VarChar(10)
+  durationMinutes Int       @default(60) @map("duration_minutes")
+  doctorId        Int?      @map("doctor_id") @db.UnsignedInt
+  notes           String?   @db.Text
+  status          String    @default("active") @db.VarChar(20) // active | paused | completed | cancelled
+  pausedUntil     DateTime? @map("paused_until")
+  pauseReason     String?   @map("pause_reason") @db.Text
+  createdBy       Int       @map("created_by") @db.UnsignedInt
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  case            Case      @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  therapy         Therapy   @relation(fields: [therapyId], references: [id])
+  doctor          User?     @relation("ScheduleDoctor", fields: [doctorId], references: [id])
+  creator         User      @relation("ScheduleCreator", fields: [createdBy], references: [id])
+  visits          ScheduledVisit[]
+  extensionRequests ScheduleExtensionRequest[]
+
+  @@index([caseId])
+  @@index([status])
+  @@index([therapyId])
+  @@index([doctorId])
+  @@map("visit_schedules")
+}
+
+model ScheduleExtensionRequest {
+  id                 Int       @id @default(autoincrement()) @db.UnsignedInt
+  scheduleId         Int       @map("schedule_id") @db.UnsignedInt
+  requestedBy        Int       @map("requested_by") @db.UnsignedInt
+  additionalSessions Int?      @map("additional_sessions")
+  newEndDate         DateTime? @map("new_end_date")
+  reason             String    @db.Text
+  status             String    @default("pending") @db.VarChar(20) // pending | approved | rejected
+  decidedBy          Int?      @map("decided_by") @db.UnsignedInt
+  decidedAt          DateTime? @map("decided_at")
+  rejectionReason    String?   @map("rejection_reason") @db.Text
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  schedule           VisitSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  requester          User          @relation("ExtensionRequester", fields: [requestedBy], references: [id])
+  decider            User?         @relation("ExtensionDecider", fields: [decidedBy], references: [id])
+
+  @@index([scheduleId])
+  @@index([status])
+  @@map("schedule_extension_requests")
+}
+
+model ScheduledVisit {
+  id            Int          @id @default(autoincrement()) @db.UnsignedInt
+  scheduleId    Int          @map("schedule_id") @db.UnsignedInt
+  caseId        Int          @map("case_id") @db.UnsignedInt
+  sessionNo     Int          @map("session_no")
+  scheduledDate DateTime     @map("scheduled_date")
+  windowStart   String       @default("09:00") @map("window_start") @db.VarChar(10)
+  windowEnd     String       @default("11:00") @map("window_end") @db.VarChar(10)
+  status        String       @default("planned") @db.VarChar(20) // planned | reminded | attended | missed | rescheduled | cancelled | excused
+  movedFromDate DateTime?    @map("moved_from_date")
+  movedReason   String?      @map("moved_reason") @db.VarChar(255)
+  markedBy      Int?         @map("marked_by") @db.UnsignedInt
+  markedAt      DateTime?    @map("marked_at")
+  missedReasonId Int?        @map("missed_reason_id") @db.UnsignedInt
+  rescheduledTo DateTime?    @map("rescheduled_to")
+  note          String?      @db.Text
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+
+  schedule      VisitSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  case          Case          @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  marker        User?         @relation("VisitMarker", fields: [markedBy], references: [id])
+  missedReason  MissedReason? @relation(fields: [missedReasonId], references: [id])
+
+  @@index([scheduleId])
+  @@index([caseId])
+  @@index([scheduledDate])
+  @@index([status])
+  @@map("scheduled_visits")
+}
+
+model TreatmentCheckin {
+  id                 Int         @id @default(autoincrement()) @db.UnsignedInt
+  caseId             Int         @map("case_id") @db.UnsignedInt
+  userId             Int         @map("user_id") @db.UnsignedInt
+  channel            String      @default("call") @db.VarChar(20) // call | bedside
+  contactedWho       String      @map("contacted_who") @db.VarChar(100)
+  condition          String      @db.VarChar(30) // comfortable | uncomfortable | unwell
+  therapiesAsPlanned String      @default("yes") @map("therapies_as_planned") @db.VarChar(20) // yes | partly | no
+  missedTherapiesNote String?    @map("missed_therapies_note") @db.Text
+  concerns           String?     @db.Text
+  billingConcern     Boolean     @default(false) @map("billing_concern")
+  expectedDischargeDate DateTime? @map("expected_discharge_date")
+  nextCheckinAt      DateTime?   @map("next_checkin_at")
+  escalationId       Int?        @unique @map("escalation_id") @db.UnsignedInt
+  occurredAt         DateTime    @default(now()) @map("occurred_at")
+  createdAt          DateTime    @default(now()) @map("created_at")
+  updatedAt          DateTime    @updatedAt @map("updated_at")
+
+  case               Case        @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  user               User        @relation("CheckinUser", fields: [userId], references: [id])
+  escalation         Escalation? @relation(fields: [escalationId], references: [id])
+
+  @@index([caseId])
+  @@index([userId])
+  @@index([occurredAt])
+  @@map("treatment_checkins")
+}
+
+model CaseHandover {
+  id         Int      @id @default(autoincrement()) @db.UnsignedInt
+  caseId     Int      @map("case_id") @db.UnsignedInt
+  fromTeam   String   @map("from_team") @db.VarChar(50)
+  toTeam     String   @map("to_team") @db.VarChar(50)
+  fromUserId Int?     @map("from_user_id") @db.UnsignedInt
+  toUserId   Int?     @map("to_user_id") @db.UnsignedInt
+  note       String   @db.Text
+  at         DateTime @default(now())
+
+  case       Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  fromUser   User?    @relation("HandoverFromUser", fields: [fromUserId], references: [id])
+  toUser     User?    @relation("HandoverToUser", fields: [toUserId], references: [id])
+
+  @@index([caseId])
+  @@index([at])
+  @@map("case_handovers")
 }

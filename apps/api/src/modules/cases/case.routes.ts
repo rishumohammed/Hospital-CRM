@@ -16,6 +16,7 @@ import {
   advanceCaseStage,
   markTreatmentCompleted,
   closeCase,
+  getCaseHandovers,
 } from './case.service';
 import { authenticate, requirePermission } from '../auth/auth.middleware';
 
@@ -240,6 +241,24 @@ export const caseRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) =
           req.headers['user-agent']
         );
         return reply.send(result);
+      }
+    );
+
+    // 8. Get Case Handovers History
+    authGroup.get(
+      '/cases/:id/handovers',
+      { preHandler: [requirePermission(Permissions.CASE_VIEW, 'case')] },
+      async (req, reply) => {
+        const { id } = req.params as { id: string };
+        const caseId = parseInt(id, 10);
+        if (isNaN(caseId)) {
+          return reply.status(400).send({
+            error: { code: 'INVALID_ID', message: 'Case ID must be an integer' },
+          });
+        }
+
+        const handovers = await getCaseHandovers(caseId, req.user!);
+        return reply.send({ handovers });
       }
     );
   });

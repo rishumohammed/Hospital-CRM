@@ -3,11 +3,11 @@
     <!-- Header -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
       <div>
-        <h1 class="text-2xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">
+        <h1 class="text-2xl font-semibold text-slate-900 dark:text-slate-100 tracking-tight">
           {{ t('nav.admin') }}
         </h1>
         <p class="text-sm text-slate-500">
-          User directory, RBAC roles, master picklists, SLA settings, and audit logs
+          User directory, master picklists, SLA settings, and audit logs
         </p>
       </div>
 
@@ -19,13 +19,6 @@
           class="inline-flex items-center justify-center min-h-[44px] px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm shadow-sm transition-all shadow-teal-600/20 active:scale-95"
         >
           + Add New User
-        </button>
-        <button
-          v-if="activeTab === 'grants'"
-          @click="showCreateGrantModal = true"
-          class="inline-flex items-center justify-center min-h-[44px] px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm shadow-sm transition-all shadow-indigo-600/20 active:scale-95"
-        >
-          + Grant Temp Permission
         </button>
         <button
           v-if="activeTab === 'settings'"
@@ -43,9 +36,9 @@
       <button
         v-for="tab in tabList"
         :key="tab.id"
-        @click="activeTab = tab.id"
+        @click="switchTab(tab.id)"
         :class="[
-          'pb-3 text-sm font-bold border-b-2 transition-all whitespace-nowrap min-h-[44px]',
+          'pb-3 text-sm font-semibold border-b-2 transition-all whitespace-nowrap min-h-[44px]',
           activeTab === tab.id
             ? 'border-teal-600 text-teal-600 dark:text-teal-400'
             : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
@@ -83,7 +76,7 @@
             <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
               <tr v-for="u in filteredUsers" :key="u.id" class="hover:bg-slate-50/60 dark:hover:bg-slate-700/40 transition-colors">
                 <td class="py-3.5 px-4">
-                  <div class="font-bold text-slate-900 dark:text-slate-100">{{ u.name }}</div>
+                  <div class="font-semibold text-slate-900 dark:text-slate-100">{{ u.name }}</div>
                   <div class="text-xs text-slate-500">{{ u.email }} • {{ u.mobile }}</div>
                 </td>
                 <td class="py-3.5 px-4">
@@ -135,97 +128,7 @@
       </div>
     </div>
 
-    <!-- TAB 2: ROLES & PERMISSIONS MATRIX -->
-    <div v-if="activeTab === 'roles'" class="space-y-4">
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div
-          v-for="role in roles"
-          :key="role.id"
-          class="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-between"
-        >
-          <div>
-            <div class="flex items-center justify-between mb-2">
-              <span class="font-mono text-xs px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold">
-                {{ role.code }}
-              </span>
-              <span class="text-xs text-slate-500 font-medium">{{ role.userCount || 0 }} assigned</span>
-            </div>
-            <h3 class="text-base font-bold text-slate-900 dark:text-slate-100">{{ role.name }}</h3>
-            <p class="text-xs text-slate-500 mt-1">Phone masking: {{ role.maskPhone ? 'Enabled (Last 3 digits)' : 'Off' }}</p>
-
-            <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-700/60">
-              <p class="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-2">
-                Permissions ({{ role.permissions?.length || 0 }})
-              </p>
-              <div class="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                <div
-                  v-for="p in role.permissions"
-                  :key="p.id"
-                  class="flex items-center justify-between text-xs py-1 px-2 rounded bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800"
-                >
-                  <span class="font-mono text-[11px] text-slate-700 dark:text-slate-300">{{ p.permission }}</span>
-                  <span class="font-bold uppercase text-[10px] text-teal-600 dark:text-teal-400">{{ p.scope }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- TAB 3: PERMISSION GRANTS -->
-    <div v-if="activeTab === 'grants'" class="space-y-4">
-      <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
-        <div class="p-4 border-b border-slate-100 dark:border-slate-700">
-          <h2 class="text-base font-bold text-slate-900 dark:text-slate-100">Temporary Permission Grants</h2>
-          <p class="text-xs text-slate-500 mt-0.5">Time-limited elevated permissions granted by Owner or Admins</p>
-        </div>
-
-        <div class="overflow-x-auto">
-          <table class="w-full text-left border-collapse text-sm">
-            <thead>
-              <tr class="bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 text-xs uppercase tracking-wider font-semibold">
-                <th class="py-3 px-4">User</th>
-                <th class="py-3 px-4">Permission</th>
-                <th class="py-3 px-4">Scope</th>
-                <th class="py-3 px-4">Timeframe</th>
-                <th class="py-3 px-4">Reason</th>
-                <th class="py-3 px-4">Granted By</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
-              <tr v-for="g in grants" :key="g.id" class="hover:bg-slate-50/60 dark:hover:bg-slate-700/40">
-                <td class="py-3 px-4 font-semibold text-slate-900 dark:text-slate-100">
-                  {{ g.user?.name || g.user?.email }}
-                </td>
-                <td class="py-3 px-4 font-mono text-xs text-teal-600 dark:text-teal-400">
-                  {{ g.permission }}
-                </td>
-                <td class="py-3 px-4 font-bold text-xs uppercase">
-                  {{ g.scope }}
-                </td>
-                <td class="py-3 px-4 text-xs text-slate-600 dark:text-slate-300">
-                  Ends: {{ new Date(g.endsAt).toLocaleString() }}
-                </td>
-                <td class="py-3 px-4 text-xs text-slate-600 dark:text-slate-300 max-w-xs truncate">
-                  {{ g.reason }}
-                </td>
-                <td class="py-3 px-4 text-xs text-slate-500">
-                  {{ g.granter?.name || g.granter?.email }}
-                </td>
-              </tr>
-              <tr v-if="grants.length === 0">
-                <td colspan="6" class="py-8 text-center text-slate-400 text-sm">
-                  No active or past temporary permission grants found.
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <!-- TAB 4: MASTER PICKLISTS -->
+    <!-- TAB 2: MASTER PICKLISTS -->
     <div v-if="activeTab === 'picklists'" class="space-y-4">
       <div class="flex items-center space-x-2 overflow-x-auto pb-2">
         <button
@@ -233,7 +136,7 @@
           :key="pt.id"
           @click="selectPicklistType(pt.id)"
           :class="[
-            'px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all min-h-[38px] whitespace-nowrap',
+            'px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all min-h-[38px] whitespace-nowrap',
             selectedPicklistType === pt.id
               ? 'bg-teal-600 text-white shadow-sm'
               : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50'
@@ -246,10 +149,10 @@
       <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
         <div class="p-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
           <div>
-            <h2 class="text-base font-bold text-slate-900 dark:text-slate-100">
+            <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">
               {{ picklistTypes.find((p) => p.id === selectedPicklistType)?.label }}
             </h2>
-            <p class="text-xs text-slate-500">Bilingual options supporting English and Malayalam</p>
+            <p class="text-xs text-slate-500">Configured options for system-wide picklists</p>
           </div>
           <span class="text-xs text-slate-500 font-medium">{{ currentPicklistItems.length }} options</span>
         </div>
@@ -259,8 +162,7 @@
             <thead>
               <tr class="bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 text-xs uppercase tracking-wider font-semibold">
                 <th class="py-3 px-4">Code</th>
-                <th class="py-3 px-4">English Label</th>
-                <th class="py-3 px-4">Malayalam Label (മലയാളം)</th>
+                <th class="py-3 px-4">Label</th>
                 <th class="py-3 px-4">Sort</th>
                 <th class="py-3 px-4">Status</th>
               </tr>
@@ -272,9 +174,6 @@
                 </td>
                 <td class="py-3 px-4 font-semibold text-slate-900 dark:text-slate-100">
                   {{ item.labelEn }}
-                </td>
-                <td class="py-3 px-4 text-slate-800 dark:text-slate-200 font-medium font-sans">
-                  {{ item.labelMl }}
                 </td>
                 <td class="py-3 px-4 text-xs text-slate-500 font-mono">
                   {{ item.sort || 0 }}
@@ -306,7 +205,7 @@
           <div class="flex items-center space-x-3 pb-3 border-b border-slate-100 dark:border-slate-700">
             <span class="text-xl">🕒</span>
             <div>
-              <h2 class="text-base font-bold text-slate-900 dark:text-slate-100">Calling Hours</h2>
+              <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">Calling Hours</h2>
               <p class="text-xs text-slate-500">Permitted calling window for patient communications</p>
             </div>
           </div>
@@ -337,7 +236,7 @@
           <div class="flex items-center space-x-3 pb-3 border-b border-slate-100 dark:border-slate-700">
             <span class="text-xl">⚡</span>
             <div>
-              <h2 class="text-base font-bold text-slate-900 dark:text-slate-100">First-Response SLA</h2>
+              <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">First-Response SLA</h2>
               <p class="text-xs text-slate-500">Response target time within business hours</p>
             </div>
           </div>
@@ -370,7 +269,7 @@
           <div class="flex items-center space-x-3 pb-3 border-b border-slate-100 dark:border-slate-700">
             <span class="text-xl">📞</span>
             <div>
-              <h2 class="text-base font-bold text-slate-900 dark:text-slate-100">Contact Rules (Soft Limits)</h2>
+              <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">Contact Rules (Soft Limits)</h2>
               <p class="text-xs text-slate-500">Call frequency guards and warning triggers</p>
             </div>
           </div>
@@ -403,7 +302,7 @@
           <div class="flex items-center space-x-3 pb-3 border-b border-slate-100 dark:border-slate-700">
             <span class="text-xl">🛡️</span>
             <div>
-              <h2 class="text-base font-bold text-slate-900 dark:text-slate-100">Quiet Hours & Data Retention</h2>
+              <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">Quiet Hours & Data Retention</h2>
               <p class="text-xs text-slate-500">Patient privacy and automated retention limits</p>
             </div>
           </div>
@@ -434,7 +333,7 @@
           <div class="flex items-center space-x-3 pb-3 border-b border-slate-100 dark:border-slate-700">
             <span class="text-xl">📜</span>
             <div>
-              <h2 class="text-base font-bold text-slate-900 dark:text-slate-100">Testimonials Policy & Follow-up</h2>
+              <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">Testimonials Policy & Follow-up</h2>
               <p class="text-xs text-slate-500">Automated cadence follow-up task scheduling and library management</p>
             </div>
           </div>
@@ -452,7 +351,7 @@
             <div class="flex items-end pb-1">
               <NuxtLink
                 to="/admin/testimonials"
-                class="min-h-[44px] px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm"
+                class="min-h-[44px] px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-xs flex items-center gap-1.5 shadow-sm"
               >
                 <span>📜 Manage Testimonial Library →</span>
               </NuxtLink>
@@ -465,43 +364,213 @@
 
     <!-- TAB 6: AUDIT LOGS -->
     <div v-if="activeTab === 'audit'" class="space-y-4">
-      <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
-        <div class="p-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
-          <h2 class="text-base font-bold text-slate-900 dark:text-slate-100">Audit Logs Telemetry</h2>
-          <span class="text-xs text-slate-500 font-medium">{{ auditLogs.length }} events</span>
+      <!-- Filter and Search Bar -->
+      <div class="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm flex flex-wrap items-center gap-3">
+        <!-- Quick Search -->
+        <div class="flex-1 min-w-[200px]">
+          <label class="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Search Logs</label>
+          <div class="relative">
+            <input
+              v-model="auditFilters.search"
+              type="text"
+              placeholder="Search user, action, entity, IP..."
+              class="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-semibold focus:ring-2 focus:ring-teal-500 min-h-[38px]"
+            />
+            <UIcon name="i-heroicons-magnifying-glass" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+          </div>
         </div>
 
-        <div class="overflow-x-auto">
-          <table class="w-full text-left border-collapse text-sm">
+        <!-- Entity Filter -->
+        <div class="w-44">
+          <label class="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Entity</label>
+          <select
+            v-model="auditFilters.entity"
+            @change="auditFilters.page = 1; fetchAuditLogs()"
+            class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-semibold focus:ring-2 focus:ring-teal-500 min-h-[38px]"
+          >
+            <option value="">All Entities</option>
+            <option value="lead">Lead</option>
+            <option value="case">Case</option>
+            <option value="task">Task</option>
+            <option value="interaction">Interaction</option>
+            <option value="export">Export</option>
+            <option value="user">User</option>
+            <option value="auth">Auth</option>
+            <option value="settings">Settings</option>
+          </select>
+        </div>
+
+        <!-- Action Filter -->
+        <div class="w-52">
+          <label class="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Action</label>
+          <select
+            v-model="auditFilters.action"
+            @change="auditFilters.page = 1; fetchAuditLogs()"
+            class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-semibold focus:ring-2 focus:ring-teal-500 min-h-[38px]"
+          >
+            <option value="">All Actions</option>
+            <option value="LOGIN_SUCCESS">LOGIN_SUCCESS</option>
+            <option value="LOGIN_FAILED">LOGIN_FAILED</option>
+            <option value="LEAD_CREATED">LEAD_CREATED</option>
+            <option value="LEAD_CONVERTED">LEAD_CONVERTED</option>
+            <option value="CALL_LOGGED">CALL_LOGGED</option>
+            <option value="CASE_STAGE_ADVANCED">CASE_STAGE_ADVANCED</option>
+            <option value="TREATMENT_COMPLETED">TREATMENT_COMPLETED</option>
+            <option value="CASE_CLOSED">CASE_CLOSED</option>
+            <option value="SCOPE_DENIED">SCOPE_DENIED</option>
+            <option value="PERMISSION_GRANTED">PERMISSION_GRANTED</option>
+            <option value="EXPORT_REQUESTED">EXPORT_REQUESTED</option>
+            <option value="EXPORT_DOWNLOADED">EXPORT_DOWNLOADED</option>
+          </select>
+        </div>
+
+        <!-- Actions -->
+        <div class="self-end flex items-center space-x-2">
+          <button
+            @click="resetAuditFilters"
+            class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 min-h-[38px] transition-colors"
+          >
+            Reset
+          </button>
+          <button
+            @click="fetchAuditLogs"
+            :disabled="auditLoading"
+            class="px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold min-h-[38px] transition-colors shadow-sm flex items-center gap-1.5"
+          >
+            <UIcon name="i-heroicons-arrow-path" :class="['w-3.5 h-3.5', auditLoading ? 'animate-spin' : '']" />
+            <span>Refresh</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Audit Logs Table Card -->
+      <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+        <div class="p-4 border-b border-slate-100 dark:border-slate-700 flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-center space-x-2">
+            <span class="text-base font-semibold text-slate-900 dark:text-slate-100">Forensic Audit Trails</span>
+            <span class="text-xs font-mono px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+              {{ auditTotal }} total records
+            </span>
+          </div>
+          <span class="text-xs text-slate-400">Click any row to inspect detail payloads and diffs</span>
+        </div>
+
+        <!-- Loading spinner -->
+        <div v-if="auditLoading" class="py-16 flex justify-center items-center">
+          <UIcon name="i-heroicons-arrow-path" class="w-8 h-8 text-teal-600 animate-spin" />
+        </div>
+
+        <!-- Empty state -->
+        <div v-else-if="filteredAuditLogs.length === 0" class="p-12 text-center text-slate-400">
+          <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-slate-100 dark:bg-slate-700/60 flex items-center justify-center text-slate-400">
+            🛡️
+          </div>
+          <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">No audit records found</p>
+          <p class="text-xs text-slate-400 mt-1">Try resetting or broadening your filter criteria</p>
+        </div>
+
+        <!-- Table -->
+        <div v-else class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-xs">
             <thead>
-              <tr class="bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 text-xs uppercase tracking-wider font-semibold">
-                <th class="py-3 px-4">Timestamp</th>
-                <th class="py-3 px-4">User</th>
+              <tr class="bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 uppercase tracking-wider font-semibold border-b border-slate-100 dark:border-slate-700">
+                <th class="py-3 px-4">Timestamp (Kolkata)</th>
                 <th class="py-3 px-4">Action</th>
                 <th class="py-3 px-4">Entity</th>
-                <th class="py-3 px-4">IP</th>
+                <th class="py-3 px-4">Actor</th>
+                <th class="py-3 px-4">IP Address</th>
+                <th class="py-3 px-4 text-right">Details</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-100 dark:divide-slate-700 text-xs">
-              <tr v-for="log in auditLogs" :key="log.id" class="hover:bg-slate-50/60 dark:hover:bg-slate-700/40">
-                <td class="py-2.5 px-4 text-slate-500 whitespace-nowrap">
-                  {{ new Date(log.createdAt).toLocaleString() }}
-                </td>
-                <td class="py-2.5 px-4 font-semibold text-slate-800 dark:text-slate-200">
-                  {{ log.user?.email || 'System' }}
-                </td>
-                <td class="py-2.5 px-4 font-mono font-bold text-teal-600 dark:text-teal-400">
-                  {{ log.action }}
-                </td>
-                <td class="py-2.5 px-4 text-slate-600 dark:text-slate-300">
-                  {{ log.entity }} #{{ log.entityId || '—' }}
-                </td>
-                <td class="py-2.5 px-4 text-slate-400 font-mono">
-                  {{ log.ip || '—' }}
-                </td>
-              </tr>
+            <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+              <template v-for="log in filteredAuditLogs" :key="log.id">
+                <tr
+                  class="hover:bg-slate-50/70 dark:hover:bg-slate-700/40 cursor-pointer transition-colors"
+                  @click="toggleAuditExpand(log.id)"
+                >
+                  <td class="py-3 px-4 text-slate-500 whitespace-nowrap font-mono">
+                    {{ new Date(log.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) }}
+                  </td>
+                  <td class="py-3 px-4">
+                    <span :class="['text-[11px] font-semibold px-2 py-0.5 rounded-md font-mono', getAuditBadgeClass(log.action)]">
+                      {{ log.action }}
+                    </span>
+                  </td>
+                  <td class="py-3 px-4 text-slate-700 dark:text-slate-300 font-semibold">
+                    <span class="uppercase">{{ log.entity }}</span>
+                    <span v-if="log.entityId" class="text-slate-400 font-mono ml-1">#{{ log.entityId }}</span>
+                  </td>
+                  <td class="py-3 px-4">
+                    <div class="font-semibold text-slate-800 dark:text-slate-200">
+                      {{ log.user?.name || log.user?.email || 'System' }}
+                    </div>
+                    <div v-if="log.user?.name && log.user?.email" class="text-[10px] text-slate-400">
+                      {{ log.user.email }}
+                    </div>
+                  </td>
+                  <td class="py-3 px-4 text-slate-400 font-mono">
+                    {{ log.ip || '—' }}
+                  </td>
+                  <td class="py-3 px-4 text-right">
+                    <button class="text-slate-400 hover:text-teal-600 transition-colors">
+                      <UIcon
+                        :name="expandedAuditIds.has(log.id) ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'"
+                        class="w-4 h-4"
+                      />
+                    </button>
+                  </td>
+                </tr>
+
+                <!-- Expanded Detail Drawer -->
+                <tr v-if="expandedAuditIds.has(log.id)" class="bg-slate-50/80 dark:bg-slate-900/60">
+                  <td colspan="6" class="p-4 border-t border-slate-100 dark:border-slate-800">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <div class="text-[11px] font-semibold uppercase text-slate-400 mb-1">Forensic Metadata</div>
+                        <div class="bg-white dark:bg-slate-800 rounded-xl p-3 border border-slate-200 dark:border-slate-700 space-y-1 font-mono text-[11px]">
+                          <div><span class="text-slate-400">Record ID:</span> <span class="text-slate-800 dark:text-slate-200 font-semibold">#{{ log.id }}</span></div>
+                          <div><span class="text-slate-400">Timestamp UTC:</span> <span class="text-slate-600 dark:text-slate-300">{{ log.createdAt }}</span></div>
+                          <div><span class="text-slate-400">Actor ID:</span> <span class="text-slate-600 dark:text-slate-300">{{ log.userId ? '#' + log.userId : 'System' }}</span></div>
+                          <div><span class="text-slate-400">IP Address:</span> <span class="text-slate-600 dark:text-slate-300">{{ log.ip || 'Localhost / Internal' }}</span></div>
+                          <div v-if="log.userAgent" class="truncate"><span class="text-slate-400">User Agent:</span> <span class="text-slate-600 dark:text-slate-300" :title="log.userAgent">{{ log.userAgent }}</span></div>
+                        </div>
+                      </div>
+                      <div>
+                        <div class="text-[11px] font-semibold uppercase text-slate-400 mb-1">State Mutation & Payload</div>
+                        <div class="bg-white dark:bg-slate-800 rounded-xl p-3 border border-slate-200 dark:border-slate-700 font-mono text-[11px] max-h-48 overflow-y-auto">
+                          <pre v-if="log.details" class="text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{{ JSON.stringify(log.details, null, 2) }}</pre>
+                          <span v-else class="text-slate-400 italic">No additional mutation payload recorded</span>
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              </template>
             </tbody>
           </table>
+        </div>
+
+        <!-- Pagination Controls -->
+        <div class="p-3.5 border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/30 flex items-center justify-between text-xs">
+          <span class="text-slate-500">
+            Page {{ auditFilters.page }} of {{ auditTotalPages || 1 }}
+          </span>
+          <div class="flex items-center space-x-1.5">
+            <button
+              :disabled="auditFilters.page <= 1 || auditLoading"
+              @click="auditFilters.page--; fetchAuditLogs()"
+              class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold disabled:opacity-40 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+            >
+              Previous
+            </button>
+            <button
+              :disabled="auditFilters.page >= auditTotalPages || auditLoading"
+              @click="auditFilters.page++; fetchAuditLogs()"
+              class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold disabled:opacity-40 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+            >
+              Next
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -512,7 +581,7 @@
       class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
     >
       <div class="bg-white dark:bg-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-200 dark:border-slate-700 space-y-4">
-        <h3 class="text-lg font-bold text-slate-900 dark:text-slate-100">
+        <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
           Deactivate User: {{ deactivatingUser.name }}
         </h3>
         <p class="text-xs text-slate-500">
@@ -571,7 +640,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useAuthStore } from '../../stores/auth';
 
@@ -579,14 +649,39 @@ const { t } = useI18n();
 const authStore = useAuthStore();
 const config = useRuntimeConfig();
 const apiBase = config.public.apiBase;
+const route = useRoute();
+const router = useRouter();
 
-const activeTab = ref<'users' | 'roles' | 'grants' | 'picklists' | 'settings' | 'audit'>('users');
+const validTabs = ['users', 'picklists', 'settings', 'audit'] as const;
+type TabType = typeof validTabs[number];
+
+const initialTab = (route.query.tab as string) || 'users';
+const activeTab = ref<TabType>(validTabs.includes(initialTab as any) ? (initialTab as TabType) : 'users');
+
+function switchTab(tabId: TabType) {
+  activeTab.value = tabId;
+  router.replace({ query: { ...route.query, tab: tabId } });
+  if (tabId === 'audit') {
+    fetchAuditLogs();
+  }
+}
+
+watch(
+  () => route.query.tab,
+  (newTab) => {
+    if (newTab && validTabs.includes(newTab as any) && newTab !== activeTab.value) {
+      activeTab.value = newTab as TabType;
+      if (newTab === 'audit') {
+        fetchAuditLogs();
+      }
+    }
+  }
+);
+
 const userSearch = ref('');
 
 const tabList = [
   { id: 'users', label: 'Users Directory' },
-  { id: 'roles', label: 'Roles & Permissions' },
-  { id: 'grants', label: 'Permission Grants' },
   { id: 'picklists', label: 'Master Picklists' },
   { id: 'settings', label: 'System Settings' },
   { id: 'audit', label: 'Audit Logs' },
@@ -606,9 +701,100 @@ const currentPicklistItems = ref<any[]>([]);
 
 const users = ref<any[]>([]);
 const roles = ref<any[]>([]);
-const grants = ref<any[]>([]);
 const auditLogs = ref<any[]>([]);
+const auditTotal = ref(0);
+const auditLoading = ref(false);
 const savingSettings = ref(false);
+
+const auditFilters = ref({
+  entity: '',
+  action: '',
+  search: '',
+  page: 1,
+  pageSize: 20,
+});
+const expandedAuditIds = ref<Set<number>>(new Set());
+
+function toggleAuditExpand(id: number) {
+  if (expandedAuditIds.value.has(id)) {
+    expandedAuditIds.value.delete(id);
+  } else {
+    expandedAuditIds.value.add(id);
+  }
+}
+
+function resetAuditFilters() {
+  auditFilters.value = {
+    entity: '',
+    action: '',
+    search: '',
+    page: 1,
+    pageSize: 20,
+  };
+  fetchAuditLogs();
+}
+
+async function fetchAuditLogs() {
+  auditLoading.value = true;
+  try {
+    const headers: Record<string, string> = authStore.accessToken
+      ? { Authorization: `Bearer ${authStore.accessToken}` }
+      : {};
+
+    const params: Record<string, any> = {
+      page: auditFilters.value.page,
+      pageSize: auditFilters.value.pageSize,
+    };
+    if (auditFilters.value.entity) params.entity = auditFilters.value.entity;
+    if (auditFilters.value.action) params.action = auditFilters.value.action;
+
+    const res = await $fetch<any>(`${apiBase}/audit-logs`, {
+      headers,
+      credentials: 'include',
+      params,
+    });
+
+    auditLogs.value = res.items || [];
+    auditTotal.value = res.total ?? (res.items?.length || 0);
+  } catch (err) {
+    console.error('Failed to fetch audit logs:', err);
+  } finally {
+    auditLoading.value = false;
+  }
+}
+
+const filteredAuditLogs = computed(() => {
+  if (!auditFilters.value.search) return auditLogs.value;
+  const q = auditFilters.value.search.toLowerCase().trim();
+  return auditLogs.value.filter((log) => {
+    return (
+      (log.action && log.action.toLowerCase().includes(q)) ||
+      (log.entity && log.entity.toLowerCase().includes(q)) ||
+      (log.entityId && String(log.entityId).includes(q)) ||
+      (log.user?.name && log.user.name.toLowerCase().includes(q)) ||
+      (log.user?.email && log.user.email.toLowerCase().includes(q)) ||
+      (log.ip && log.ip.toLowerCase().includes(q))
+    );
+  });
+});
+
+const auditTotalPages = computed(() => {
+  return Math.ceil((auditTotal.value || 1) / auditFilters.value.pageSize);
+});
+
+function getAuditBadgeClass(action: string) {
+  if (!action) return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300';
+  if (action.includes('SUCCESS') || action.includes('CREATED') || action.includes('CONVERTED') || action.includes('COMPLETED')) {
+    return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800';
+  }
+  if (action.includes('FAILED') || action.includes('DENIED') || action.includes('CLOSED') || action.includes('DEACTIVATED')) {
+    return 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-800';
+  }
+  if (action.includes('CALL') || action.includes('ADVANCED') || action.includes('STAGE') || action.includes('GRANT')) {
+    return 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800';
+  }
+  return 'bg-teal-50 text-teal-700 dark:bg-teal-950/60 dark:text-teal-300 border border-teal-200 dark:border-teal-800';
+}
 
 const settingsForm = ref({
   calling_hours: {
@@ -636,7 +822,6 @@ const settingsForm = ref({
 });
 
 const showCreateUserModal = ref(false);
-const showCreateGrantModal = ref(false);
 const deactivatingUser = ref<any | null>(null);
 const reassignTargetUserId = ref<number | null>(null);
 const deactivationReason = ref('');
@@ -672,10 +857,9 @@ async function loadData() {
       ? { Authorization: `Bearer ${authStore.accessToken}` }
       : {};
 
-    const [uRes, rRes, gRes, aRes, setRes, deptRes] = await Promise.all([
+    const [uRes, rRes, aRes, setRes, deptRes] = await Promise.all([
       $fetch<any>(`${apiBase}/users`, { headers, credentials: 'include' }).catch(() => ({ items: [] })),
       $fetch<any>(`${apiBase}/roles`, { headers, credentials: 'include' }).catch(() => []),
-      $fetch<any>(`${apiBase}/permission-grants`, { headers, credentials: 'include' }).catch(() => []),
       $fetch<any>(`${apiBase}/audit-logs`, { headers, credentials: 'include' }).catch(() => ({ items: [] })),
       $fetch<any>(`${apiBase}/settings`, { headers, credentials: 'include' }).catch(() => null),
       $fetch<any>(`${apiBase}/picklists/departments`, { credentials: 'include' }).catch(() => []),
@@ -683,8 +867,8 @@ async function loadData() {
 
     users.value = uRes.items || [];
     roles.value = rRes || [];
-    grants.value = gRes || [];
     auditLogs.value = aRes.items || [];
+    auditTotal.value = aRes.total ?? (aRes.items?.length || 0);
     currentPicklistItems.value = deptRes || [];
 
     if (setRes) {
@@ -780,5 +964,8 @@ async function confirmDeactivation() {
 
 onMounted(() => {
   loadData();
+  if (activeTab.value === 'audit') {
+    fetchAuditLogs();
+  }
 });
 </script>

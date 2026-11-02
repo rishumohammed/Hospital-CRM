@@ -3,8 +3,8 @@
     <!-- Header -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
       <div>
-        <h1 class="text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2.5">
-          <span class="w-8 h-8 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white flex items-center justify-center text-sm font-bold shadow-md shadow-purple-500/20">
+        <h1 class="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2.5">
+          <span class="w-8 h-8 rounded-xl bg-gradient-to-tr from-teal-600 to-emerald-600 text-white flex items-center justify-center text-sm font-semibold shadow-md shadow-teal-500/20">
             🏥
           </span>
           <span>{{ t('admission.title') }}</span>
@@ -33,7 +33,7 @@
         <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
           {{ t('admission.advised_cases') }}
         </p>
-        <p class="text-2xl font-black text-slate-900 dark:text-slate-100 mt-1">
+        <p class="text-2xl font-semibold text-slate-900 dark:text-slate-100 mt-1">
           {{ report?.advised || 0 }}
         </p>
       </div>
@@ -42,7 +42,7 @@
         <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
           {{ t('admission.contacted_24h') }}
         </p>
-        <p class="text-2xl font-black text-blue-600 dark:text-blue-400 mt-1">
+        <p class="text-2xl font-semibold text-blue-600 dark:text-blue-400 mt-1">
           {{ report?.contactRate || 0 }}%
         </p>
       </div>
@@ -51,7 +51,7 @@
         <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
           In Counseling
         </p>
-        <p class="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">
+        <p class="text-2xl font-semibold text-amber-600 dark:text-amber-400 mt-1">
           {{ report?.counselingBooked || 0 }}
         </p>
       </div>
@@ -60,7 +60,7 @@
         <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
           Deposit Paid
         </p>
-        <p class="text-2xl font-black text-purple-600 dark:text-purple-400 mt-1">
+        <p class="text-2xl font-semibold text-teal-600 dark:text-teal-400 mt-1">
           {{ report?.accepted || 0 }}
         </p>
       </div>
@@ -69,7 +69,7 @@
         <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
           Admitted
         </p>
-        <p class="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
+        <p class="text-2xl font-semibold text-emerald-600 dark:text-emerald-400 mt-1">
           {{ report?.admitted || 0 }}
         </p>
       </div>
@@ -78,7 +78,7 @@
         <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
           Declined
         </p>
-        <p class="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1">
+        <p class="text-2xl font-semibold text-rose-600 dark:text-rose-400 mt-1">
           {{ report?.declined || 0 }}
         </p>
       </div>
@@ -89,7 +89,7 @@
       v-if="report?.overdueFollowUps && report.overdueFollowUps.length > 0"
       class="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-rose-900 dark:text-rose-200 space-y-2 shadow-sm"
     >
-      <div class="flex items-center gap-2 font-bold text-sm">
+      <div class="flex items-center gap-2 font-semibold text-sm">
         <UIcon name="i-heroicons-exclamation-triangle" class="w-5 h-5 text-rose-600 animate-pulse" />
         <span>Overdue Admission Follow-ups (>24h without contact): {{ report.overdueFollowUps.length }} Cases</span>
       </div>
@@ -100,14 +100,14 @@
           class="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-800 text-xs flex items-center justify-between"
         >
           <div>
-            <NuxtLink :to="`/cases/${overdue.id}`" class="font-bold hover:underline">
+            <NuxtLink :to="`/cases/${overdue.id}`" class="font-semibold hover:underline">
               {{ overdue.patientName }} ({{ overdue.patientCode }})
             </NuxtLink>
             <p class="text-[10px] text-slate-500">Overdue by {{ overdue.hoursOverdue }}h</p>
           </div>
           <NuxtLink
             :to="`/cases/${overdue.id}`"
-            class="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg text-[10px]"
+            class="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-lg text-[10px]"
           >
             Call Now
           </NuxtLink>
@@ -125,7 +125,7 @@
         :class="[
           'px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-all min-h-[44px]',
           selectedStage === stg.key
-            ? 'bg-purple-600 text-white shadow-md shadow-purple-500/20'
+            ? 'bg-teal-600 text-white shadow-md shadow-teal-600/30 font-semibold'
             : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700'
         ]"
       >
@@ -135,7 +135,7 @@
 
     <!-- Loading State -->
     <div v-if="loadingCases" class="py-12 flex justify-center items-center">
-      <UIcon name="i-heroicons-arrow-path" class="w-8 h-8 text-purple-600 animate-spin" />
+      <UIcon name="i-heroicons-arrow-path" class="w-8 h-8 text-teal-600 animate-spin" />
     </div>
 
     <!-- Empty State -->
@@ -143,10 +143,10 @@
       v-else-if="cases.length === 0"
       class="bg-white dark:bg-slate-800 rounded-3xl p-12 text-center border border-slate-200 dark:border-slate-700 shadow-sm"
     >
-      <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-purple-50 dark:bg-purple-950/50 text-purple-600 flex items-center justify-center">
+      <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400 flex items-center justify-center">
         <UIcon name="i-heroicons-inbox" class="w-8 h-8" />
       </div>
-      <h3 class="text-base font-bold text-slate-800 dark:text-slate-200">
+      <h3 class="text-base font-semibold text-slate-800 dark:text-slate-200">
         No cases in this stage
       </h3>
       <p class="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
@@ -163,7 +163,7 @@
       >
         <!-- Info Column -->
         <div class="flex items-start space-x-4">
-          <div class="w-12 h-12 rounded-xl bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 flex items-center justify-center font-black text-lg flex-shrink-0">
+          <div class="w-12 h-12 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300 flex items-center justify-center font-semibold text-lg flex-shrink-0">
             {{ c.patient?.name ? c.patient.name.charAt(0).toUpperCase() : 'P' }}
           </div>
 
@@ -171,17 +171,17 @@
             <div class="flex flex-wrap items-center gap-2">
               <NuxtLink
                 :to="`/cases/${c.id}`"
-                class="font-black text-slate-900 dark:text-slate-100 hover:text-purple-600 transition-colors text-base"
+                class="font-semibold text-slate-900 dark:text-slate-100 hover:text-teal-600 transition-colors text-base"
               >
                 {{ c.patient?.name }}
               </NuxtLink>
-              <span class="text-xs font-mono px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700 font-bold text-slate-700 dark:text-slate-300">
+              <span class="text-xs font-mono px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700 font-semibold text-slate-700 dark:text-slate-300">
                 {{ c.patient?.patientCode }}
               </span>
 
               <span
                 :class="[
-                  'text-xs font-bold px-2.5 py-0.5 rounded-full capitalize',
+                  'text-xs font-semibold px-2.5 py-0.5 rounded-full capitalize',
                   getStageBadgeClass(c.stage)
                 ]"
               >
@@ -190,7 +190,7 @@
 
               <span
                 v-if="c.depositReceived"
-                class="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 flex items-center gap-1"
+                class="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 flex items-center gap-1"
               >
                 <UIcon name="i-heroicons-check-circle" class="w-3.5 h-3.5" />
                 Deposit Received
@@ -204,7 +204,7 @@
 
               <span
                 v-if="c.emergencyAdmission"
-                class="text-xs font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 animate-pulse"
+                class="text-xs font-semibold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 animate-pulse"
               >
                 Emergency Override
               </span>
@@ -221,7 +221,7 @@
               <span v-if="c.treatingDoctor">•</span>
               <span v-if="c.treatingDoctor">Doctor: Dr. {{ c.treatingDoctor.name }}</span>
               <span v-if="c.estimatedAmount">•</span>
-              <span v-if="c.estimatedAmount" class="font-bold text-purple-600 dark:text-purple-400">
+              <span v-if="c.estimatedAmount" class="font-semibold text-teal-600 dark:text-teal-400">
                 Estimate: ₹{{ Number(c.estimatedAmount).toLocaleString('en-IN') }}
               </span>
               <span v-if="c.expectedAdmissionDate">•</span>
@@ -236,7 +236,7 @@
         <div class="flex items-center space-x-2 self-end md:self-center flex-wrap gap-y-2">
           <a
             :href="`tel:${c.patient?.mobileNorm}`"
-            class="px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center gap-1.5 min-h-[44px]"
+            class="px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 text-xs font-semibold flex items-center gap-1.5 min-h-[44px]"
           >
             <UIcon name="i-heroicons-phone" class="w-4 h-4" />
             <span>Call</span>
@@ -244,7 +244,7 @@
 
           <UButton
             @click="openAdvanceModal(c)"
-            color="purple"
+            color="primary"
             variant="solid"
             class="min-h-[44px]"
           >
@@ -253,7 +253,7 @@
 
           <NuxtLink
             :to="`/cases/${c.id}`"
-            class="px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 flex items-center gap-1 min-h-[44px]"
+            class="px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 flex items-center gap-1 min-h-[44px]"
           >
             <span>View</span>
             <UIcon name="i-heroicons-chevron-right" class="w-4 h-4" />
@@ -266,7 +266,7 @@
     <UModal v-model="showAdvanceModal">
       <div class="p-6 space-y-5 bg-white dark:bg-slate-800 rounded-3xl">
         <div class="flex items-center justify-between">
-          <h3 class="text-xl font-black text-slate-900 dark:text-slate-100">
+          <h3 class="text-xl font-semibold text-slate-900 dark:text-slate-100">
             {{ t('admission.advance_stage') }}: {{ activeCase?.patient?.name }}
           </h3>
           <button @click="showAdvanceModal = false" class="text-slate-400 hover:text-slate-600">
@@ -277,13 +277,13 @@
         <form @submit.prevent="submitAdvanceStage" class="space-y-4">
           <!-- Target Stage Selection -->
           <div>
-            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">
+            <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">
               Select Next Stage *
             </label>
             <select
               v-model="advanceForm.stage"
               required
-              class="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm font-semibold focus:ring-2 focus:ring-purple-500 min-h-[44px]"
+              class="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm font-semibold focus:ring-2 focus:ring-teal-500 min-h-[44px]"
             >
               <option value="counseling_estimate">{{ t('cases.stages.counseling_estimate') }}</option>
               <option value="plan_accepted">{{ t('cases.stages.plan_accepted') }} (Deposit Paid)</option>
@@ -295,7 +295,7 @@
           <!-- Fields for Counseling / Estimate -->
           <div v-if="advanceForm.stage === 'counseling_estimate'" class="space-y-3">
             <div>
-              <label class="block text-xs font-bold uppercase text-slate-500 mb-1">
+              <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">
                 Estimated Treatment Amount (₹)
               </label>
               <input
@@ -314,15 +314,15 @@
                 id="depRec"
                 v-model="advanceForm.depositReceived"
                 type="checkbox"
-                class="w-4 h-4 rounded text-purple-600 focus:ring-purple-500"
+                class="w-4 h-4 rounded text-teal-600 focus:ring-teal-500"
               />
-              <label for="depRec" class="text-xs font-bold text-slate-700 dark:text-slate-300">
+              <label for="depRec" class="text-xs font-semibold text-slate-700 dark:text-slate-300">
                 Deposit Received (50% Advance)
               </label>
             </div>
 
             <div>
-              <label class="block text-xs font-bold uppercase text-slate-500 mb-1">
+              <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">
                 Deposit Amount (₹)
               </label>
               <input
@@ -334,11 +334,11 @@
             </div>
 
             <div>
-              <label class="block text-xs font-bold uppercase text-slate-500 mb-1">
+              <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">
                 Expected Admission Date
               </label>
               <input
-                v-model="advanceForm.expectedAdmissionDate"
+                v-model.number="advanceForm.expectedAdmissionDate"
                 type="date"
                 class="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm min-h-[44px]"
               />
@@ -348,7 +348,7 @@
           <!-- Fields for Admitted (In-Treatment) & Deposit Gate -->
           <div v-if="advanceForm.stage === 'in_treatment'" class="space-y-3">
             <div class="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-900/60 text-xs text-amber-900 dark:text-amber-200">
-              <p class="font-bold flex items-center gap-1">
+              <p class="font-semibold flex items-center gap-1">
                 <UIcon name="i-heroicons-shield-check" class="w-4 h-4 text-amber-600" />
                 Admission Deposit Gate
               </p>
@@ -362,9 +362,9 @@
                 id="admitDep"
                 v-model="advanceForm.depositReceived"
                 type="checkbox"
-                class="w-4 h-4 rounded text-purple-600 focus:ring-purple-500"
+                class="w-4 h-4 rounded text-teal-600 focus:ring-teal-500"
               />
-              <label for="admitDep" class="text-xs font-bold text-slate-700 dark:text-slate-300">
+              <label for="admitDep" class="text-xs font-semibold text-slate-700 dark:text-slate-300">
                 Advance Deposit Confirmed Received
               </label>
             </div>
@@ -378,13 +378,13 @@
                   type="checkbox"
                   class="w-4 h-4 rounded text-rose-600 focus:ring-rose-500"
                 />
-                <label for="emgAdm" class="text-xs font-bold text-rose-600 dark:text-rose-400">
+                <label for="emgAdm" class="text-xs font-semibold text-rose-600 dark:text-rose-400">
                   🚨 Emergency Admission Override (Waive Deposit Gate)
                 </label>
               </div>
 
               <div v-if="advanceForm.emergencyAdmission" class="mt-2">
-                <label class="block text-xs font-bold uppercase text-slate-500 mb-1">
+                <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">
                   Emergency Justification Reason *
                 </label>
                 <textarea
@@ -401,7 +401,7 @@
           <!-- Fields for Declined (Not Started) -->
           <div v-if="advanceForm.stage === 'not_started'" class="space-y-3">
             <div>
-              <label class="block text-xs font-bold uppercase text-slate-500 mb-1">
+              <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">
                 Decline Reason *
               </label>
               <select
@@ -411,7 +411,7 @@
               >
                 <option :value="null" disabled>Select Reason</option>
                 <option v-for="dr in declineReasons" :key="dr.id" :value="dr.id">
-                  {{ dr.labelEn }} ({{ dr.labelMl }})
+                  {{ dr.labelEn }}
                 </option>
               </select>
             </div>
@@ -419,7 +419,7 @@
 
           <!-- General Note -->
           <div>
-            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">
+            <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">
               Transition Note (Optional)
             </label>
             <input
@@ -443,7 +443,7 @@
             <UButton
               type="submit"
               :loading="submittingAdvance"
-              color="purple"
+              color="primary"
               class="min-h-[44px]"
             >
               Update Stage
@@ -497,7 +497,7 @@ const pipelineTabs = [
 function getStageBadgeClass(stage: string) {
   switch (stage) {
     case 'plan_given':
-      return 'bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300';
+      return 'bg-teal-50 text-teal-800 dark:bg-teal-950/60 dark:text-teal-300 border border-teal-200 dark:border-teal-800';
     case 'counseling_estimate':
       return 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300';
     case 'plan_accepted':

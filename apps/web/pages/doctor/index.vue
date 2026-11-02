@@ -3,8 +3,8 @@
     <!-- Header -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
       <div>
-        <h1 class="text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2.5">
-          <span class="w-8 h-8 rounded-xl bg-teal-600 text-white flex items-center justify-center text-sm font-bold shadow-md shadow-teal-500/20">
+        <h1 class="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2.5">
+          <span class="w-8 h-8 rounded-xl bg-teal-600 text-white flex items-center justify-center text-sm font-semibold shadow-md shadow-teal-500/20">
             Dr
           </span>
           <span>{{ t('cases.doctor_desk') }}</span>
@@ -19,21 +19,21 @@
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
       <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
         <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Patients</p>
-        <p class="text-2xl font-black text-slate-900 dark:text-slate-100 mt-1">
+        <p class="text-2xl font-semibold text-slate-900 dark:text-slate-100 mt-1">
           {{ myCases.length }}
         </p>
       </div>
 
       <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
         <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Awaiting Outcome</p>
-        <p class="text-2xl font-black text-blue-600 dark:text-blue-400 mt-1">
+        <p class="text-2xl font-semibold text-blue-600 dark:text-blue-400 mt-1">
           {{ awaitingOutcomeCount }}
         </p>
       </div>
 
       <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
         <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Advised Admission</p>
-        <p class="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">
+        <p class="text-2xl font-semibold text-amber-600 dark:text-amber-400 mt-1">
           {{ advisedAdmissionCount }}
         </p>
       </div>
@@ -43,7 +43,7 @@
         class="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm cursor-pointer hover:border-rose-400 transition-colors"
       >
         <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Pending Escalations (1h SLA)</p>
-        <p class="text-2xl font-black mt-1" :class="pendingEscalationsCount > 0 ? 'text-rose-600 dark:text-rose-400 animate-pulse' : 'text-slate-900 dark:text-slate-100'">
+        <p class="text-2xl font-semibold mt-1" :class="pendingEscalationsCount > 0 ? 'text-rose-600 dark:text-rose-400 animate-pulse' : 'text-slate-900 dark:text-slate-100'">
           {{ pendingEscalationsCount }}
         </p>
       </div>
@@ -66,7 +66,7 @@
         {{ f.label }}
         <span
           v-if="f.key === 'escalations' && pendingEscalationsCount > 0"
-          class="ml-1.5 px-2 py-0.5 text-xs rounded-full bg-rose-500 text-white font-bold"
+          class="ml-1.5 px-2 py-0.5 text-xs rounded-full bg-rose-500 text-white font-semibold"
         >
           {{ pendingEscalationsCount }}
         </span>
@@ -87,7 +87,7 @@
         <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-400">
           <UIcon name="i-heroicons-shield-check" class="w-8 h-8 text-emerald-500" />
         </div>
-        <h3 class="text-base font-bold text-slate-800 dark:text-slate-200">
+        <h3 class="text-base font-semibold text-slate-800 dark:text-slate-200">
           No Clinical Escalations
         </h3>
         <p class="text-xs text-slate-500 mt-1">
@@ -105,7 +105,7 @@
             <div class="flex items-center justify-between">
               <span
                 :class="[
-                  'text-[10px] font-black uppercase px-2.5 py-1 rounded-full',
+                  'text-[10px] font-semibold uppercase px-2.5 py-1 rounded-full',
                   esc.status === 'pending'
                     ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 animate-pulse'
                     : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
@@ -116,7 +116,7 @@
 
               <span
                 :class="[
-                  'text-xs font-mono font-bold',
+                  'text-xs font-mono font-semibold',
                   isOverdue(esc.dueAt) ? 'text-rose-600 dark:text-rose-400' : 'text-slate-500'
                 ]"
               >
@@ -126,7 +126,7 @@
             </div>
 
             <div>
-              <h4 class="font-bold text-slate-900 dark:text-slate-100 text-base">
+              <h4 class="font-semibold text-slate-900 dark:text-slate-100 text-base">
                 <NuxtLink :to="`/cases/${esc.caseId}`" class="hover:text-teal-600 transition-colors">
                   {{ esc.case?.patient?.name }}
                 </NuxtLink>
@@ -137,7 +137,7 @@
             </div>
 
             <div class="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-xs text-rose-900 dark:text-rose-200 space-y-1">
-              <p class="font-bold flex items-center gap-1">
+              <p class="font-semibold flex items-center gap-1">
                 <UIcon name="i-heroicons-exclamation-triangle" class="w-4 h-4 text-rose-600" />
                 Red Flag Clinical Concern:
               </p>
@@ -145,7 +145,7 @@
             </div>
 
             <div v-if="esc.decision" class="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 text-xs text-emerald-900 dark:text-emerald-200 space-y-1">
-              <p class="font-bold flex items-center gap-1">
+              <p class="font-semibold flex items-center gap-1">
                 <UIcon name="i-heroicons-check-circle" class="w-4 h-4 text-emerald-600" />
                 Doctor's Decision (Dr. {{ esc.decidedUser?.name }}):
               </p>
@@ -181,7 +181,7 @@
       <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-400">
         <UIcon name="i-heroicons-user-group" class="w-8 h-8" />
       </div>
-      <h3 class="text-base font-bold text-slate-800 dark:text-slate-200">
+      <h3 class="text-base font-semibold text-slate-800 dark:text-slate-200">
         No patients in this queue
       </h3>
       <p class="text-xs text-slate-500 mt-1">
@@ -197,7 +197,7 @@
         class="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow flex flex-col md:flex-row md:items-center justify-between gap-4"
       >
         <div class="flex items-start space-x-4">
-          <div class="w-12 h-12 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400 flex items-center justify-center font-bold text-lg flex-shrink-0">
+          <div class="w-12 h-12 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400 flex items-center justify-center font-semibold text-lg flex-shrink-0">
             {{ c.patient?.name ? c.patient.name.charAt(0).toUpperCase() : 'P' }}
           </div>
 
@@ -205,11 +205,11 @@
             <div class="flex flex-wrap items-center gap-2">
               <NuxtLink
                 :to="`/cases/${c.id}`"
-                class="font-black text-slate-900 dark:text-slate-100 hover:text-teal-600 transition-colors text-base"
+                class="font-semibold text-slate-900 dark:text-slate-100 hover:text-teal-600 transition-colors text-base"
               >
                 {{ c.patient?.name }}
               </NuxtLink>
-              <span class="text-xs font-mono px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700 font-bold text-slate-700 dark:text-slate-300">
+              <span class="text-xs font-mono px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700 font-semibold text-slate-700 dark:text-slate-300">
                 {{ c.patient?.patientCode }}
               </span>
               <span
@@ -222,7 +222,7 @@
               </span>
               <span
                 v-if="c.advisedAdmission"
-                class="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                class="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
               >
                 In-Patient Advised
               </span>
@@ -233,7 +233,7 @@
               <span>•</span>
               <span>Dept: {{ c.department?.labelEn || 'Ayurveda' }}</span>
               <span v-if="c.estimatedAmount">•</span>
-              <span v-if="c.estimatedAmount" class="font-bold text-teal-600">
+              <span v-if="c.estimatedAmount" class="font-semibold text-teal-600">
                 ₹{{ Number(c.estimatedAmount).toLocaleString('en-IN') }}
               </span>
             </div>
@@ -243,7 +243,7 @@
         <div class="flex items-center space-x-2 self-end md:self-center">
           <NuxtLink
             :to="`/cases/${c.id}`"
-            class="px-4 py-2 rounded-xl text-sm font-bold bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 transition-colors flex items-center gap-1.5 min-h-[44px]"
+            class="px-4 py-2 rounded-xl text-sm font-semibold bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 transition-colors flex items-center gap-1.5 min-h-[44px]"
           >
             <span>Record / Edit Outcome</span>
             <UIcon name="i-heroicons-arrow-right" class="w-4 h-4" />
@@ -256,7 +256,7 @@
     <UModal v-model="showDecisionModal">
       <div class="p-6 space-y-5 bg-white dark:bg-slate-800 rounded-3xl">
         <div class="flex items-center justify-between">
-          <h3 class="text-xl font-black text-slate-900 dark:text-slate-100">
+          <h3 class="text-xl font-semibold text-slate-900 dark:text-slate-100">
             Record Clinical Decision
           </h3>
           <button @click="showDecisionModal = false" class="text-slate-400 hover:text-slate-600">
@@ -265,7 +265,7 @@
         </div>
 
         <div v-if="selectedEscalation" class="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs space-y-1">
-          <p class="font-bold text-slate-700 dark:text-slate-300">
+          <p class="font-semibold text-slate-700 dark:text-slate-300">
             Patient: {{ selectedEscalation.case?.patient?.name }} ({{ selectedEscalation.case?.patient?.mobileNorm }})
           </p>
           <p class="text-rose-600 dark:text-rose-400">
@@ -276,7 +276,7 @@
         <form @submit.prevent="submitDecision" class="space-y-4">
           <!-- Quick Decision Presets -->
           <div>
-            <label class="block text-xs font-bold uppercase text-slate-500 mb-1.5">
+            <label class="block text-xs font-semibold uppercase text-slate-500 mb-1.5">
               Quick Decision Templates
             </label>
             <div class="grid grid-cols-2 gap-2">
@@ -313,7 +313,7 @@
 
           <!-- Decision Text -->
           <div>
-            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">
+            <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">
               Doctor's Clinical Instructions for Telecaller *
             </label>
             <textarea
@@ -327,7 +327,7 @@
 
           <!-- Alert explaining acceptance test 10 callback task -->
           <div class="p-3 rounded-xl bg-teal-50 dark:bg-teal-950/50 border border-teal-200 dark:border-teal-900/60 text-xs text-teal-900 dark:text-teal-200">
-            <p class="font-bold flex items-center gap-1">
+            <p class="font-semibold flex items-center gap-1">
               <UIcon name="i-heroicons-information-circle" class="w-4 h-4 text-teal-600" />
               Hot Callback Notification
             </p>

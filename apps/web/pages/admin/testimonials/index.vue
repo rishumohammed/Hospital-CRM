@@ -8,10 +8,10 @@
           <span>/</span>
           <span>Testimonials</span>
         </div>
-        <h1 class="text-2xl font-extrabold text-slate-900 dark:text-slate-100 flex items-center space-x-2">
+        <h1 class="text-2xl font-semibold text-slate-900 dark:text-slate-100 flex items-center space-x-2">
           <span>📜</span>
           <span>{{ t('testimonials.library_admin') }}</span>
-          <span class="text-xs px-2.5 py-1 rounded-full bg-teal-100 dark:bg-teal-950 text-teal-800 dark:text-teal-300 font-bold">
+          <span class="text-xs px-2.5 py-1 rounded-full bg-teal-100 dark:bg-teal-950 text-teal-800 dark:text-teal-300 font-semibold">
             {{ testimonials.length }} Total
           </span>
         </h1>
@@ -25,7 +25,7 @@
         <button
           type="button"
           @click="openAddModal"
-          class="min-h-[44px] px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs sm:text-sm shadow-md shadow-teal-600/20 transition-all flex items-center gap-2"
+          class="min-h-[44px] px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-xs sm:text-sm shadow-md shadow-teal-600/20 transition-all flex items-center gap-2"
         >
           <span>+</span>
           <span>{{ t('testimonials.library_add') }}</span>
@@ -37,7 +37,7 @@
     <div class="p-4 rounded-2xl bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800 text-teal-900 dark:text-teal-200 text-xs sm:text-sm font-semibold flex items-center gap-3 shadow-xs">
       <span class="text-xl">⚖️</span>
       <div class="flex-1">
-        <strong class="font-extrabold">{{ t('testimonials.library_rule') }}</strong>
+        <strong class="font-semibold">{{ t('testimonials.library_rule') }}</strong>
         <p class="text-xs text-teal-800 dark:text-teal-300 font-normal mt-0.5">
           {{ t('testimonials.pii_hint') }}
         </p>
@@ -65,7 +65,7 @@
         >
           <option value="">All Languages</option>
           <option value="en">English (EN)</option>
-          <option value="ml">മലയാളം (ML)</option>
+          <option value="ml">Malayalam (ML)</option>
         </select>
       </div>
 
@@ -95,14 +95,14 @@
         <div class="w-16 h-16 mx-auto rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-2xl">
           📜
         </div>
-        <h3 class="text-base font-bold text-slate-800 dark:text-slate-200">No testimonials found</h3>
+        <h3 class="text-base font-semibold text-slate-800 dark:text-slate-200">No testimonials found</h3>
         <p class="text-xs text-slate-500 max-w-sm mx-auto">
           Add an approved testimonial with verified patient consent to populate the library.
         </p>
         <button
           type="button"
           @click="openAddModal"
-          class="min-h-[44px] px-4 py-2 rounded-xl bg-teal-600 text-white text-xs font-bold"
+          class="min-h-[44px] px-4 py-2 rounded-xl bg-teal-600 text-white text-xs font-semibold"
         >
           + Add First Testimonial
         </button>
@@ -135,7 +135,7 @@
                       :href="item.url"
                       target="_blank"
                       rel="noopener noreferrer"
-                      class="font-bold text-slate-900 dark:text-slate-100 hover:text-teal-600 truncate block"
+                      class="font-semibold text-slate-900 dark:text-slate-100 hover:text-teal-600 truncate block"
                     >
                       {{ item.title }} ↗
                     </a>
@@ -146,13 +146,13 @@
                 </div>
               </td>
               <td class="py-3.5 px-4">
-                <span class="px-2 py-0.5 rounded font-mono font-bold uppercase bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                <span class="px-2 py-0.5 rounded font-mono font-semibold uppercase bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
                   {{ item.language }}
                 </span>
               </td>
               <td class="py-3.5 px-4">
                 <span v-if="item.department" class="px-2 py-0.5 rounded bg-teal-50 dark:bg-teal-950 text-teal-700 dark:text-teal-300 font-medium">
-                  {{ locale === 'ml' ? item.department.labelMl : item.department.labelEn }}
+                  {{ item.department.labelEn }}
                 </span>
                 <span v-else class="text-slate-400">All</span>
               </td>
@@ -162,7 +162,7 @@
               <td class="py-3.5 px-4">
                 <span
                   :class="[
-                    'px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider',
+                    'px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider',
                     item.active
                       ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
                       : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400'
@@ -202,7 +202,7 @@
         <div class="w-full max-w-lg rounded-3xl bg-white dark:bg-slate-900 p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
           
           <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-            <h3 class="text-base font-bold text-slate-900 dark:text-white">
+            <h3 class="text-base font-semibold text-slate-900 dark:text-white">
               {{ editingId ? t('testimonials.library_edit') : t('testimonials.library_add') }}
             </h3>
             <button type="button" @click="closeModal" class="text-slate-400 hover:text-slate-600 text-xl leading-none">
@@ -213,14 +213,14 @@
           <!-- PII Real-time Warning Banner -->
           <div
             v-if="hasPiiWarning"
-            class="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-xs font-bold"
+            class="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-xs font-semibold"
           >
             ⚠️ Privacy Violation: Phone number pattern detected in title or summary. Please remove it before saving.
           </div>
 
           <form @submit.prevent="submitForm" class="space-y-3.5">
             <div>
-              <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 {{ t('testimonials.item_title') }} *
               </label>
               <input
@@ -234,7 +234,7 @@
 
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   {{ t('testimonials.item_type') }} *
                 </label>
                 <select
@@ -249,7 +249,7 @@
               </div>
 
               <div>
-                <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   {{ t('testimonials.item_language') }} *
                 </label>
                 <select
@@ -257,14 +257,14 @@
                   class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-teal-500"
                 >
                   <option value="en">English (EN)</option>
-                  <option value="ml">മലയാളം (ML)</option>
+                  <option value="ml">Malayalam (ML)</option>
                   <option value="other">Other</option>
                 </select>
               </div>
             </div>
 
             <div>
-              <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 {{ t('testimonials.item_url') }} *
               </label>
               <input
@@ -277,7 +277,7 @@
             </div>
 
             <div>
-              <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 {{ t('testimonials.item_department') }}
               </label>
               <select
@@ -286,13 +286,13 @@
               >
                 <option :value="null">All Departments</option>
                 <option v-for="d in departments" :key="d.id" :value="d.id">
-                  {{ locale === 'ml' ? d.labelMl : d.labelEn }}
+                  {{ d.labelEn }}
                 </option>
               </select>
             </div>
 
             <div>
-              <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 {{ t('testimonials.item_summary') }} *
               </label>
               <textarea
@@ -308,7 +308,7 @@
             </div>
 
             <div>
-              <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 {{ t('testimonials.item_consent_reference') }} *
               </label>
               <input
@@ -340,14 +340,14 @@
               <button
                 type="button"
                 @click="closeModal"
-                class="min-h-[44px] px-4 py-2 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                class="min-h-[44px] px-4 py-2 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
               >
                 {{ t('common.cancel') }}
               </button>
               <button
                 type="submit"
                 :disabled="isSubmitting || hasPiiWarning || !form.consentConfirmed || !form.consentReference.trim()"
-                class="min-h-[44px] px-5 py-2 text-xs font-bold rounded-xl bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white shadow-sm flex items-center gap-2"
+                class="min-h-[44px] px-5 py-2 text-xs font-semibold rounded-xl bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white shadow-sm flex items-center gap-2"
               >
                 <span v-if="isSubmitting" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
                 <span>{{ editingId ? 'Update Testimonial' : 'Save Testimonial' }}</span>

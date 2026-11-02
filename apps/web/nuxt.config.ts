@@ -10,7 +10,6 @@ export default defineNuxtConfig({
   i18n: {
     locales: [
       { code: 'en', iso: 'en-US', name: 'English', file: 'en.json' },
-      { code: 'ml', iso: 'ml-IN', name: 'മലയാളം', file: 'ml.json' },
     ],
     defaultLocale: 'en',
     langDir: 'locales/',
@@ -44,4 +43,9 @@ export default defineNuxtConfig({
   },
 
   ssr: false, // SPA / PWA mode for optimal interactive telecaller responsiveness
+
+  // Compatibility shim: @nuxtjs/i18n@8.x uses getActiveHead which was removed in unhead@2 (Nuxt 3.16+)
+  unhead: {
+    legacy: true,
+  },
 });

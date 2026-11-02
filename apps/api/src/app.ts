@@ -24,6 +24,7 @@ import { reportRoutes } from './modules/reports/report.routes';
 import { escalationRoutes } from './modules/escalations/escalation.routes';
 import { exportRoutes } from './modules/exports/export.routes';
 import { testimonialRoutes } from './modules/testimonials/testimonial.routes';
+import { treatmentRoutes } from './modules/treatment-followup/treatment.routes';
 
 export async function buildApp() {
   const isTest = process.env.NODE_ENV === 'test';
@@ -150,6 +151,7 @@ export async function buildApp() {
   await fastify.register(escalationRoutes, { prefix: '/api/v1/escalations' });
   await fastify.register(exportRoutes, { prefix: '/api/v1' });
   await fastify.register(testimonialRoutes, { prefix: '/api/v1' });
+  await fastify.register(treatmentRoutes, { prefix: '/api/v1' });
 
   return fastify;
 }

@@ -8,9 +8,9 @@
       <!-- Brand Logo & Header -->
       <div class="text-center">
         <div class="inline-flex w-16 h-16 rounded-2xl bg-gradient-to-tr from-teal-500 to-emerald-400 items-center justify-center text-white shadow-xl shadow-teal-500/20 mb-4">
-          <span class="font-extrabold text-2xl tracking-wider">H</span>
+          <span class="font-semibold text-2xl tracking-wider">H</span>
         </div>
-        <h1 class="text-3xl font-extrabold tracking-tight text-white">
+        <h1 class="text-3xl font-semibold tracking-tight text-white">
           {{ t('app_name') }}
         </h1>
         <p class="mt-2 text-sm text-teal-200/80 font-medium tracking-wide">
@@ -68,7 +68,7 @@
           <button
             type="submit"
             :disabled="loading"
-            class="w-full flex justify-center items-center min-h-[48px] py-3 px-4 rounded-xl shadow-lg shadow-teal-600/25 text-sm font-bold text-white bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 disabled:opacity-50 transition-all active:scale-[0.98]"
+            class="w-full flex justify-center items-center min-h-[48px] py-3 px-4 rounded-xl shadow-lg shadow-teal-600/25 text-sm font-semibold text-white bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 disabled:opacity-50 transition-all active:scale-[0.98]"
           >
             <span v-if="loading">{{ t('common.loading') }}</span>
             <span v-else>{{ t('nav.login') }}</span>
@@ -78,7 +78,7 @@
         <!-- Step 2: MFA Code -->
         <form v-else @submit.prevent="handleMfaVerify" class="space-y-5">
           <div class="text-center mb-4">
-            <h2 class="text-lg font-bold text-white">Two-Factor Authentication</h2>
+            <h2 class="text-lg font-semibold text-white">Two-Factor Authentication</h2>
             <p class="text-xs text-slate-400 mt-1">Enter the 6-digit TOTP code from your authenticator app</p>
           </div>
 
@@ -97,7 +97,7 @@
           <button
             type="submit"
             :disabled="loading"
-            class="w-full flex justify-center items-center min-h-[48px] py-3 px-4 rounded-xl shadow-lg shadow-teal-600/25 text-sm font-bold text-white bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 disabled:opacity-50 transition-all active:scale-[0.98]"
+            class="w-full flex justify-center items-center min-h-[48px] py-3 px-4 rounded-xl shadow-lg shadow-teal-600/25 text-sm font-semibold text-white bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 disabled:opacity-50 transition-all active:scale-[0.98]"
           >
             <span v-if="loading">{{ t('common.loading') }}</span>
             <span v-else>Verify Code</span>

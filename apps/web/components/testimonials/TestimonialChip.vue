@@ -3,7 +3,7 @@
     <!-- Testimonial Status Chip -->
     <span
       :class="[
-        'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold transition-all shadow-2xs',
+        'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold transition-all shadow-2xs',
         isSent
           ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
           : 'bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/80'

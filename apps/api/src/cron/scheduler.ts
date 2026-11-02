@@ -1,7 +1,16 @@
 import cron from 'node-cron';
 import { prisma } from '../database/client';
 import { logger } from '../logger';
-import { checkSlaBreaches, checkOverdueTasks, updateLeadPriorities } from './jobs';
+import {
+  checkSlaBreaches,
+  checkOverdueTasks,
+  updateLeadPriorities,
+  checkUnansweredEscalations,
+  checkUnmarkedVisits,
+  checkUnansweredTreatmentEscalations,
+  recomputeAllAdherenceRisks,
+  runNightlyTreatmentMaintenance,
+} from './jobs';
 
 let scheduledTasks: cron.ScheduledTask[] = [];
 
@@ -13,40 +22,58 @@ export function startScheduler() {
 
   logger.info('Starting CRM Scheduled Jobs...');
 
-  // 1. SLA Breach Check: Every minute
+  // 1. SLA Breach & Escalations Check: Every minute
   const slaTask = cron.schedule('* * * * *', async () => {
     try {
       const res = await checkSlaBreaches(prisma);
       if (res.breachedCount > 0) {
         logger.warn({ count: res.breachedCount }, 'SLA breaches detected and notifications dispatched');
       }
+      await checkUnansweredEscalations(prisma);
+      await checkUnansweredTreatmentEscalations(prisma);
     } catch (err) {
-      logger.error({ err }, 'Error running checkSlaBreaches job');
+      logger.error({ err }, 'Error running 1-minute cron jobs');
     }
   });
   scheduledTasks.push(slaTask);
 
-  // 2. Overdue Tasks Check: Every 5 minutes
+  // 2. Overdue Tasks & Unmarked Visits Check: Every 5 minutes
   const overdueTask = cron.schedule('*/5 * * * *', async () => {
     try {
       await checkOverdueTasks(prisma);
+      const unmarkedRes = await checkUnmarkedVisits(prisma);
+      if (unmarkedRes.unmarkedCount > 0) {
+        logger.info({ count: unmarkedRes.unmarkedCount }, 'Unmarked visits identified and executives alerted');
+      }
     } catch (err) {
-      logger.error({ err }, 'Error running checkOverdueTasks job');
+      logger.error({ err }, 'Error running 5-minute cron jobs');
     }
   });
   scheduledTasks.push(overdueTask);
 
-  // 3. Lead Priority Updates: Every 15 minutes
+  // 3. Lead Priority Updates & Treatment Adherence Risk Recomputation: Every 15 minutes
   const priorityTask = cron.schedule('*/15 * * * *', async () => {
     try {
       await updateLeadPriorities(prisma);
+      await recomputeAllAdherenceRisks(prisma);
     } catch (err) {
-      logger.error({ err }, 'Error running updateLeadPriorities job');
+      logger.error({ err }, 'Error running 15-minute cron jobs');
     }
   });
   scheduledTasks.push(priorityTask);
 
-  logger.info('✓ Scheduled jobs active (SLA every 1m, Overdue every 5m, Priorities every 15m)');
+  // 4. Nightly Treatment Maintenance at 00:30
+  const nightlyTask = cron.schedule('30 0 * * *', async () => {
+    try {
+      const res = await runNightlyTreatmentMaintenance(prisma);
+      logger.info(res, 'Nightly treatment maintenance completed');
+    } catch (err) {
+      logger.error({ err }, 'Error running nightly treatment maintenance');
+    }
+  });
+  scheduledTasks.push(nightlyTask);
+
+  logger.info('✓ Scheduled jobs active (SLA/Escalations 1m, Overdue/Unmarked 5m, Priorities/Adherence 15m, Nightly 00:30)');
 }
 
 /**

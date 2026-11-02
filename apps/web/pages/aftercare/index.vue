@@ -3,8 +3,8 @@
     <!-- Header -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
       <div>
-        <h1 class="text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2.5">
-          <span class="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-600 text-white flex items-center justify-center text-sm font-bold shadow-md shadow-emerald-500/20">
+        <h1 class="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2.5">
+          <span class="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-600 text-white flex items-center justify-center text-sm font-semibold shadow-md shadow-emerald-500/20">
             🌿
           </span>
           <span>{{ t('aftercare.title') }}</span>
@@ -33,7 +33,7 @@
         <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
           Total Cases
         </p>
-        <p class="text-2xl font-black text-slate-900 dark:text-slate-100 mt-1">
+        <p class="text-2xl font-semibold text-slate-900 dark:text-slate-100 mt-1">
           {{ report?.totalCases || 0 }}
         </p>
       </div>
@@ -42,7 +42,7 @@
         <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
           Active Follow-ups
         </p>
-        <p class="text-2xl font-black text-teal-600 dark:text-teal-400 mt-1">
+        <p class="text-2xl font-semibold text-teal-600 dark:text-teal-400 mt-1">
           {{ report?.activeCases || 0 }}
         </p>
       </div>
@@ -51,7 +51,7 @@
         <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
           Call On-Time %
         </p>
-        <p class="text-2xl font-black text-blue-600 dark:text-blue-400 mt-1">
+        <p class="text-2xl font-semibold text-blue-600 dark:text-blue-400 mt-1">
           {{ report?.calls?.onTimeRate || 0 }}%
         </p>
       </div>
@@ -60,7 +60,7 @@
         <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
           Meds Adherence
         </p>
-        <p class="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
+        <p class="text-2xl font-semibold text-emerald-600 dark:text-emerald-400 mt-1">
           {{ report?.clinical?.adherenceRate != null ? report.clinical.adherenceRate + '%' : '—' }}
         </p>
       </div>
@@ -69,7 +69,7 @@
         <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
           Feedback Avg
         </p>
-        <p class="text-2xl font-black text-amber-500 dark:text-amber-400 mt-1">
+        <p class="text-2xl font-semibold text-amber-500 dark:text-amber-400 mt-1">
           {{ report?.feedback?.average != null ? report.feedback.average + ' / 10' : '—' }}
         </p>
       </div>
@@ -80,7 +80,7 @@
         </p>
         <p
           :class="[
-            'text-2xl font-black mt-1',
+            'text-2xl font-semibold mt-1',
             report?.escalations?.pending > 0 ? 'text-rose-600 animate-pulse' : 'text-slate-700 dark:text-slate-300'
           ]"
         >
@@ -95,13 +95,13 @@
       class="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-900 text-rose-900 dark:text-rose-200 space-y-2 shadow-sm"
     >
       <div class="flex items-center justify-between">
-        <div class="flex items-center gap-2 font-bold text-sm">
+        <div class="flex items-center gap-2 font-semibold text-sm">
           <UIcon name="i-heroicons-exclamation-triangle" class="w-5 h-5 text-rose-600 animate-bounce" />
           <span>Pending Clinical Red Flag Escalations Awaiting Doctor Decision (1h SLA)</span>
         </div>
         <button
           @click="activeTab = 'escalations'"
-          class="text-xs font-bold px-3 py-1 bg-rose-600 text-white rounded-lg hover:bg-rose-700"
+          class="text-xs font-semibold px-3 py-1 bg-rose-600 text-white rounded-lg hover:bg-rose-700"
         >
           View Escalations
         </button>
@@ -114,7 +114,7 @@
         type="button"
         @click="activeTab = 'all'"
         :class="[
-          'px-4 py-2 text-xs font-bold rounded-xl transition-all whitespace-nowrap min-h-[44px]',
+          'px-4 py-2 text-xs font-semibold rounded-xl transition-all whitespace-nowrap min-h-[44px]',
           activeTab === 'all'
             ? 'bg-emerald-600 text-white shadow-sm'
             : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -127,7 +127,7 @@
         type="button"
         @click="activeTab = 'escalations'"
         :class="[
-          'px-4 py-2 text-xs font-bold rounded-xl transition-all whitespace-nowrap min-h-[44px] flex items-center gap-1.5',
+          'px-4 py-2 text-xs font-semibold rounded-xl transition-all whitespace-nowrap min-h-[44px] flex items-center gap-1.5',
           activeTab === 'escalations'
             ? 'bg-rose-600 text-white shadow-sm'
             : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -136,7 +136,7 @@
         <span>{{ t('aftercare.clinical_escalations') }}</span>
         <span
           v-if="escalations.filter((e: any) => e.status === 'pending').length > 0"
-          class="px-1.5 py-0.5 rounded-full text-[10px] bg-rose-100 text-rose-800 font-black"
+          class="px-1.5 py-0.5 rounded-full text-[10px] bg-rose-100 text-rose-800 font-semibold"
         >
           {{ escalations.filter((e: any) => e.status === 'pending').length }}
         </span>
@@ -146,7 +146,7 @@
         type="button"
         @click="activeTab = 'completed'"
         :class="[
-          'px-4 py-2 text-xs font-bold rounded-xl transition-all whitespace-nowrap min-h-[44px]',
+          'px-4 py-2 text-xs font-semibold rounded-xl transition-all whitespace-nowrap min-h-[44px]',
           activeTab === 'completed'
             ? 'bg-slate-800 text-white shadow-sm'
             : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -176,7 +176,7 @@
           <div class="flex items-center justify-between">
             <span
               :class="[
-                'text-[10px] font-black uppercase px-2 py-0.5 rounded-full',
+                'text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full',
                 esc.status === 'pending'
                   ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 animate-pulse'
                   : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
@@ -190,7 +190,7 @@
           </div>
 
           <div>
-            <h4 class="font-bold text-slate-900 dark:text-slate-100">
+            <h4 class="font-semibold text-slate-900 dark:text-slate-100">
               <NuxtLink :to="`/cases/${esc.caseId}`" class="hover:text-emerald-600">
                 {{ esc.case?.patient?.name }}
               </NuxtLink>
@@ -199,12 +199,12 @@
           </div>
 
           <div class="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-xs text-rose-900 dark:text-rose-200">
-            <p class="font-bold">Red Flag Reason:</p>
+            <p class="font-semibold">Red Flag Reason:</p>
             <p class="mt-0.5">{{ esc.reason }}</p>
           </div>
 
           <div v-if="esc.decision" class="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 text-xs text-emerald-900 dark:text-emerald-200">
-            <p class="font-bold">Doctor Decision (Dr. {{ esc.decidedUser?.name }}):</p>
+            <p class="font-semibold">Doctor Decision (Dr. {{ esc.decidedUser?.name }}):</p>
             <p class="mt-0.5">{{ esc.decision }}</p>
           </div>
 
@@ -232,9 +232,9 @@
             <div class="flex items-center justify-between">
               <span
                 :class="[
-                  'text-[10px] font-bold px-2.5 py-1 rounded-full uppercase',
+                  'text-[10px] font-semibold px-2.5 py-1 rounded-full uppercase',
                   c.stage === 'aftercare_follow_up'
-                    ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300'
+                    ? 'bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300'
                     : 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300'
                 ]"
               >
@@ -247,7 +247,7 @@
             </div>
 
             <div>
-              <h3 class="text-base font-bold text-slate-900 dark:text-slate-100 hover:text-emerald-600">
+              <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100 hover:text-emerald-600">
                 <NuxtLink :to="`/cases/${c.id}`">
                   {{ c.patient?.name }}
                 </NuxtLink>
@@ -310,7 +310,7 @@
       <div class="p-6 space-y-5 bg-white dark:bg-slate-800 rounded-3xl">
         <div class="flex items-center justify-between">
           <div>
-            <h3 class="text-xl font-black text-slate-900 dark:text-slate-100">
+            <h3 class="text-xl font-semibold text-slate-900 dark:text-slate-100">
               {{ t('aftercare.log_aftercare_call') }}
             </h3>
             <p class="text-xs text-slate-500 mt-0.5">
@@ -325,7 +325,7 @@
         <form @submit.prevent="submitAftercareCall" class="space-y-4">
           <!-- 1. General Condition -->
           <div>
-            <label class="block text-xs font-bold uppercase text-slate-500 mb-1.5">
+            <label class="block text-xs font-semibold uppercase text-slate-500 mb-1.5">
               {{ t('aftercare.general_condition') }} *
             </label>
             <div class="grid grid-cols-3 gap-2">
@@ -333,7 +333,7 @@
                 type="button"
                 @click="callForm.generalCondition = 'better'"
                 :class="[
-                  'py-2.5 px-3 rounded-xl border text-xs font-bold transition-all min-h-[44px]',
+                  'py-2.5 px-3 rounded-xl border text-xs font-semibold transition-all min-h-[44px]',
                   callForm.generalCondition === 'better'
                     ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
                     : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
@@ -346,7 +346,7 @@
                 type="button"
                 @click="callForm.generalCondition = 'same'"
                 :class="[
-                  'py-2.5 px-3 rounded-xl border text-xs font-bold transition-all min-h-[44px]',
+                  'py-2.5 px-3 rounded-xl border text-xs font-semibold transition-all min-h-[44px]',
                   callForm.generalCondition === 'same'
                     ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
                     : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
@@ -359,7 +359,7 @@
                 type="button"
                 @click="callForm.generalCondition = 'worse'"
                 :class="[
-                  'py-2.5 px-3 rounded-xl border text-xs font-bold transition-all min-h-[44px]',
+                  'py-2.5 px-3 rounded-xl border text-xs font-semibold transition-all min-h-[44px]',
                   callForm.generalCondition === 'worse'
                     ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
                     : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
@@ -372,7 +372,7 @@
 
           <!-- 2. Medicines Taken -->
           <div>
-            <label class="block text-xs font-bold uppercase text-slate-500 mb-1.5">
+            <label class="block text-xs font-semibold uppercase text-slate-500 mb-1.5">
               {{ t('aftercare.medicines_taken') }} *
             </label>
             <div class="grid grid-cols-3 gap-2">
@@ -380,7 +380,7 @@
                 type="button"
                 @click="callForm.medicinesTaken = 'yes'"
                 :class="[
-                  'py-2 px-3 rounded-xl border text-xs font-bold transition-all min-h-[44px]',
+                  'py-2 px-3 rounded-xl border text-xs font-semibold transition-all min-h-[44px]',
                   callForm.medicinesTaken === 'yes'
                     ? 'bg-emerald-600 text-white border-emerald-600'
                     : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
@@ -393,7 +393,7 @@
                 type="button"
                 @click="callForm.medicinesTaken = 'partly'"
                 :class="[
-                  'py-2 px-3 rounded-xl border text-xs font-bold transition-all min-h-[44px]',
+                  'py-2 px-3 rounded-xl border text-xs font-semibold transition-all min-h-[44px]',
                   callForm.medicinesTaken === 'partly'
                     ? 'bg-amber-500 text-white border-amber-500'
                     : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
@@ -406,7 +406,7 @@
                 type="button"
                 @click="callForm.medicinesTaken = 'no'"
                 :class="[
-                  'py-2 px-3 rounded-xl border text-xs font-bold transition-all min-h-[44px]',
+                  'py-2 px-3 rounded-xl border text-xs font-semibold transition-all min-h-[44px]',
                   callForm.medicinesTaken === 'no'
                     ? 'bg-rose-600 text-white border-rose-600'
                     : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
@@ -419,7 +419,7 @@
 
           <!-- 3. New / Worsening Symptoms -->
           <div>
-            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">
+            <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">
               {{ t('aftercare.symptoms') }}
             </label>
             <input
@@ -438,7 +438,7 @@
               type="checkbox"
               class="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
             />
-            <label for="dietRestCheck" class="text-xs font-bold text-slate-700 dark:text-slate-300">
+            <label for="dietRestCheck" class="text-xs font-semibold text-slate-700 dark:text-slate-300">
               {{ t('aftercare.diet_rest_followed') }}
             </label>
           </div>
@@ -446,10 +446,10 @@
           <!-- 5. Feedback Rating (0 - 10) -->
           <div>
             <div class="flex items-center justify-between mb-1">
-              <label class="text-xs font-bold uppercase text-slate-500">
+              <label class="text-xs font-semibold uppercase text-slate-500">
                 {{ t('aftercare.feedback_score') }}
               </label>
-              <span class="text-xs font-mono font-bold text-emerald-600">
+              <span class="text-xs font-mono font-semibold text-emerald-600">
                 {{ callForm.feedbackScore != null ? callForm.feedbackScore + ' / 10' : 'Not rated' }}
               </span>
             </div>
@@ -474,13 +474,13 @@
                 type="checkbox"
                 class="w-4 h-4 rounded text-rose-600 focus:ring-rose-500"
               />
-              <label for="escToggle" class="text-xs font-black text-rose-700 dark:text-rose-300">
+              <label for="escToggle" class="text-xs font-semibold text-rose-700 dark:text-rose-300">
                 🚨 {{ t('aftercare.escalate_to_doctor') }}
               </label>
             </div>
 
             <div v-if="callForm.escalateToDoctor" class="space-y-2 pt-1">
-              <label class="block text-xs font-bold uppercase text-rose-800 dark:text-rose-300">
+              <label class="block text-xs font-semibold uppercase text-rose-800 dark:text-rose-300">
                 {{ t('aftercare.escalation_reason') }} *
               </label>
               <textarea
@@ -505,7 +505,7 @@
                 type="checkbox"
                 class="w-4 h-4 rounded text-teal-600 focus:ring-teal-500"
               />
-              <label for="reviewVisitCheck" class="text-xs font-bold text-slate-700 dark:text-slate-300">
+              <label for="reviewVisitCheck" class="text-xs font-semibold text-slate-700 dark:text-slate-300">
                 {{ t('aftercare.review_visit') }}
               </label>
             </div>
@@ -546,13 +546,13 @@
     <!-- Close Case Modal -->
     <UModal v-model="showCloseModal">
       <div class="p-6 space-y-4 bg-white dark:bg-slate-800 rounded-3xl">
-        <h3 class="text-xl font-black text-slate-900 dark:text-slate-100">
+        <h3 class="text-xl font-semibold text-slate-900 dark:text-slate-100">
           {{ t('aftercare.close_case') }}
         </h3>
 
         <form @submit.prevent="submitCloseCase" class="space-y-4">
           <div>
-            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">
+            <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">
               {{ t('aftercare.closure_code') }} *
             </label>
             <select
@@ -562,13 +562,13 @@
             >
               <option :value="null" disabled>Select Closure Code</option>
               <option v-for="cc in closureCodes" :key="cc.id" :value="cc.id">
-                {{ cc.labelEn }} ({{ cc.labelMl }})
+                {{ cc.labelEn }}
               </option>
             </select>
           </div>
 
           <div>
-            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">
+            <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">
               Closure Note
             </label>
             <textarea

@@ -1,7 +1,7 @@
 import { prisma } from '../../database/client';
 import { UserContext } from '../rbac/scope';
 import { applyCadence, cancelOpenCadenceTasks } from '../cadences/cadence.service';
-import { toZonedTime } from 'date-fns-tz';
+import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 import { startOfDay, endOfDay, addHours } from 'date-fns';
 
 export interface CallLimitsCheckResult {
@@ -89,7 +89,6 @@ export async function checkCallLimits(
 }
 
 function fromLocalZonedDate(zonedDate: Date, timezone: string): Date {
-  const { fromZonedTime } = require('date-fns-tz');
   return fromZonedTime(zonedDate, timezone);
 }
 

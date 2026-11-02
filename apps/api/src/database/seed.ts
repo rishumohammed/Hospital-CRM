@@ -29,6 +29,7 @@ export async function seedDatabase() {
     { code: Teams.SUPPORT, name: 'Support Team' },
     { code: Teams.ADMISSION, name: 'Admission Team' },
     { code: Teams.AFTERCARE, name: 'Aftercare Team' },
+    { code: Teams.TREATMENT_FOLLOWUP, name: 'Treatment Follow-up Team' },
   ];
 
   const seededTeams: Record<string, any> = {};
@@ -39,7 +40,7 @@ export async function seedDatabase() {
       create: { code: t.code, name: t.name },
     });
   }
-  console.log('✓ Teams seeded: Support, Admission, Aftercare');
+  console.log('✓ Teams seeded: Support, Admission, Aftercare, Treatment Follow-up');
 
   // 3. Seed Roles & Starter Permissions Matrix
   const roleDefinitions = [
@@ -50,6 +51,8 @@ export async function seedDatabase() {
     { code: Roles.SUPPORT_TELECALLER, name: 'Support Telecaller', maskPhone: false },
     { code: Roles.ADMISSION_SPECIALIST, name: 'Admission Specialist', maskPhone: false },
     { code: Roles.AFTERCARE_EXECUTIVE, name: 'Aftercare Executive', maskPhone: false },
+    { code: Roles.TREATMENT_FOLLOWUP_EXECUTIVE, name: 'Treatment Follow-up Executive', maskPhone: false },
+    { code: Roles.FRONT_OFFICE, name: 'Front Office / Reception', maskPhone: false },
     { code: Roles.DOCTOR, name: 'Treating Doctor', maskPhone: false },
     { code: Roles.AUDITOR, name: 'Quality / External Auditor', maskPhone: false },
   ];
@@ -116,6 +119,12 @@ export async function seedDatabase() {
         { permission: Permissions.TESTIMONIAL_VOID, scope: Scopes.BRANCH },
         { permission: Permissions.TESTIMONIAL_MANAGE, scope: Scopes.BRANCH },
         { permission: Permissions.TESTIMONIAL_VIEW, scope: Scopes.BRANCH },
+        { permission: Permissions.SCHEDULE_VIEW, scope: Scopes.BRANCH },
+        { permission: Permissions.SCHEDULE_MANAGE, scope: Scopes.BRANCH },
+        { permission: Permissions.VISIT_VIEW, scope: Scopes.BRANCH },
+        { permission: Permissions.VISIT_MARK, scope: Scopes.BRANCH },
+        { permission: Permissions.CHECKIN_CREATE, scope: Scopes.BRANCH },
+        { permission: Permissions.FOLLOWUP_REPORT, scope: Scopes.BRANCH },
       ],
     },
     // 4. Telecaller Manager: branch-level for leads & cases, report: branch
@@ -143,6 +152,12 @@ export async function seedDatabase() {
         { permission: Permissions.TESTIMONIAL_VOID, scope: Scopes.BRANCH },
         { permission: Permissions.TESTIMONIAL_MANAGE, scope: Scopes.BRANCH },
         { permission: Permissions.TESTIMONIAL_VIEW, scope: Scopes.BRANCH },
+        { permission: Permissions.SCHEDULE_VIEW, scope: Scopes.BRANCH },
+        { permission: Permissions.SCHEDULE_MANAGE, scope: Scopes.BRANCH },
+        { permission: Permissions.VISIT_VIEW, scope: Scopes.BRANCH },
+        { permission: Permissions.VISIT_MARK, scope: Scopes.BRANCH },
+        { permission: Permissions.CHECKIN_CREATE, scope: Scopes.BRANCH },
+        { permission: Permissions.FOLLOWUP_REPORT, scope: Scopes.BRANCH },
       ],
     },
     // 5. Support Telecaller: own leads, own tasks, own reports
@@ -177,6 +192,7 @@ export async function seedDatabase() {
         { permission: Permissions.REPORT_VIEW, scope: Scopes.OWN },
         { permission: Permissions.EXPORT_REQUEST, scope: Scopes.OWN },
         { permission: Permissions.TESTIMONIAL_VIEW, scope: Scopes.BRANCH },
+        { permission: Permissions.SCHEDULE_VIEW, scope: Scopes.OWN },
       ],
     },
     // 7. Aftercare Executive: own cases & tasks
@@ -192,9 +208,39 @@ export async function seedDatabase() {
         { permission: Permissions.REPORT_VIEW, scope: Scopes.OWN },
         { permission: Permissions.EXPORT_REQUEST, scope: Scopes.OWN },
         { permission: Permissions.TESTIMONIAL_VIEW, scope: Scopes.BRANCH },
+        { permission: Permissions.SCHEDULE_VIEW, scope: Scopes.OWN },
       ],
     },
-    // 8. Doctor: own cases, notes, escalation decision
+    // 8. Treatment Follow-up Executive: own & team cases, tasks, visits, checkins
+    {
+      roleCode: Roles.TREATMENT_FOLLOWUP_EXECUTIVE,
+      permissions: [
+        { permission: Permissions.CASE_VIEW, scope: Scopes.TEAM },
+        { permission: Permissions.CASE_EDIT, scope: Scopes.TEAM },
+        { permission: Permissions.TASK_VIEW, scope: Scopes.TEAM },
+        { permission: Permissions.TASK_MANAGE, scope: Scopes.TEAM },
+        { permission: Permissions.INTERACTION_CREATE, scope: Scopes.TEAM },
+        { permission: Permissions.ESCALATION_CREATE, scope: Scopes.ALL },
+        { permission: Permissions.REPORT_VIEW, scope: Scopes.TEAM },
+        { permission: Permissions.SCHEDULE_VIEW, scope: Scopes.TEAM },
+        { permission: Permissions.SCHEDULE_MANAGE, scope: Scopes.TEAM },
+        { permission: Permissions.VISIT_VIEW, scope: Scopes.TEAM },
+        { permission: Permissions.VISIT_MARK, scope: Scopes.TEAM },
+        { permission: Permissions.CHECKIN_CREATE, scope: Scopes.TEAM },
+        { permission: Permissions.FOLLOWUP_REPORT, scope: Scopes.TEAM },
+        { permission: Permissions.TESTIMONIAL_VIEW, scope: Scopes.BRANCH },
+      ],
+    },
+    // 9. Front Office (Reception): branch today's visits board & attendance marking
+    {
+      roleCode: Roles.FRONT_OFFICE,
+      permissions: [
+        { permission: Permissions.SCHEDULE_VIEW, scope: Scopes.BRANCH },
+        { permission: Permissions.VISIT_VIEW, scope: Scopes.BRANCH },
+        { permission: Permissions.VISIT_MARK, scope: Scopes.BRANCH },
+      ],
+    },
+    // 10. Doctor: own patients' cases, schedules, extensions, escalations
     {
       roleCode: Roles.DOCTOR,
       permissions: [
@@ -204,10 +250,17 @@ export async function seedDatabase() {
         { permission: Permissions.TASK_MANAGE, scope: Scopes.OWN },
         { permission: Permissions.INTERACTION_CREATE, scope: Scopes.OWN },
         { permission: Permissions.ESCALATION_DECIDE, scope: Scopes.OWN },
+        { permission: Permissions.SCHEDULE_VIEW, scope: Scopes.OWN },
+        { permission: Permissions.SCHEDULE_MANAGE, scope: Scopes.OWN },
+        { permission: Permissions.SCHEDULE_APPROVE_EXTENSION, scope: Scopes.OWN },
+        { permission: Permissions.VISIT_VIEW, scope: Scopes.OWN },
+        { permission: Permissions.VISIT_MARK, scope: Scopes.OWN },
+        { permission: Permissions.CHECKIN_CREATE, scope: Scopes.OWN },
+        { permission: Permissions.FOLLOWUP_REPORT, scope: Scopes.OWN },
         { permission: Permissions.TESTIMONIAL_VIEW, scope: Scopes.BRANCH },
       ],
     },
-    // 9. Auditor: read-only all
+    // 11. Auditor: read-only all
     {
       roleCode: Roles.AUDITOR,
       permissions: [
@@ -218,6 +271,9 @@ export async function seedDatabase() {
         { permission: Permissions.AUDIT_VIEW, scope: Scopes.ALL },
         { permission: Permissions.EXPORT_REQUEST, scope: Scopes.ALL },
         { permission: Permissions.TESTIMONIAL_VIEW, scope: Scopes.ALL },
+        { permission: Permissions.SCHEDULE_VIEW, scope: Scopes.ALL },
+        { permission: Permissions.VISIT_VIEW, scope: Scopes.ALL },
+        { permission: Permissions.FOLLOWUP_REPORT, scope: Scopes.ALL },
       ],
     },
   ];
@@ -327,6 +383,24 @@ export async function seedDatabase() {
       email: 'auditor@hospital.test',
       mobile: '+919800000010',
       roleCode: Roles.AUDITOR,
+      teams: [],
+      dutyNurse: false,
+      dutyDoctor: false,
+    },
+    {
+      name: 'Sr. Bindu Thomas (Treatment Follow-up Executive)',
+      email: 'treatment1@hospital.test',
+      mobile: '+919800000051',
+      roleCode: Roles.TREATMENT_FOLLOWUP_EXECUTIVE,
+      teams: [Teams.TREATMENT_FOLLOWUP],
+      dutyNurse: true,
+      dutyDoctor: false,
+    },
+    {
+      name: 'Anu Mohan (Front Office Reception)',
+      email: 'reception1@hospital.test',
+      mobile: '+919800000052',
+      roleCode: Roles.FRONT_OFFICE,
       teams: [],
       dutyNurse: false,
       dutyDoctor: false,
@@ -570,6 +644,31 @@ export async function seedDatabase() {
         hours: 24,
       },
     },
+    {
+      key: 'adherence_thresholds',
+      value: {
+        medium_missed_in_last_3: 1,
+        medium_rate: 80,
+        high_consecutive_missed: 2,
+        high_rate: 60,
+      },
+    },
+    {
+      key: 'daily_reminder_mode',
+      value: 'each_visit',
+    },
+    {
+      key: 'inpatient_checkin_interval_days',
+      value: 3,
+    },
+    {
+      key: 'followup_call_limit_per_day',
+      value: 2,
+    },
+    {
+      key: 'unmarked_visit_grace_minutes',
+      value: 60,
+    },
   ];
 
   for (const s of defaultSettings) {
@@ -579,9 +678,87 @@ export async function seedDatabase() {
       create: s,
     });
   }
-  console.log('✓ System Settings (calling hours, SLA, contact rules, quiet hours, testimonial followup) seeded');
+  console.log('✓ System Settings (calling hours, SLA, contact rules, adherence thresholds, followup limits) seeded');
+
+  // 11b. Seed Therapies & Visit Types
+  const therapyDefs = [
+    { code: 'doctor_review', labelEn: 'Doctor Review', labelMl: 'ഡോക്ടർ പരിശോധന', sort: 1 },
+    { code: 'pancha_karma', labelEn: 'Pancha Karma Session', labelMl: 'പഞ്ചകർമ്മ സെഷൻ', sort: 2 },
+    { code: 'physiotherapy', labelEn: 'Physiotherapy Session', labelMl: 'ഫിസിയോതെറാപ്പി സെഷൻ', sort: 3 },
+    { code: 'naturopathy', labelEn: 'Naturopathy Session', labelMl: 'പ്രകൃതിചികിത്സ സെഷൻ', sort: 4 },
+    { code: 'hijama', labelEn: 'Hijama Session', labelMl: 'ഹിജാമ സെഷൻ', sort: 5 },
+    { code: 'acupuncture', labelEn: 'Acupuncture Session', labelMl: 'അക്യുപങ്ചർ സെഷൻ', sort: 6 },
+    { code: 'electro_homeopathy', labelEn: 'Electro Homeopathy Session', labelMl: 'ഇലക്ട്രോ ഹോമിയോപ്പതി സെഷൻ', sort: 7 },
+    { code: 'yoga', labelEn: 'Yoga Session', labelMl: 'യോഗ സെഷൻ', sort: 8 },
+    { code: 'counseling', labelEn: 'Counseling Session', labelMl: 'കൗൺസിലിംഗ് സെഷൻ', sort: 9 },
+    { code: 'reflexology', labelEn: 'Reflexology Session', labelMl: 'റിഫ്ലെക്സോളജി സെഷൻ', sort: 10 },
+    { code: 'procedure_care', labelEn: 'Dressing or Procedure Care', labelMl: 'ഡ്രസ്സിംഗ് / പ്രൊസീജിയർ പരിചരണം', sort: 11 },
+    { code: 'other', labelEn: 'Other', labelMl: 'മറ്റുള്ളവ', sort: 12 },
+  ];
+
+  const seededTherapies: Record<string, any> = {};
+  for (const th of therapyDefs) {
+    seededTherapies[th.code] = await prisma.therapy.upsert({
+      where: { code: th.code },
+      update: { labelEn: th.labelEn, labelMl: th.labelMl, sort: th.sort },
+      create: th,
+    });
+  }
+  console.log('✓ 12 Therapies seeded with Malayalam labels');
+
+  // 11c. Seed Missed Reasons
+  const missedReasonDefs = [
+    { code: 'transport', labelEn: 'Transport', labelMl: 'യാത്രാസൗകര്യക്കുറവ്', sort: 1 },
+    { code: 'illness', labelEn: 'Illness', labelMl: 'അസുഖം', sort: 2 },
+    { code: 'family_reason', labelEn: 'Family Reason', labelMl: 'കുടുംബപരമായ കാരണം', sort: 3 },
+    { code: 'work', labelEn: 'Work', labelMl: 'ജോലി തിരക്ക്', sort: 4 },
+    { code: 'cost', labelEn: 'Cost', labelMl: 'ചെലവ് / സാമ്പത്തിക ബുദ്ധിമുട്ട്', sort: 5 },
+    { code: 'forgot', labelEn: 'Forgot', labelMl: 'മറന്നുപോയി', sort: 6 },
+    { code: 'felt_better', labelEn: 'Felt Better', labelMl: 'സുഖം തോന്നി', sort: 7 },
+    { code: 'not_convinced', labelEn: 'Not Convinced', labelMl: 'വിശ്വാസമില്ലായ്മ', sort: 8 },
+    { code: 'other', labelEn: 'Other', labelMl: 'മറ്റുള്ളവ', sort: 9 },
+  ];
+
+  const seededMissedReasons: Record<string, any> = {};
+  for (const mr of missedReasonDefs) {
+    seededMissedReasons[mr.code] = await prisma.missedReason.upsert({
+      where: { code: mr.code },
+      update: { labelEn: mr.labelEn, labelMl: mr.labelMl, sort: mr.sort },
+      create: mr,
+    });
+  }
+  console.log('✓ 9 Missed Reasons seeded with Malayalam labels');
+
+  // 11d. Seed Assignment Rule for Treatment Follow-up Desk
+  const existingFollowupRule = await prisma.assignmentRule.findFirst({
+    where: { resource: 'case_treatment_followup' },
+  });
+  if (existingFollowupRule) {
+    await prisma.assignmentRule.update({
+      where: { id: existingFollowupRule.id },
+      data: {
+        targetTeam: Teams.TREATMENT_FOLLOWUP,
+        maxOpenPerUser: 50,
+        active: true,
+      },
+    });
+  } else {
+    await prisma.assignmentRule.create({
+      data: {
+        name: 'Treatment Follow-up Desk Default Assignment',
+        resource: 'case_treatment_followup',
+        targetTeam: Teams.TREATMENT_FOLLOWUP,
+        priorityOrder: 1,
+        conditions: {},
+        maxOpenPerUser: 50,
+        active: true,
+      },
+    });
+  }
+  console.log('✓ Treatment Follow-up assignment rule seeded');
+
   await ensureDefaultCadences(prisma);
-  console.log('✓ 9 Default Cadences & Steps seeded');
+  console.log('✓ Default Cadences & Steps seeded');
 
   // 12. Seed 40 Synthetic Leads
   const t1 = seededUsers['telecaller1@hospital.test'];
@@ -867,6 +1044,454 @@ export async function seedDatabase() {
   });
 
   console.log(`✓ 10 Leads seeded with testimonial sends (including 1 voided send on Lead 10)`);
+
+  // 14. Seed Treatment Follow-up Synthetic Cases, Schedules, Visits & Check-ins
+  console.log('Seeding Treatment Follow-up Synthetic Cases & Schedules...');
+  const treatmentExec = seededUsers['treatment1@hospital.test'];
+  const doctorUser = seededUsers['doctor1@hospital.test'];
+  const admissionUser = seededUsers['admission1@hospital.test'];
+
+  // Clear existing synthetic treatment data
+  await prisma.scheduledVisit.deleteMany({});
+  await prisma.scheduleExtensionRequest.deleteMany({});
+  await prisma.visitSchedule.deleteMany({});
+  await prisma.treatmentCheckin.deleteMany({});
+  await prisma.caseHandover.deleteMany({});
+  await prisma.escalation.deleteMany({
+    where: {
+      escalationType: { in: ['adherence', 'inpatient_concern'] },
+    },
+  });
+
+  const panchaKarmaTherapy = seededTherapies['pancha_karma'] || Object.values(seededTherapies)[0];
+  const doctorReviewTherapy = seededTherapies['doctor_review'] || Object.values(seededTherapies)[0];
+  const physioTherapy = seededTherapies['physiotherapy'] || Object.values(seededTherapies)[0];
+  const naturopathyTherapy = seededTherapies['naturopathy'] || Object.values(seededTherapies)[0];
+  const acupunctureTherapy = seededTherapies['acupuncture'] || Object.values(seededTherapies)[0];
+  const reflexologyTherapy = seededTherapies['reflexology'] || Object.values(seededTherapies)[0];
+  const procedureCareTherapy = seededTherapies['procedure_care'] || Object.values(seededTherapies)[0];
+
+  const missedTransport = seededMissedReasons['transport'] || Object.values(seededMissedReasons)[0];
+  const missedWork = seededMissedReasons['work'] || Object.values(seededMissedReasons)[0];
+  const missedIllness = seededMissedReasons['illness'] || Object.values(seededMissedReasons)[0];
+  const missedForgot = seededMissedReasons['forgot'] || Object.values(seededMissedReasons)[0];
+  const missedCost = seededMissedReasons['cost'] || Object.values(seededMissedReasons)[0];
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Helper to format Date to YYYY-MM-DD
+  const formatDateStr = (d: Date) => d.toISOString().split('T')[0];
+
+  // Helper to add days
+  const addDayOffset = (base: Date, days: number) => {
+    const res = new Date(base);
+    res.setDate(res.getDate() + days);
+    return res;
+  };
+
+  const syntheticCases = [
+    // 5 In-Patient Cases
+    {
+      code: 'PAT-TF-001',
+      name: 'K. Ramanathan',
+      mobile: '+919810000001',
+      setting: 'inpatient',
+      careType: 'in_patient',
+      stage: 'in_treatment',
+      therapy: panchaKarmaTherapy,
+      sessions: 14,
+      freq: 'daily',
+      risk: 'low',
+      consecutiveMissed: 0,
+      attRate: 100.0,
+      expectedDischargeDays: 7,
+      checkins: [
+        { channel: 'bedside', contactedWho: 'Patient', condition: 'comfortable', therapiesAsPlanned: 'yes', note: 'Patient is comfortable. Pancha karma therapy well tolerated.' },
+      ],
+    },
+    {
+      code: 'PAT-TF-002',
+      name: 'Zainaba Beevi',
+      mobile: '+919810000002',
+      setting: 'inpatient',
+      careType: 'in_patient',
+      stage: 'in_treatment',
+      therapy: naturopathyTherapy,
+      sessions: 10,
+      freq: 'daily',
+      risk: 'low',
+      consecutiveMissed: 0,
+      attRate: 100.0,
+      expectedDischargeDays: 5,
+      checkins: [
+        { channel: 'bedside', contactedWho: 'Family (Son)', condition: 'comfortable', therapiesAsPlanned: 'yes', note: 'Family reported good recovery. Diet preferences updated.' },
+      ],
+    },
+    {
+      code: 'PAT-TF-003',
+      name: 'Madhavan Pillai',
+      mobile: '+919810000003',
+      setting: 'inpatient',
+      careType: 'in_patient',
+      stage: 'in_treatment',
+      therapy: physioTherapy,
+      sessions: 10,
+      freq: 'daily',
+      risk: 'medium',
+      consecutiveMissed: 1,
+      attRate: 75.0,
+      expectedDischargeDays: 4,
+      checkins: [
+        { channel: 'bedside', contactedWho: 'Patient', condition: 'unwell', therapiesAsPlanned: 'no', missedTherapiesNote: 'Fever and chills, session paused', concerns: 'Patient feeling feverish', escalate: true, note: 'Escalated to duty doctor and ward nurse due to fever and nausea.' },
+      ],
+    },
+    {
+      code: 'PAT-TF-004',
+      name: 'Gracy Joseph',
+      mobile: '+919810000004',
+      setting: 'inpatient',
+      careType: 'in_patient',
+      stage: 'in_treatment',
+      therapy: reflexologyTherapy,
+      sessions: 10,
+      freq: 'daily',
+      risk: 'low',
+      consecutiveMissed: 0,
+      attRate: 100.0,
+      expectedDischargeDays: 6,
+      checkins: [
+        { channel: 'call', contactedWho: 'Family (Daughter)', condition: 'comfortable', therapiesAsPlanned: 'yes', note: 'Telephonic check-in with family attendant.' },
+      ],
+    },
+    {
+      code: 'PAT-TF-005',
+      name: 'Biju Augustine',
+      mobile: '+919810000005',
+      setting: 'inpatient',
+      careType: 'in_patient',
+      stage: 'in_treatment',
+      therapy: procedureCareTherapy,
+      sessions: 10,
+      freq: 'daily',
+      risk: 'low',
+      consecutiveMissed: 0,
+      attRate: 100.0,
+      expectedDischargeDays: 1,
+      checkins: [
+        { channel: 'bedside', contactedWho: 'Patient', condition: 'comfortable', therapiesAsPlanned: 'yes', note: 'Wound dressing intact and clean. Discharge readiness review planned tomorrow.' },
+      ],
+    },
+
+    // 5 Out-Patient Cases
+    {
+      code: 'PAT-TF-006',
+      name: 'Valsala Kumari',
+      mobile: '+919810000006',
+      setting: 'opd',
+      careType: 'opd_course',
+      stage: 'in_treatment',
+      therapy: panchaKarmaTherapy,
+      sessions: 12,
+      freq: 'daily',
+      risk: 'low',
+      consecutiveMissed: 0,
+      attRate: 100.0,
+    },
+    {
+      code: 'PAT-TF-007',
+      name: 'Sukumaran Nair',
+      mobile: '+919810000007',
+      setting: 'opd',
+      careType: 'opd_course',
+      stage: 'in_treatment',
+      therapy: doctorReviewTherapy,
+      sessions: 8,
+      freq: 'weekly',
+      risk: 'low',
+      consecutiveMissed: 0,
+      attRate: 100.0,
+    },
+    {
+      // High Risk Case #1: 2 consecutive missed visits
+      code: 'PAT-TF-008',
+      name: 'Anoop Chandran',
+      mobile: '+919810000008',
+      setting: 'opd',
+      careType: 'opd_course',
+      stage: 'in_treatment',
+      therapy: physioTherapy,
+      sessions: 9,
+      freq: 'custom_weekdays',
+      weekdays: [1, 3, 5],
+      risk: 'high',
+      consecutiveMissed: 2,
+      attRate: 50.0,
+    },
+    {
+      // High Risk Case #2: Attendance rate 50% (<60%)
+      code: 'PAT-TF-009',
+      name: 'Leela George',
+      mobile: '+919810000009',
+      setting: 'opd',
+      careType: 'opd_course',
+      stage: 'in_treatment',
+      therapy: acupunctureTherapy,
+      sessions: 10,
+      freq: 'daily',
+      risk: 'high',
+      consecutiveMissed: 2,
+      attRate: 50.0,
+    },
+    {
+      // Pending extension request case
+      code: 'PAT-TF-010',
+      name: 'Usman Farooqi',
+      mobile: '+919810000010',
+      setting: 'opd',
+      careType: 'opd_course',
+      stage: 'in_treatment',
+      therapy: naturopathyTherapy,
+      sessions: 8,
+      freq: 'alternate_days',
+      risk: 'low',
+      consecutiveMissed: 0,
+      attRate: 100.0,
+      hasPendingExtension: true,
+    },
+  ];
+
+  let totalVisitsSeeded = 0;
+
+  for (let idx = 0; idx < syntheticCases.length; idx++) {
+    const sc = syntheticCases[idx];
+
+    // 1. Upsert Patient
+    const patient = await prisma.patient.upsert({
+      where: { patientCode: sc.code },
+      update: { name: sc.name, mobileNorm: sc.mobile },
+      create: {
+        patientCode: sc.code,
+        name: sc.name,
+        mobileNorm: sc.mobile,
+        language: 'en',
+        branchId: mainBranch.id,
+      },
+    });
+
+    // 2. Create or find Case
+    const existingCase = await prisma.case.findFirst({
+      where: { patientId: patient.id },
+    });
+
+    const expectedDischarge = sc.expectedDischargeDays ? addDayOffset(today, sc.expectedDischargeDays) : null;
+
+    const patientCase = existingCase
+      ? await prisma.case.update({
+          where: { id: existingCase.id },
+          data: {
+            stage: sc.stage,
+            setting: sc.setting,
+            careType: sc.careType,
+            team: Teams.TREATMENT_FOLLOWUP,
+            ownerId: treatmentExec.id,
+            treatingDoctorId: doctorUser.id,
+            attendanceRate: sc.attRate,
+            consecutiveMissed: sc.consecutiveMissed,
+            adherenceRisk: sc.risk,
+            expectedDischargeDate: expectedDischarge,
+          },
+        })
+      : await prisma.case.create({
+          data: {
+            patientId: patient.id,
+            branchId: mainBranch.id,
+            departmentId: depts[0].id,
+            stage: sc.stage,
+            setting: sc.setting,
+            careType: sc.careType,
+            team: Teams.TREATMENT_FOLLOWUP,
+            ownerId: treatmentExec.id,
+            treatingDoctorId: doctorUser.id,
+            attendanceRate: sc.attRate,
+            consecutiveMissed: sc.consecutiveMissed,
+            adherenceRisk: sc.risk,
+            expectedDischargeDate: expectedDischarge,
+          },
+        });
+
+    // 3. Record Handover
+    await prisma.caseHandover.create({
+      data: {
+        caseId: patientCase.id,
+        fromTeam: sc.setting === 'inpatient' ? Teams.ADMISSION : Teams.SUPPORT,
+        toTeam: Teams.TREATMENT_FOLLOWUP,
+        fromUserId: sc.setting === 'inpatient' ? admissionUser.id : doctorUser.id,
+        toUserId: treatmentExec.id,
+        note:
+          sc.setting === 'inpatient'
+            ? 'Admitted for in-patient hospital care. Transferred to Treatment Follow-up.'
+            : 'Treatment plan accepted and therapy schedule booked. Transferred to Treatment Follow-up.',
+        at: new Date(Date.now() - 7 * 86400 * 1000),
+      },
+    });
+
+    // 4. Record In-Patient Check-ins
+    if (sc.checkins && sc.checkins.length > 0) {
+      for (const chk of sc.checkins as any[]) {
+        let escalationId: number | null = null;
+        if (chk.escalate) {
+          const esc = await prisma.escalation.create({
+            data: {
+              caseId: patientCase.id,
+              raisedBy: treatmentExec.id,
+              assignedDoctorId: doctorUser.id,
+              escalationType: 'inpatient_concern',
+              reason: chk.concerns || 'Patient reported acute symptoms during bedside check-in',
+              dueAt: new Date(Date.now() + 3600 * 1000), // 1 hour SLA
+              status: 'pending',
+              wardNotified: true,
+            },
+          });
+          escalationId = esc.id;
+        }
+
+        await prisma.treatmentCheckin.create({
+          data: {
+            caseId: patientCase.id,
+            userId: treatmentExec.id,
+            channel: chk.channel,
+            contactedWho: chk.contactedWho,
+            condition: chk.condition,
+            therapiesAsPlanned: chk.therapiesAsPlanned,
+            missedTherapiesNote: chk.missedTherapiesNote || null,
+            concerns: chk.concerns || null,
+            billingConcern: false,
+            expectedDischargeDate: expectedDischarge,
+            nextCheckinAt: addDayOffset(today, 2),
+            escalationId,
+            occurredAt: new Date(Date.now() - 3600 * 1000),
+          },
+        });
+      }
+    }
+
+    // 5. Create Visit Schedule
+    const startDate = addDayOffset(today, -6); // Started 6 days ago
+    const schedule = await prisma.visitSchedule.create({
+      data: {
+        caseId: patientCase.id,
+        setting: sc.setting,
+        therapyId: sc.therapy.id,
+        frequencyType: sc.freq,
+        weekdays: sc.weekdays !== undefined ? (sc.weekdays as any) : undefined,
+        startDate: startDate,
+        totalSessions: sc.sessions,
+        windowStart: '09:00',
+        windowEnd: '11:00',
+        durationMinutes: 60,
+        doctorId: doctorUser.id,
+        notes: `Standard protocol for ${sc.therapy.labelEn}`,
+        status: 'active',
+        createdBy: treatmentExec.id,
+      },
+    });
+
+    // 6. Generate Visits for this schedule
+    for (let sessionNo = 1; sessionNo <= sc.sessions; sessionNo++) {
+      // Offset calculation based on frequency
+      let dayOffset = sessionNo - 1;
+      if (sc.freq === 'alternate_days') dayOffset = (sessionNo - 1) * 2;
+      if (sc.freq === 'weekly') dayOffset = (sessionNo - 1) * 7;
+      if (sc.freq === 'custom_weekdays') dayOffset = (sessionNo - 1) * 2; // approximation for Mon/Wed/Fri
+
+      const visitDate = addDayOffset(startDate, dayOffset);
+      const isPast = visitDate.getTime() < today.getTime();
+      const isToday = formatDateStr(visitDate) === formatDateStr(today);
+
+      let status = 'planned';
+      let markedBy: number | null = null;
+      let markedAt: Date | null = null;
+      let missedReasonId: number | null = null;
+
+      if (isPast) {
+        if (sc.code === 'PAT-TF-008') {
+          // High risk patient 1: sessions 1-2 attended, session 3-4 missed
+          if (sessionNo <= 2) {
+            status = 'attended';
+            markedBy = treatmentExec.id;
+            markedAt = visitDate;
+          } else {
+            status = 'missed';
+            markedBy = treatmentExec.id;
+            markedAt = visitDate;
+            missedReasonId = sessionNo === 3 ? missedTransport.id : missedWork.id;
+          }
+        } else if (sc.code === 'PAT-TF-009') {
+          // High risk patient 2: sessions 1-2 attended, 3 missed, 4 attended, 5-6 missed
+          if (sessionNo === 1 || sessionNo === 2 || sessionNo === 4) {
+            status = 'attended';
+            markedBy = treatmentExec.id;
+            markedAt = visitDate;
+          } else {
+            status = 'missed';
+            markedBy = treatmentExec.id;
+            markedAt = visitDate;
+            missedReasonId = sessionNo === 3 ? missedIllness.id : sessionNo === 5 ? missedForgot.id : missedCost.id;
+          }
+        } else if (sc.code === 'PAT-TF-003' && sessionNo === 4) {
+          // IP case 3: session 4 missed due to fever
+          status = 'missed';
+          markedBy = treatmentExec.id;
+          markedAt = visitDate;
+          missedReasonId = missedIllness.id;
+        } else {
+          // Normal past visits: attended
+          status = 'attended';
+          markedBy = treatmentExec.id;
+          markedAt = visitDate;
+        }
+      } else if (isToday) {
+        // Today's visit: reminded or planned
+        status = sessionNo % 2 === 0 ? 'reminded' : 'planned';
+      } else {
+        // Future visits
+        status = 'planned';
+      }
+
+      await prisma.scheduledVisit.create({
+        data: {
+          scheduleId: schedule.id,
+          caseId: patientCase.id,
+          sessionNo,
+          scheduledDate: visitDate,
+          windowStart: '09:00',
+          windowEnd: '11:00',
+          status,
+          markedBy,
+          markedAt,
+          missedReasonId,
+          note: isPast ? 'Session completed' : null,
+        },
+      });
+      totalVisitsSeeded++;
+    }
+
+    // 7. If Case 10, add pending extension request
+    if (sc.hasPendingExtension) {
+      await prisma.scheduleExtensionRequest.create({
+        data: {
+          scheduleId: schedule.id,
+          requestedBy: treatmentExec.id,
+          additionalSessions: 4,
+          reason: 'Patient requests 4 additional Naturopathy sessions for knee stiffness relief.',
+          status: 'pending',
+        },
+      });
+    }
+  }
+
+  console.log(`✓ Seeded ${syntheticCases.length} cases with schedules, ${totalVisitsSeeded} visits (mixed statuses), 5 IP check-ins, 2 high-risk cohorts, and 1 pending extension request.`);
 
   console.log('--- Database Seed Complete ---');
 }

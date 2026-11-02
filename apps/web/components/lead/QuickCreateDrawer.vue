@@ -15,11 +15,11 @@
               <span class="text-xl">⚡</span>
             </div>
             <div>
-              <h3 class="text-lg font-bold text-slate-900 dark:text-white">
-                {{ $i18n.locale === 'ml' ? 'പുതിയ ലീഡ് ചേർക്കുക' : 'Quick Create Lead' }}
+              <h3 class="text-lg font-semibold text-slate-900 dark:text-white">
+                Quick Create Lead
               </h3>
               <p class="text-xs text-slate-500 dark:text-slate-400">
-                {{ $i18n.locale === 'ml' ? 'പുതിയ അന്വേഷണം രജിസ്റ്റർ ചെയ്യുക' : 'Register a new patient inquiry' }}
+                Register a new patient inquiry
               </p>
             </div>
           </div>
@@ -39,17 +39,17 @@
             v-if="duplicateLead"
             class="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 space-y-2 animate-fadeIn"
           >
-            <div class="flex items-center space-x-2 font-bold text-sm">
+            <div class="flex items-center space-x-2 font-semibold text-sm">
               <span>⚠️</span>
               <span>
-                {{ $i18n.locale === 'ml' ? 'ഈ നമ്പർ ഇതിനകം നിലവിലുണ്ട്!' : 'Duplicate Phone Number Detected!' }}
+                Duplicate Phone Number Detected!
               </span>
             </div>
             <p class="text-xs leading-relaxed">
-              {{ $i18n.locale === 'ml' ? 'രോഗി:' : 'Lead:' }}
+              Lead:
               <strong class="font-semibold">{{ duplicateLead.name }}</strong>
               ({{ duplicateLead.status }}) -
-              {{ $i18n.locale === 'ml' ? 'ഉടമ:' : 'Owner:' }}
+              Owner:
               {{ duplicateLead.ownerName || 'Unassigned' }}
             </p>
             <div class="pt-2 border-t border-amber-200 dark:border-amber-800/60">
@@ -60,7 +60,7 @@
                   class="mt-1 rounded text-teal-600 focus:ring-teal-500 h-4 w-4"
                 />
                 <span class="text-xs font-semibold">
-                  {{ $i18n.locale === 'ml' ? 'പ്രത്യേക കാരണത്താൽ വീണ്ടും സൃഷ്ടിക്കുക' : 'Override duplicate and create anyway' }}
+                  Override duplicate and create anyway
                 </span>
               </label>
               <div v-if="form.overrideDuplicate" class="mt-2">
@@ -85,22 +85,22 @@
 
           <!-- 1. Patient Name -->
           <div>
-            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-              {{ $i18n.locale === 'ml' ? 'രോഗിയുടെ പേര്' : 'Patient Name' }} *
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              Patient Name *
             </label>
             <input
               v-model="form.name"
               type="text"
               required
               class="w-full h-11 px-3.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-              :placeholder="$i18n.locale === 'ml' ? 'ഉദാ: ഫാത്തിമ റഹ്മാൻ' : 'e.g. Fathima Rahman'"
+              placeholder="e.g. Fathima Rahman"
             />
           </div>
 
           <!-- 2. Mobile Phone (with live duplicate check) -->
           <div>
-            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-              {{ $i18n.locale === 'ml' ? 'മൊബൈൽ നമ്പർ' : 'Mobile Number' }} *
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              Mobile Number *
             </label>
             <div class="relative">
               <input
@@ -116,27 +116,27 @@
               </div>
             </div>
             <p class="text-[11px] text-slate-500 mt-1">
-              {{ $i18n.locale === 'ml' ? '10 അക്ക നമ്പർ അല്ലെങ്കിൽ E.164 ഫോർമാറ്റ്' : '10-digit Indian number or E.164 (+91...)' }}
+              10-digit Indian number or E.164 (+91...)
             </p>
           </div>
 
           <!-- 3. Language & Preferred Communication -->
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                {{ $i18n.locale === 'ml' ? 'ഭാഷ' : 'Language' }}
+              <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Language
               </label>
               <select
                 v-model="form.language"
                 class="w-full h-11 px-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-teal-500"
               >
-                <option value="ml">മലയാളം (Malayalam)</option>
                 <option value="en">English</option>
+                <option value="ml">Malayalam</option>
               </select>
             </div>
             <div>
-              <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                {{ $i18n.locale === 'ml' ? 'ഉറവിടം' : 'Source' }} *
+              <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Source *
               </label>
               <select
                 v-model.number="form.sourceId"
@@ -144,7 +144,7 @@
                 class="w-full h-11 px-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-teal-500"
               >
                 <option v-for="s in sources" :key="s.id" :value="s.id">
-                  {{ $i18n.locale === 'ml' ? s.labelMl : s.labelEn }}
+                  {{ s.labelEn }}
                 </option>
               </select>
             </div>
@@ -152,8 +152,8 @@
 
           <!-- 4. Department -->
           <div>
-            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-              {{ $i18n.locale === 'ml' ? 'വിഭാഗം (ഡിപ്പാർട്ട്മെന്റ്)' : 'Department' }} *
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              Department *
             </label>
             <select
               v-model.number="form.departmentId"
@@ -161,21 +161,21 @@
               class="w-full h-11 px-3.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-teal-500"
             >
               <option v-for="d in departments" :key="d.id" :value="d.id">
-                {{ $i18n.locale === 'ml' ? d.labelMl : d.labelEn }}
+                {{ d.labelEn }}
               </option>
             </select>
           </div>
 
           <!-- 5. Medical Concern / Inquiry Details -->
           <div>
-            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-              {{ $i18n.locale === 'ml' ? 'ആരോഗ്യ പ്രശ്നം / കുറിപ്പ്' : 'Medical Concern / Inquiry Details' }}
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              Medical Concern / Inquiry Details
             </label>
             <textarea
               v-model="form.concern"
               rows="3"
               class="w-full p-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-teal-500"
-              :placeholder="$i18n.locale === 'ml' ? 'രോഗിയുടെ പ്രധാന പ്രശ്നങ്ങളും പ്രത്യേക ആവശ്യങ്ങളും...' : 'Patient symptoms, concerns, or requested procedures...'"
+              placeholder="Patient symptoms, concerns, or requested procedures..."
             />
           </div>
 
@@ -186,15 +186,15 @@
               class="min-h-[44px] px-5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
               @click="close"
             >
-              {{ $i18n.locale === 'ml' ? 'റദ്ദാക്കുക' : 'Cancel' }}
+              Cancel
             </button>
             <button
               type="submit"
               :disabled="isSubmitting"
-              class="min-h-[44px] px-6 py-2.5 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-bold text-sm shadow-md shadow-teal-500/20 disabled:opacity-50 flex items-center space-x-2"
+              class="min-h-[44px] px-6 py-2.5 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-semibold text-sm shadow-md shadow-teal-500/20 disabled:opacity-50 flex items-center space-x-2"
             >
               <span v-if="isSubmitting" class="animate-spin text-sm">⟳</span>
-              <span>{{ $i18n.locale === 'ml' ? 'ലീഡ് സേവ് ചെയ്യുക' : 'Save Lead' }}</span>
+              <span>Save Lead</span>
             </button>
           </div>
         </form>

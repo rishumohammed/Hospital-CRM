@@ -1,159 +1,225 @@
 <template>
-  <div class="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 flex flex-col font-sans">
-    <!-- Top Navigation Header -->
-    <header class="sticky top-0 z-40 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-700 shadow-sm">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        <!-- Brand / Logo -->
-        <div class="flex items-center space-x-3">
-          <NuxtLink to="/" class="flex items-center space-x-2 focus:outline-none">
-            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-teal-600 to-emerald-500 flex items-center justify-center text-white shadow-md shadow-teal-500/20">
-              <span class="font-bold text-xl tracking-tight">H</span>
-            </div>
-            <div>
-              <span class="font-extrabold text-lg tracking-tight bg-gradient-to-r from-teal-700 to-emerald-600 dark:from-teal-400 dark:to-emerald-300 bg-clip-text text-transparent">
-                {{ t('app_name') }}
-              </span>
-              <p class="text-[10px] text-slate-500 font-medium tracking-wide uppercase leading-none">
-                {{ t('tagline') }}
-              </p>
-            </div>
-          </NuxtLink>
+  <div class="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 flex font-sans antialiased">
+    <!-- Mobile Drawer Backdrop -->
+    <div
+      v-if="isMobileMenuOpen"
+      class="fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-sm lg:hidden transition-opacity"
+      @click="isMobileMenuOpen = false"
+    />
+
+    <!-- Side Navigation Sidebar -->
+    <aside
+      :class="[
+        'fixed inset-y-0 left-0 z-50 flex flex-col bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 transition-all duration-300 ease-in-out shadow-lg lg:shadow-none',
+        // Desktop sizing
+        isCollapsed ? 'lg:w-20' : 'lg:w-64',
+        // Mobile visibility
+        isMobileMenuOpen ? 'translate-x-0 w-72' : '-translate-x-full lg:translate-x-0'
+      ]"
+    >
+      <!-- Sidebar Brand / Header -->
+      <div class="h-16 flex items-center justify-between px-4 border-b border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm">
+        <NuxtLink to="/" class="flex items-center space-x-3 overflow-hidden focus:outline-none" @click="isMobileMenuOpen = false">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-teal-600 to-emerald-500 flex items-center justify-center text-white shadow-md shadow-teal-500/25 flex-shrink-0">
+            <span class="font-semibold text-xl tracking-tight">H</span>
+          </div>
+          <div v-show="!isCollapsed || isMobileMenuOpen" class="flex flex-col min-w-0 transition-opacity duration-200">
+            <span class="font-semibold text-base tracking-tight bg-gradient-to-r from-teal-700 to-emerald-600 dark:from-teal-400 dark:to-emerald-300 bg-clip-text text-transparent truncate">
+              {{ t('app_name') }}
+            </span>
+            <p class="text-[10px] text-slate-500 dark:text-slate-400 font-medium tracking-wide uppercase truncate leading-none">
+              {{ t('tagline') }}
+            </p>
+          </div>
+        </NuxtLink>
+
+        <!-- Mobile Close Button -->
+        <button
+          type="button"
+          class="lg:hidden p-2 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+          @click="isMobileMenuOpen = false"
+        >
+          <UIcon name="i-heroicons-x-mark" class="w-5 h-5" />
+        </button>
+
+        <!-- Desktop Collapse Toggle -->
+        <button
+          type="button"
+          class="hidden lg:flex p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+          :title="isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+          @click="isCollapsed = !isCollapsed"
+        >
+          <UIcon :name="isCollapsed ? 'i-heroicons-chevron-double-right' : 'i-heroicons-chevron-double-left'" class="w-4 h-4" />
+        </button>
+      </div>
+
+      <!-- Navigation Links Groups -->
+      <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-6 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700">
+        <!-- Group 1: Core Telecalling -->
+        <div>
+          <div
+            v-if="!isCollapsed || isMobileMenuOpen"
+            class="px-3 mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500"
+          >
+            {{ t('nav.my_work') }} &amp; {{ t('nav.leads') }}
+          </div>
+          <div class="space-y-1">
+            <NuxtLink
+              v-for="item in coreNavItems"
+              :key="item.to"
+              :to="item.to"
+              :title="isCollapsed && !isMobileMenuOpen ? item.label : undefined"
+              :class="[
+                'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all group',
+                isActive(item.to)
+                  ? 'bg-teal-600 text-white shadow-md shadow-teal-600/30'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-700/60'
+              ]"
+              @click="isMobileMenuOpen = false"
+            >
+              <UIcon
+                :name="item.icon"
+                :class="[
+                  'w-5 h-5 flex-shrink-0 transition-transform group-hover:scale-110',
+                  isActive(item.to) ? 'text-white' : 'text-slate-500 dark:text-slate-400 group-hover:text-teal-600 dark:group-hover:text-teal-400'
+                ]"
+              />
+              <span v-show="!isCollapsed || isMobileMenuOpen" class="truncate">{{ item.label }}</span>
+            </NuxtLink>
+          </div>
         </div>
 
-        <!-- Desktop Navigation Links -->
-        <nav class="hidden md:flex items-center space-x-1 lg:space-x-2">
-          <NuxtLink
-            to="/"
-            class="px-3 py-2 rounded-lg text-sm font-semibold transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200"
-            active-class="!bg-teal-50 dark:!bg-teal-950/50 !text-teal-700 dark:!text-teal-400 font-bold"
+        <!-- Group 2: Specialized Desks -->
+        <div>
+          <div
+            v-if="!isCollapsed || isMobileMenuOpen"
+            class="px-3 mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500"
           >
-            {{ t('nav.my_work') }}
-          </NuxtLink>
-          <NuxtLink
-            to="/leads"
-            class="px-3 py-2 rounded-lg text-sm font-semibold transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200"
-            active-class="!bg-teal-50 dark:!bg-teal-950/50 !text-teal-700 dark:!text-teal-400 font-bold"
-          >
-            {{ t('nav.leads') }}
-          </NuxtLink>
-          <NuxtLink
-            to="/cases"
-            class="px-3 py-2 rounded-lg text-sm font-semibold transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200"
-            active-class="!bg-teal-50 dark:!bg-teal-950/50 !text-teal-700 dark:!text-teal-400 font-bold"
-          >
-            {{ t('nav.cases') }}
-          </NuxtLink>
-          <NuxtLink
-            to="/admission"
-            class="px-3 py-2 rounded-lg text-sm font-semibold transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200"
-            active-class="!bg-teal-50 dark:!bg-teal-950/50 !text-teal-700 dark:!text-teal-400 font-bold"
-          >
-            {{ t('nav.admission_desk') }}
-          </NuxtLink>
-          <NuxtLink
-            to="/aftercare"
-            class="px-3 py-2 rounded-lg text-sm font-semibold transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200"
-            active-class="!bg-teal-50 dark:!bg-teal-950/50 !text-teal-700 dark:!text-teal-400 font-bold"
-          >
-            {{ t('nav.aftercare_desk') }}
-          </NuxtLink>
-          <NuxtLink
-            to="/doctor"
-            class="px-3 py-2 rounded-lg text-sm font-semibold transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200"
-            active-class="!bg-teal-50 dark:!bg-teal-950/50 !text-teal-700 dark:!text-teal-400 font-bold"
-          >
-            {{ t('nav.doctor_view') }}
-          </NuxtLink>
-          <NuxtLink
-            to="/reports"
-            class="px-3 py-2 rounded-lg text-sm font-semibold transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200"
-            active-class="!bg-teal-50 dark:!bg-teal-950/50 !text-teal-700 dark:!text-teal-400 font-bold"
-          >
-            {{ t('nav.reports') }}
-          </NuxtLink>
-          <NuxtLink
-            to="/exports"
-            class="px-3 py-2 rounded-lg text-sm font-semibold transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200"
-            active-class="!bg-teal-50 dark:!bg-teal-950/50 !text-teal-700 dark:!text-teal-400 font-bold"
-          >
-            {{ t('nav.exports') }}
-          </NuxtLink>
-          <NuxtLink
-            to="/audit-logs"
-            class="px-3 py-2 rounded-lg text-sm font-semibold transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200"
-            active-class="!bg-teal-50 dark:!bg-teal-950/50 !text-teal-700 dark:!text-teal-400 font-bold"
-          >
-            {{ t('nav.audit_logs') }}
-          </NuxtLink>
-          <NuxtLink
-            to="/admin/testimonials"
-            class="px-3 py-2 rounded-lg text-sm font-semibold transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200"
-            active-class="!bg-teal-50 dark:!bg-teal-950/50 !text-teal-700 dark:!text-teal-400 font-bold"
-          >
-            {{ t('testimonials.library_title') }}
-          </NuxtLink>
-          <NuxtLink
-            to="/admin"
-            class="px-3 py-2 rounded-lg text-sm font-semibold transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200"
-            active-class="!bg-teal-50 dark:!bg-teal-950/50 !text-teal-700 dark:!text-teal-400 font-bold"
-          >
-            {{ t('nav.admin') }}
-          </NuxtLink>
-        </nav>
-
-        <!-- Right Side: Language Switcher & Actions -->
-        <div class="flex items-center space-x-2">
-          <!-- Language Toggle (EN / ML) -->
-          <div class="flex items-center bg-slate-100 dark:bg-slate-700 rounded-lg p-0.5 border border-slate-200 dark:border-slate-600">
-            <button
-              type="button"
-              @click="switchLocale('en')"
-              :class="[
-                'px-2.5 py-1.5 text-xs font-semibold rounded-md min-h-[36px] transition-all',
-                locale === 'en'
-                  ? 'bg-white dark:bg-slate-800 text-teal-700 dark:text-teal-400 shadow-sm'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-              ]"
-            >
-              EN
-            </button>
-            <button
-              type="button"
-              @click="switchLocale('ml')"
-              :class="[
-                'px-2.5 py-1.5 text-xs font-semibold rounded-md min-h-[36px] transition-all',
-                locale === 'ml'
-                  ? 'bg-white dark:bg-slate-800 text-teal-700 dark:text-teal-400 shadow-sm'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-              ]"
-            >
-              മലയാളം
-            </button>
+            Clinical Desks
           </div>
+          <div class="space-y-1">
+            <NuxtLink
+              v-for="item in deskNavItems"
+              :key="item.to"
+              :to="item.to"
+              :title="isCollapsed && !isMobileMenuOpen ? item.label : undefined"
+              :class="[
+                'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all group',
+                isActive(item.to)
+                  ? 'bg-teal-600 text-white shadow-md shadow-teal-600/30'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-700/60'
+              ]"
+              @click="isMobileMenuOpen = false"
+            >
+              <UIcon
+                :name="item.icon"
+                :class="[
+                  'w-5 h-5 flex-shrink-0 transition-transform group-hover:scale-110',
+                  isActive(item.to) ? 'text-white' : 'text-slate-500 dark:text-slate-400 group-hover:text-teal-600 dark:group-hover:text-teal-400'
+                ]"
+              />
+              <span v-show="!isCollapsed || isMobileMenuOpen" class="truncate">{{ item.label }}</span>
+            </NuxtLink>
+          </div>
+        </div>
 
-          <!-- Notification Bell Icon & Dropdown -->
+        <!-- Group 3: Analytics & Content -->
+        <div>
+          <div
+            v-if="!isCollapsed || isMobileMenuOpen"
+            class="px-3 mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500"
+          >
+            Management
+          </div>
+          <div class="space-y-1">
+            <NuxtLink
+              v-for="item in managementNavItems"
+              :key="item.to"
+              :to="item.to"
+              :title="isCollapsed && !isMobileMenuOpen ? item.label : undefined"
+              :class="[
+                'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all group',
+                isActive(item.to)
+                  ? 'bg-teal-600 text-white shadow-md shadow-teal-600/30'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-700/60'
+              ]"
+              @click="isMobileMenuOpen = false"
+            >
+              <UIcon
+                :name="item.icon"
+                :class="[
+                  'w-5 h-5 flex-shrink-0 transition-transform group-hover:scale-110',
+                  isActive(item.to) ? 'text-white' : 'text-slate-500 dark:text-slate-400 group-hover:text-teal-600 dark:group-hover:text-teal-400'
+                ]"
+              />
+              <span v-show="!isCollapsed || isMobileMenuOpen" class="truncate">{{ item.label }}</span>
+            </NuxtLink>
+          </div>
+        </div>
+      </nav>
+
+      <!-- Sidebar Footer (Compact collapse indicator) -->
+      <div class="p-3 border-t border-slate-200 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/50 flex items-center justify-between">
+        <span v-show="!isCollapsed || isMobileMenuOpen" class="text-[11px] font-medium text-slate-400 dark:text-slate-500 truncate">
+          v1.0 • CRM
+        </span>
+        <button
+          type="button"
+          class="hidden lg:flex p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-700 transition-colors ml-auto"
+          :title="isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+          @click="isCollapsed = !isCollapsed"
+        >
+          <UIcon :name="isCollapsed ? 'i-heroicons-chevron-double-right' : 'i-heroicons-chevron-double-left'" class="w-4 h-4" />
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main App Column -->
+    <div
+      :class="[
+        'flex-1 flex flex-col min-w-0 transition-all duration-300 ease-in-out',
+        isCollapsed ? 'lg:pl-20' : 'lg:pl-64'
+      ]"
+    >
+      <!-- Top Action Bar -->
+      <header class="sticky top-0 z-30 h-16 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-700 flex items-center justify-between px-4 sm:px-6 lg:px-8">
+        <!-- Left: Mobile Menu Toggle -->
+        <div class="flex items-center gap-3">
+          <button
+            type="button"
+            class="lg:hidden p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+            @click="isMobileMenuOpen = true"
+          >
+            <UIcon name="i-heroicons-bars-3" class="w-6 h-6" />
+          </button>
+        </div>
+
+        <!-- Right: Notifications, User Profile & Admin & Logout Dropdown -->
+        <div class="flex items-center gap-2 sm:gap-3 ml-auto">
+
+          <!-- Notification Bell & Dropdown Popover -->
           <div v-if="authStore.user" class="relative">
             <button
               type="button"
-              class="relative p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors min-h-[40px] min-w-[40px] flex items-center justify-center"
-              @click="isNotifOpen = !isNotifOpen"
+              class="relative p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors min-h-[38px] min-w-[38px] flex items-center justify-center"
+              @click="isNotifOpen = !isNotifOpen; isProfileMenuOpen = false"
             >
-              <span class="text-lg">🔔</span>
+              <UIcon name="i-heroicons-bell" class="w-5 h-5" />
               <span
                 v-if="unreadNotifCount > 0"
-                class="absolute top-1 right-1 px-1.5 py-0.5 text-[10px] font-extrabold rounded-full bg-rose-600 text-white shadow-sm animate-pulse"
+                class="absolute top-1 right-1 px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-rose-600 text-white shadow-sm animate-pulse"
               >
                 {{ unreadNotifCount > 9 ? '9+' : unreadNotifCount }}
               </span>
             </button>
 
-            <!-- Notifications Popover -->
+            <!-- Popover Menu -->
             <div
               v-if="isNotifOpen"
-              class="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 z-50 overflow-hidden"
+              class="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150"
             >
               <div class="p-3 border-b border-slate-100 dark:border-slate-700/60 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50">
-                <span class="text-xs font-bold text-slate-800 dark:text-slate-200">
+                <span class="text-xs font-semibold text-slate-800 dark:text-slate-200">
                   Notifications ({{ unreadNotifCount }} unread)
                 </span>
                 <button
@@ -181,7 +247,7 @@
                   <div class="flex items-start justify-between gap-2">
                     <NuxtLink
                       :to="notif.link || '#'"
-                      class="font-bold text-slate-900 dark:text-slate-100 hover:text-teal-600"
+                      class="font-semibold text-slate-900 dark:text-slate-100 hover:text-teal-600"
                       @click="isNotifOpen = false; markRead(notif.id)"
                     >
                       {{ notif.title }}
@@ -206,95 +272,157 @@
             </div>
           </div>
 
-          <!-- Auth Status & Logout / Login -->
-          <div v-if="authStore.user" class="flex items-center space-x-2">
-            <span class="hidden sm:inline-block text-xs font-semibold px-2.5 py-1 rounded-lg bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300">
-              {{ authStore.user.name }}
-            </span>
+          <!-- User Profile & Admin & Logout Dropdown -->
+          <div v-if="authStore.user" class="relative">
             <button
-              @click="authStore.logout()"
-              class="px-2.5 py-1.5 min-h-[36px] rounded-lg text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+              type="button"
+              class="flex items-center gap-2 p-1 sm:px-2.5 sm:py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700/80 transition-all text-left focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+              @click="isProfileMenuOpen = !isProfileMenuOpen; isNotifOpen = false"
             >
-              {{ t('nav.logout') }}
+              <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-teal-700 to-emerald-600 text-white flex items-center justify-center font-semibold text-xs shadow-xs flex-shrink-0">
+                {{ userInitials }}
+              </div>
+              <div class="hidden sm:flex flex-col min-w-0 pr-1">
+                <span class="text-xs font-semibold text-slate-800 dark:text-slate-100 truncate leading-tight">
+                  {{ authStore.user.name }}
+                </span>
+                <span class="text-[10px] text-teal-600 dark:text-teal-400 font-semibold truncate uppercase leading-none">
+                  {{ authStore.user.role || 'Staff' }}
+                </span>
+              </div>
+              <UIcon name="i-heroicons-chevron-down" class="w-3.5 h-3.5 text-slate-400" />
             </button>
+
+            <!-- Profile Floating Dropdown Menu -->
+            <div
+              v-if="isProfileMenuOpen"
+              class="absolute right-0 mt-2 w-64 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 z-50 overflow-hidden divide-y divide-slate-100 dark:divide-slate-700/60 animate-in fade-in zoom-in-95 duration-150"
+            >
+              <!-- User Info Card -->
+              <div class="p-3.5 bg-slate-50/70 dark:bg-slate-900/50">
+                <p class="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">
+                  {{ authStore.user.name }}
+                </p>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                  {{ authStore.user.email }}
+                </p>
+                <div class="mt-2 flex items-center gap-1.5 flex-wrap">
+                  <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider bg-teal-100 dark:bg-teal-950 text-teal-800 dark:text-teal-300">
+                    {{ authStore.user.role || 'Staff' }}
+                  </span>
+                  <span v-if="authStore.user.center" class="px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 truncate">
+                    {{ authStore.user.center.name || authStore.user.center.code }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Menu Link: Admin Settings -->
+              <div class="p-1.5 space-y-0.5">
+                <NuxtLink
+                  to="/admin"
+                  class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/80 transition-colors group"
+                  @click="isProfileMenuOpen = false"
+                >
+                  <UIcon name="i-heroicons-cog-6-tooth" class="w-4 h-4 text-slate-400 group-hover:text-teal-600 transition-colors" />
+                  <span>Admin Settings</span>
+                </NuxtLink>
+              </div>
+
+              <!-- Menu Action: Logout -->
+              <div class="p-1.5">
+                <button
+                  type="button"
+                  class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                  @click="isProfileMenuOpen = false; authStore.logout()"
+                >
+                  <UIcon name="i-heroicons-arrow-right-on-rectangle" class="w-4 h-4" />
+                  <span>{{ t('nav.logout') }}</span>
+                </button>
+              </div>
+            </div>
           </div>
+
+          <!-- Login Link if not logged in -->
           <NuxtLink
             v-else
             to="/login"
-            class="px-3 py-1.5 min-h-[36px] rounded-lg text-xs font-semibold text-teal-700 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-950/50 transition-colors"
+            class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-teal-50 text-teal-700 dark:bg-teal-950/50 dark:text-teal-300 hover:bg-teal-100 transition-colors"
           >
-            {{ t('nav.login') }}
-          </NuxtLink>
-
-          <!-- Quick Create Lead Button -->
-          <NuxtLink
-            to="/leads?quickCreate=true"
-            class="hidden sm:inline-flex items-center justify-center px-3.5 py-2 min-h-[44px] rounded-lg bg-teal-600 hover:bg-teal-700 text-white font-medium text-xs shadow-sm transition-all shadow-teal-600/20 active:scale-95"
-          >
-            + {{ t('common.quick_create_lead') }}
+            <UIcon name="i-heroicons-arrow-right-on-rectangle" class="w-4 h-4" />
+            <span>{{ t('nav.login') }}</span>
           </NuxtLink>
         </div>
-      </div>
-    </header>
+      </header>
 
-    <!-- Main Content Area -->
-    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 pb-20 md:pb-8">
-      <slot />
-    </main>
-
-    <!-- Mobile Bottom Navigation Bar (Large touch targets >= 44px) -->
-    <nav class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-700 py-1 px-2 shadow-lg">
-      <div class="grid grid-cols-5 gap-1">
-        <NuxtLink
-          to="/"
-          class="flex flex-col items-center justify-center min-h-[48px] py-1 rounded-lg text-slate-600 dark:text-slate-400"
-          active-class="!text-teal-600 dark:!text-teal-400 font-bold bg-teal-50/50 dark:bg-teal-950/30"
-        >
-          <span class="text-xs">{{ t('nav.my_work') }}</span>
-        </NuxtLink>
-        <NuxtLink
-          to="/leads"
-          class="flex flex-col items-center justify-center min-h-[48px] py-1 rounded-lg text-slate-600 dark:text-slate-400"
-          active-class="!text-teal-600 dark:!text-teal-400 font-bold bg-teal-50/50 dark:bg-teal-950/30"
-        >
-          <span class="text-xs">{{ t('nav.leads') }}</span>
-        </NuxtLink>
-        <NuxtLink
-          to="/cases"
-          class="flex flex-col items-center justify-center min-h-[48px] py-1 rounded-lg text-slate-600 dark:text-slate-400"
-          active-class="!text-teal-600 dark:!text-teal-400 font-bold bg-teal-50/50 dark:bg-teal-950/30"
-        >
-          <span class="text-xs">{{ t('nav.cases') }}</span>
-        </NuxtLink>
-        <NuxtLink
-          to="/doctor"
-          class="flex flex-col items-center justify-center min-h-[48px] py-1 rounded-lg text-slate-600 dark:text-slate-400"
-          active-class="!text-teal-600 dark:!text-teal-400 font-bold bg-teal-50/50 dark:bg-teal-950/30"
-        >
-          <span class="text-xs">{{ t('nav.doctor_view') }}</span>
-        </NuxtLink>
-        <NuxtLink
-          to="/admin"
-          class="flex flex-col items-center justify-center min-h-[48px] py-1 rounded-lg text-slate-600 dark:text-slate-400"
-          active-class="!text-teal-600 dark:!text-teal-400 font-bold bg-teal-50/50 dark:bg-teal-950/30"
-        >
-          <span class="text-xs">{{ t('nav.admin') }}</span>
-        </NuxtLink>
-      </div>
-    </nav>
+      <!-- Main Content Page Body -->
+      <main class="flex-1 w-full max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+        <slot />
+      </main>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n';
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 
-const { t, locale, setLocale } = useI18n();
+const { t } = useI18n();
 const authStore = useAuthStore();
+const route = useRoute();
 const config = useRuntimeConfig();
-const apiBase = config.public.apiBase || 'http://localhost:3001';
+const apiBase = config.public.apiBase || 'http://localhost:4000/api/v1';
 
+// Sidebar & Menus State
+const isCollapsed = ref(false);
+const isMobileMenuOpen = ref(false);
+const isProfileMenuOpen = ref(false);
+
+// Close open menus on route change
+watch(
+  () => route.path,
+  () => {
+    isMobileMenuOpen.value = false;
+    isProfileMenuOpen.value = false;
+    isNotifOpen.value = false;
+  }
+);
+
+// Navigation Groups
+const coreNavItems = computed(() => [
+  { to: '/', label: t('nav.my_work'), icon: 'i-heroicons-squares-2x2' },
+  { to: '/leads', label: t('nav.leads'), icon: 'i-heroicons-user-group' },
+  { to: '/cases', label: t('nav.cases'), icon: 'i-heroicons-briefcase' },
+]);
+
+const deskNavItems = computed(() => [
+  { to: '/admission', label: t('nav.admission_desk'), icon: 'i-heroicons-building-office-2' },
+  { to: '/aftercare', label: t('nav.aftercare_desk'), icon: 'i-heroicons-heart' },
+  { to: '/doctor', label: t('nav.doctor_view'), icon: 'i-heroicons-academic-cap' },
+]);
+
+const managementNavItems = computed(() => [
+  { to: '/reports', label: t('nav.reports'), icon: 'i-heroicons-chart-bar' },
+]);
+
+// Active route helper
+const isActive = (path: string) => {
+  if (path === '/') return route.path === '/';
+  if (path === '/admin') return route.path === '/admin';
+  return route.path === path || route.path.startsWith(`${path}/`);
+};
+
+// User Initials
+const userInitials = computed(() => {
+  const name = authStore.user?.name || '';
+  if (!name) return 'U';
+  const parts = name.trim().split(' ');
+  if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+});
+
+// Notifications
 const isNotifOpen = ref(false);
 const notifications = ref<any[]>([]);
 const unreadNotifCount = ref(0);
@@ -303,7 +431,7 @@ let notifPollTimer: any = null;
 const fetchNotifications = async () => {
   if (!authStore.token) return;
   try {
-    const res = await fetch(`${apiBase}/api/v1/notifications`, {
+    const res = await fetch(`${apiBase}/notifications`, {
       headers: { Authorization: `Bearer ${authStore.token}` },
     });
     if (res.ok) {
@@ -318,7 +446,7 @@ const fetchNotifications = async () => {
 
 const markRead = async (id: number) => {
   try {
-    await fetch(`${apiBase}/api/v1/notifications/${id}/read`, {
+    await fetch(`${apiBase}/notifications/${id}/read`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${authStore.token}` },
     });
@@ -330,7 +458,7 @@ const markRead = async (id: number) => {
 
 const markAllRead = async () => {
   try {
-    await fetch(`${apiBase}/api/v1/notifications/read-all`, {
+    await fetch(`${apiBase}/notifications/read-all`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${authStore.token}` },
     });
@@ -349,8 +477,4 @@ onMounted(() => {
 onUnmounted(() => {
   if (notifPollTimer) clearInterval(notifPollTimer);
 });
-
-const switchLocale = (newLocale: string) => {
-  setLocale(newLocale);
-};
 </script>

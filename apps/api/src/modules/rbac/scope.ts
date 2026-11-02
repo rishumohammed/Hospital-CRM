@@ -18,7 +18,19 @@ export interface UserContext {
   }>;
 }
 
-export type ResourceType = 'lead' | 'case' | 'task' | 'interaction' | 'appointment' | 'escalation' | 'audit' | 'report';
+export type ResourceType =
+  | 'lead'
+  | 'case'
+  | 'task'
+  | 'interaction'
+  | 'appointment'
+  | 'escalation'
+  | 'audit'
+  | 'report'
+  | 'schedule'
+  | 'visit'
+  | 'checkin'
+  | 'handover';
 
 const SCOPE_HIERARCHY: Record<string, number> = {
   none: 0,
@@ -57,6 +69,13 @@ export function getEffectiveScope(user: UserContext, permission: string): string
 }
 
 /**
+ * Checks if the user has any non-none scope for a permission
+ */
+export function hasPermission(user: UserContext, permission: string): boolean {
+  return getEffectiveScope(user, permission) !== 'none';
+}
+
+/**
  * Generates the Prisma `where` clause for the given user, resource, and permission.
  * Never trusts client input for scoping.
  *
@@ -92,6 +111,18 @@ export function scopeWhere(
       case 'audit':
         permission = Permissions.AUDIT_VIEW;
         break;
+      case 'schedule':
+        permission = Permissions.SCHEDULE_VIEW;
+        break;
+      case 'visit':
+        permission = Permissions.VISIT_VIEW;
+        break;
+      case 'checkin':
+        permission = Permissions.CHECKIN_CREATE;
+        break;
+      case 'handover':
+        permission = Permissions.CASE_VIEW;
+        break;
       default:
         permission = `${resource}.view`;
     }
@@ -106,7 +137,7 @@ export function scopeWhere(
 
   // Handle 'all' scope
   if (scope === 'all') {
-    return resource === 'audit' ? {} : { archivedAt: null };
+    return resource === 'audit' || resource === 'handover' ? {} : { archivedAt: null };
   }
 
   // Handle 'branch' scope
@@ -134,6 +165,26 @@ export function scopeWhere(
     }
     if (resource === 'audit') {
       return {};
+    }
+    if (resource === 'schedule') {
+      return {
+        case: { branchId: { in: branches } },
+      };
+    }
+    if (resource === 'visit') {
+      return {
+        case: { branchId: { in: branches } },
+      };
+    }
+    if (resource === 'checkin') {
+      return {
+        case: { branchId: { in: branches } },
+      };
+    }
+    if (resource === 'handover') {
+      return {
+        case: { branchId: { in: branches } },
+      };
     }
     return {
       branchId: { in: branches },
@@ -194,6 +245,42 @@ export function scopeWhere(
       };
     }
 
+    if (resource === 'schedule') {
+      return {
+        case: {
+          branchId: { in: branches },
+          team: { in: teams },
+        },
+      };
+    }
+
+    if (resource === 'visit') {
+      return {
+        case: {
+          branchId: { in: branches },
+          team: { in: teams },
+        },
+      };
+    }
+
+    if (resource === 'checkin') {
+      return {
+        case: {
+          branchId: { in: branches },
+          team: { in: teams },
+        },
+      };
+    }
+
+    if (resource === 'handover') {
+      return {
+        case: {
+          branchId: { in: branches },
+          team: { in: teams },
+        },
+      };
+    }
+
     return { id: -1 };
   }
 
@@ -222,7 +309,11 @@ export function scopeWhere(
 
     if (resource === 'task') {
       return {
-        ownerId: user.id,
+        OR: [
+          { ownerId: user.id },
+          { lead: { ownerId: user.id } },
+          { case: { ownerId: user.id } },
+        ],
         archivedAt: null,
       };
     }
@@ -237,6 +328,45 @@ export function scopeWhere(
     if (resource === 'escalation') {
       return {
         OR: [{ raisedBy: user.id }, { assignedDoctorId: user.id }],
+      };
+    }
+
+    if (resource === 'schedule') {
+      if (user.roleCode === 'doctor') {
+        return {
+          OR: [{ doctorId: user.id }, { case: { treatingDoctorId: user.id } }],
+        };
+      }
+      return {
+        OR: [{ createdBy: user.id }, { case: { ownerId: user.id } }],
+      };
+    }
+
+    if (resource === 'visit') {
+      if (user.roleCode === 'doctor') {
+        return {
+          OR: [{ schedule: { doctorId: user.id } }, { case: { treatingDoctorId: user.id } }],
+        };
+      }
+      return {
+        OR: [{ markedBy: user.id }, { case: { ownerId: user.id } }],
+      };
+    }
+
+    if (resource === 'checkin') {
+      if (user.roleCode === 'doctor') {
+        return {
+          case: { treatingDoctorId: user.id },
+        };
+      }
+      return {
+        OR: [{ userId: user.id }, { case: { ownerId: user.id } }],
+      };
+    }
+
+    if (resource === 'handover') {
+      return {
+        OR: [{ fromUserId: user.id }, { toUserId: user.id }, { case: { ownerId: user.id } }],
       };
     }
 

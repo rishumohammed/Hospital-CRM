@@ -2,7 +2,8 @@
   "app_name": "Hospital CRM",
   "tagline": "Telecalling Module",
   "nav": {
-    "my_work": "My Work",
+    "dashboard": "Dashboard",
+    "my_work": "Dashboard",
     "support_desk": "Support Desk",
     "admission_desk": "Admission Desk",
     "aftercare_desk": "Aftercare Desk",
@@ -12,6 +13,7 @@
     "reports": "Reports",
     "exports": "Exports",
     "audit_logs": "Audit Logs",
+    "testimonials": "Testimonials",
     "admin": "Admin",
     "login": "Login",
     "logout": "Logout"
@@ -174,6 +176,7 @@
   },
   "testimonials": {
     "title": "Testimonials",
+    "library_title": "Testimonials",
     "chip_sent": "Sent",
     "chip_not_sent": "Not sent",
     "chip_sent_full": "Sent, {date}, {channel}",

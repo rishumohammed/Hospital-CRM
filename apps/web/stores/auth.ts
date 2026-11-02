@@ -22,6 +22,18 @@ export const useAuthStore = defineStore('auth', () => {
   const accessToken = ref<string | null>(null);
   const isAuthenticated = computed(() => !!user.value);
 
+  // Synchronously restore session from localStorage in browser
+  if (typeof window !== 'undefined') {
+    try {
+      const savedToken = localStorage.getItem('hospital_crm_token');
+      const savedUser = localStorage.getItem('hospital_crm_user');
+      if (savedToken) accessToken.value = savedToken;
+      if (savedUser) user.value = JSON.parse(savedUser);
+    } catch (e) {
+      console.warn('Failed to restore auth from localStorage', e);
+    }
+  }
+
   const config = useRuntimeConfig();
   const apiBase = config.public.apiBase;
 
@@ -42,6 +54,10 @@ export const useAuthStore = defineStore('auth', () => {
     if (res.user && res.accessToken) {
       user.value = res.user;
       accessToken.value = res.accessToken;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('hospital_crm_token', res.accessToken);
+        localStorage.setItem('hospital_crm_user', JSON.stringify(res.user));
+      }
       return { success: true };
     }
 
@@ -60,6 +76,10 @@ export const useAuthStore = defineStore('auth', () => {
 
     user.value = res.user;
     accessToken.value = res.accessToken;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('hospital_crm_token', res.accessToken);
+      localStorage.setItem('hospital_crm_user', JSON.stringify(res.user));
+    }
     return { success: true };
   }
 
@@ -74,6 +94,10 @@ export const useAuthStore = defineStore('auth', () => {
     }
     user.value = null;
     accessToken.value = null;
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('hospital_crm_token');
+      localStorage.removeItem('hospital_crm_user');
+    }
     navigateTo('/login');
   }
 
@@ -86,10 +110,17 @@ export const useAuthStore = defineStore('auth', () => {
       });
       if (res && res.user) {
         user.value = res.user;
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('hospital_crm_user', JSON.stringify(res.user));
+        }
       }
     } catch {
       user.value = null;
       accessToken.value = null;
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('hospital_crm_token');
+        localStorage.removeItem('hospital_crm_user');
+      }
     }
   }
 

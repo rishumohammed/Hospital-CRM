@@ -1,7 +1,7 @@
 import { prisma } from '../../database/client';
 import { UserContext, scopeWhere } from '../rbac/scope';
 import { Permissions, maskPhoneNumber } from '@hospital-crm/shared';
-import { toZonedTime } from 'date-fns-tz';
+import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 import { startOfDay, endOfDay } from 'date-fns';
 
 export interface TaskFilterOptions {
@@ -41,7 +41,6 @@ export async function listTasks(filter: TaskFilterOptions, user: UserContext) {
       status: 'open',
     });
   } else if (filter.due === 'today') {
-    const { fromZonedTime } = require('date-fns-tz');
     const startOfToday = fromZonedTime(startOfDay(zonedNow), timezone);
     const endOfToday = fromZonedTime(endOfDay(zonedNow), timezone);
 
@@ -50,7 +49,6 @@ export async function listTasks(filter: TaskFilterOptions, user: UserContext) {
       status: 'open',
     });
   } else if (filter.due === 'upcoming') {
-    const { fromZonedTime } = require('date-fns-tz');
     const endOfToday = fromZonedTime(endOfDay(zonedNow), timezone);
 
     where.AND.push({

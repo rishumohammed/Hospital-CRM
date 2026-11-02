@@ -6,7 +6,7 @@ describe('Locales configuration', () => {
   it('both English and Malayalam locale files are valid and contain core navigation keys', () => {
     expect(en.app_name).toBeDefined();
     expect(ml.app_name).toBeDefined();
-    expect(en.nav.my_work).toBe('My Work');
+    expect(en.nav.my_work).toBe('Dashboard');
     expect(ml.nav.my_work).toBe('എന്റെ ജോലികൾ');
 
     // Ensure all top-level keys in en exist in ml

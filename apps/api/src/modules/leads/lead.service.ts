@@ -544,6 +544,11 @@ export async function updateLead(
     updateData.altMobileNorm = data.altMobile ? normalizePhoneNumber(data.altMobile) : null;
   }
 
+  if (data.testimonialsSent !== undefined) {
+    updateData.testimonialsSentCount = data.testimonialsSent ? 1 : 0;
+    updateData.testimonialsLastSentAt = data.testimonialsSent ? new Date() : null;
+  }
+
   const updated = await prisma.lead.update({
     where: { id },
     data: updateData,

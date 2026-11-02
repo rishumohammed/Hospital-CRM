@@ -12,8 +12,18 @@ import {
   InteractionTypes,
   AppointmentStatuses,
   EscalationStatuses,
+  EscalationTypes,
   TestimonialChannels,
   TestimonialTypes,
+  ScheduleSettings,
+  FrequencyTypes,
+  ScheduleStatuses,
+  VisitStatuses,
+  AdherenceRisks,
+  CheckinChannels,
+  PatientConditions,
+  TherapiesPlannedStatuses,
+  ExtensionRequestStatuses,
 } from '../enums/index';
 import { normalizePhoneNumber } from '../utils/phone';
 
@@ -93,6 +103,7 @@ export const updateLeadSchema = z.object({
   consentWhatsapp: z.boolean().optional(),
   consentSms: z.boolean().optional(),
   doNotContact: z.boolean().optional(),
+  testimonialsSent: z.boolean().optional(),
 });
 
 export const assignLeadSchema = z.object({
@@ -506,4 +517,313 @@ export const testimonialReportQuerySchema = z.object({
 });
 
 export type TestimonialReportQuery = z.infer<typeof testimonialReportQuerySchema>;
+
+// ==========================================
+// Treatment Follow-up Desk Schemas
+// ==========================================
+
+export const createVisitScheduleSchema = z
+  .object({
+    setting: z
+      .enum([ScheduleSettings.OPD, ScheduleSettings.INPATIENT])
+      .default(ScheduleSettings.OPD),
+    therapy_id: z.number().int().positive().optional(),
+    therapyId: z.number().int().positive().optional(),
+    frequency_type: z
+      .enum([
+        FrequencyTypes.DAILY,
+        FrequencyTypes.ALTERNATE_DAYS,
+        FrequencyTypes.WEEKLY,
+        FrequencyTypes.EVERY_N_DAYS,
+        FrequencyTypes.CUSTOM_WEEKDAYS,
+        FrequencyTypes.CUSTOM_DATES,
+      ])
+      .optional(),
+    frequencyType: z
+      .enum([
+        FrequencyTypes.DAILY,
+        FrequencyTypes.ALTERNATE_DAYS,
+        FrequencyTypes.WEEKLY,
+        FrequencyTypes.EVERY_N_DAYS,
+        FrequencyTypes.CUSTOM_WEEKDAYS,
+        FrequencyTypes.CUSTOM_DATES,
+      ])
+      .optional(),
+    interval_n: z.number().int().positive().optional().nullable(),
+    intervalN: z.number().int().positive().optional().nullable(),
+    weekdays: z.array(z.union([z.number(), z.string()])).optional().nullable(),
+    custom_dates: z.array(z.string()).optional().nullable(),
+    customDates: z.array(z.string()).optional().nullable(),
+    start_date: z.string().optional(),
+    startDate: z.string().optional(),
+    end_date: z.string().optional().nullable(),
+    endDate: z.string().optional().nullable(),
+    total_sessions: z.number().int().positive().max(150).optional().nullable(),
+    totalSessions: z.number().int().positive().max(150).optional().nullable(),
+    window_start: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Invalid time format HH:MM').default('09:00'),
+    windowStart: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Invalid time format HH:MM').optional(),
+    window_end: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Invalid time format HH:MM').default('11:00'),
+    windowEnd: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Invalid time format HH:MM').optional(),
+    duration_minutes: z.number().int().positive().default(60),
+    durationMinutes: z.number().int().positive().optional(),
+    doctor_id: z.number().int().positive().optional().nullable(),
+    doctorId: z.number().int().positive().optional().nullable(),
+    notes: z.string().max(1000).optional().nullable(),
+  })
+  .refine(
+    (data) => data.therapy_id !== undefined || data.therapyId !== undefined,
+    { message: 'Therapy / Visit Type is required' }
+  )
+  .refine(
+    (data) => data.frequency_type !== undefined || data.frequencyType !== undefined,
+    { message: 'Frequency type is required' }
+  )
+  .refine(
+    (data) => data.start_date !== undefined || data.startDate !== undefined,
+    { message: 'Start date is required' }
+  )
+  .refine(
+    (data) =>
+      data.end_date !== undefined ||
+      data.endDate !== undefined ||
+      data.total_sessions !== undefined ||
+      data.totalSessions !== undefined ||
+      (data.custom_dates && data.custom_dates.length > 0) ||
+      (data.customDates && data.customDates.length > 0),
+    { message: 'Either end date, total sessions, or custom dates must be provided' }
+  );
+
+export type CreateVisitScheduleInput = z.infer<typeof createVisitScheduleSchema>;
+
+export const updateVisitScheduleSchema = z.object({
+  therapy_id: z.number().int().positive().optional(),
+  therapyId: z.number().int().positive().optional(),
+  frequency_type: z.enum([
+    FrequencyTypes.DAILY,
+    FrequencyTypes.ALTERNATE_DAYS,
+    FrequencyTypes.WEEKLY,
+    FrequencyTypes.EVERY_N_DAYS,
+    FrequencyTypes.CUSTOM_WEEKDAYS,
+    FrequencyTypes.CUSTOM_DATES,
+  ]).optional(),
+  frequencyType: z.enum([
+    FrequencyTypes.DAILY,
+    FrequencyTypes.ALTERNATE_DAYS,
+    FrequencyTypes.WEEKLY,
+    FrequencyTypes.EVERY_N_DAYS,
+    FrequencyTypes.CUSTOM_WEEKDAYS,
+    FrequencyTypes.CUSTOM_DATES,
+  ]).optional(),
+  interval_n: z.number().int().positive().optional().nullable(),
+  intervalN: z.number().int().positive().optional().nullable(),
+  weekdays: z.array(z.union([z.number(), z.string()])).optional().nullable(),
+  custom_dates: z.array(z.string()).optional().nullable(),
+  customDates: z.array(z.string()).optional().nullable(),
+  end_date: z.string().optional().nullable(),
+  endDate: z.string().optional().nullable(),
+  total_sessions: z.number().int().positive().max(150).optional().nullable(),
+  totalSessions: z.number().int().positive().max(150).optional().nullable(),
+  window_start: z.string().optional(),
+  windowStart: z.string().optional(),
+  window_end: z.string().optional(),
+  windowEnd: z.string().optional(),
+  duration_minutes: z.number().int().positive().optional(),
+  durationMinutes: z.number().int().positive().optional(),
+  doctor_id: z.number().int().positive().optional().nullable(),
+  doctorId: z.number().int().positive().optional().nullable(),
+  notes: z.string().max(1000).optional().nullable(),
+});
+
+export type UpdateVisitScheduleInput = z.infer<typeof updateVisitScheduleSchema>;
+
+export const pauseScheduleSchema = z.object({
+  paused_until: z.string().optional(),
+  pausedUntil: z.string().optional(),
+  pause_reason: z.string().min(1, 'Reason for pause is required').max(500).optional(),
+  pauseReason: z.string().min(1, 'Reason for pause is required').max(500).optional(),
+}).refine(
+  (data) => (data.paused_until || data.pausedUntil) && (data.pause_reason || data.pauseReason),
+  { message: 'Resume date and pause reason are required' }
+);
+
+export type PauseScheduleInput = z.infer<typeof pauseScheduleSchema>;
+
+export const createExtensionRequestSchema = z.object({
+  additional_sessions: z.number().int().positive().max(150).optional().nullable(),
+  additionalSessions: z.number().int().positive().max(150).optional().nullable(),
+  new_end_date: z.string().optional().nullable(),
+  newEndDate: z.string().optional().nullable(),
+  reason: z.string().min(1, 'Reason for extension is required').max(500),
+}).refine(
+  (data) =>
+    (data.additional_sessions !== undefined && data.additional_sessions !== null) ||
+    (data.additionalSessions !== undefined && data.additionalSessions !== null) ||
+    (data.new_end_date !== undefined && data.new_end_date !== null) ||
+    (data.newEndDate !== undefined && data.newEndDate !== null),
+  { message: 'Either additional sessions or new end date must be provided' }
+);
+
+export type CreateExtensionRequestInput = z.infer<typeof createExtensionRequestSchema>;
+
+export const decideExtensionRequestSchema = z.object({
+  decision: z.enum([ExtensionRequestStatuses.APPROVED, ExtensionRequestStatuses.REJECTED]),
+  rejection_reason: z.string().max(500).optional().nullable(),
+  rejectionReason: z.string().max(500).optional().nullable(),
+});
+
+export type DecideExtensionRequestInput = z.infer<typeof decideExtensionRequestSchema>;
+
+export const markVisitAttendanceSchema = z.object({
+  status: z.enum([VisitStatuses.ATTENDED, VisitStatuses.MISSED]),
+  missed_reason_id: z.number().int().positive().optional().nullable(),
+  missedReasonId: z.number().int().positive().optional().nullable(),
+  note: z.string().max(1000).optional().nullable(),
+}).refine(
+  (data) => {
+    if (data.status === VisitStatuses.MISSED) {
+      return data.missed_reason_id !== undefined || data.missedReasonId !== undefined;
+    }
+    return true;
+  },
+  { message: 'Missed reason is required when marking a visit as missed' }
+);
+
+export type MarkVisitAttendanceInput = z.infer<typeof markVisitAttendanceSchema>;
+
+export const rescheduleVisitSchema = z.object({
+  new_date: z.string().optional(),
+  newDate: z.string().optional(),
+  window_start: z.string().optional(),
+  windowStart: z.string().optional(),
+  window_end: z.string().optional(),
+  windowEnd: z.string().optional(),
+  reason: z.string().min(1, 'Reschedule reason is required').max(500),
+}).refine(
+  (data) => data.new_date !== undefined || data.newDate !== undefined,
+  { message: 'New date is required' }
+);
+
+export type RescheduleVisitInput = z.infer<typeof rescheduleVisitSchema>;
+
+export const shiftVisitsSchema = z.object({
+  days: z.number().int().min(1, 'Must shift by at least 1 day').max(365),
+  reason: z.string().min(1, 'Reason for shifting visits is required').max(500),
+});
+
+export type ShiftVisitsInput = z.infer<typeof shiftVisitsSchema>;
+
+export const addExtraVisitSchema = z.object({
+  scheduled_date: z.string().optional(),
+  scheduledDate: z.string().optional(),
+  window_start: z.string().optional(),
+  windowStart: z.string().optional(),
+  window_end: z.string().optional(),
+  windowEnd: z.string().optional(),
+  note: z.string().max(500).optional().nullable(),
+}).refine(
+  (data) => data.scheduled_date !== undefined || data.scheduledDate !== undefined,
+  { message: 'Scheduled date is required' }
+);
+
+export type AddExtraVisitInput = z.infer<typeof addExtraVisitSchema>;
+
+export const createTreatmentCheckinSchema = z.object({
+  channel: z.enum([CheckinChannels.CALL, CheckinChannels.BEDSIDE]),
+  contacted_who: z.string().min(1, 'Contacted person/role is required').max(100).optional(),
+  contactedWho: z.string().min(1, 'Contacted person/role is required').max(100).optional(),
+  condition: z.enum([
+    PatientConditions.COMFORTABLE,
+    PatientConditions.UNCOMFORTABLE,
+    PatientConditions.UNWELL,
+  ]),
+  therapies_as_planned: z.enum([
+    TherapiesPlannedStatuses.YES,
+    TherapiesPlannedStatuses.PARTLY,
+    TherapiesPlannedStatuses.NO,
+  ]).optional(),
+  therapiesAsPlanned: z.enum([
+    TherapiesPlannedStatuses.YES,
+    TherapiesPlannedStatuses.PARTLY,
+    TherapiesPlannedStatuses.NO,
+  ]).optional(),
+  missed_therapies_note: z.string().max(1000).optional().nullable(),
+  missedTherapiesNote: z.string().max(1000).optional().nullable(),
+  concerns: z.string().max(2000).optional().nullable(),
+  billing_concern: z.boolean().default(false).optional(),
+  billingConcern: z.boolean().default(false).optional(),
+  expected_discharge_date: z.string().optional().nullable(),
+  expectedDischargeDate: z.string().optional().nullable(),
+  next_checkin_at: z.string().optional().nullable(),
+  nextCheckinAt: z.string().optional().nullable(),
+  is_discharged: z.boolean().default(false).optional(),
+  isDischarged: z.boolean().default(false).optional(),
+  escalate: z.boolean().default(false).optional(),
+  occurred_at: z.string().optional().nullable(),
+  occurredAt: z.string().optional().nullable(),
+}).refine(
+  (data) => data.contacted_who !== undefined || data.contactedWho !== undefined,
+  { message: 'Contacted person is required' }
+).refine(
+  (data) => data.therapies_as_planned !== undefined || data.therapiesAsPlanned !== undefined,
+  { message: 'Therapies planned status is required' }
+).refine(
+  (data) => {
+    const isDischarged = data.is_discharged || data.isDischarged;
+    const hasNext = data.next_checkin_at || data.nextCheckinAt;
+    if (!isDischarged && !hasNext) {
+      return false;
+    }
+    return true;
+  },
+  { message: 'A next check-in date is required unless the patient was discharged' }
+);
+
+export type CreateTreatmentCheckinInput = z.infer<typeof createTreatmentCheckinSchema>;
+
+export const treatmentCompletedHandoverSchema = z.object({
+  completion_date: z.string().optional(),
+  completionDate: z.string().optional(),
+  discharge_date: z.string().optional().nullable(),
+  dischargeDate: z.string().optional().nullable(),
+  note: z.string().min(1, 'Handover note is required').max(1000),
+});
+
+export type TreatmentCompletedHandoverInput = z.infer<typeof treatmentCompletedHandoverSchema>;
+
+export const treatmentFollowupReportQuerySchema = z.object({
+  branch_id: z.coerce.number().int().positive().optional(),
+  branchId: z.coerce.number().int().positive().optional(),
+  doctor_id: z.coerce.number().int().positive().optional(),
+  doctorId: z.coerce.number().int().positive().optional(),
+  therapy_id: z.coerce.number().int().positive().optional(),
+  therapyId: z.coerce.number().int().positive().optional(),
+  from: z.string().optional(),
+  to: z.string().optional(),
+});
+
+export type TreatmentFollowupReportQuery = z.infer<typeof treatmentFollowupReportQuerySchema>;
+
+export const adherenceReportQuerySchema = z.object({
+  branch_id: z.coerce.number().int().positive().optional(),
+  branchId: z.coerce.number().int().positive().optional(),
+  doctor_id: z.coerce.number().int().positive().optional(),
+  doctorId: z.coerce.number().int().positive().optional(),
+  risk: z.enum([AdherenceRisks.LOW, AdherenceRisks.MEDIUM, AdherenceRisks.HIGH]).optional(),
+  from: z.string().optional(),
+  to: z.string().optional(),
+});
+
+export type AdherenceReportQuery = z.infer<typeof adherenceReportQuerySchema>;
+
+export const missedReasonsReportQuerySchema = z.object({
+  branch_id: z.coerce.number().int().positive().optional(),
+  branchId: z.coerce.number().int().positive().optional(),
+  therapy_id: z.coerce.number().int().positive().optional(),
+  therapyId: z.coerce.number().int().positive().optional(),
+  from: z.string().optional(),
+  to: z.string().optional(),
+});
+
+export type MissedReasonsReportQuery = z.infer<typeof missedReasonsReportQuerySchema>;
+
 

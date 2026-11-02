@@ -178,6 +178,14 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       req: request,
     });
 
+    // Build permissions dictionary
+    const permissions: Record<string, string> = {};
+    if (user.role && user.role.permissions) {
+      for (const rp of user.role.permissions) {
+        permissions[rp.permission] = rp.scope;
+      }
+    }
+
     return reply.send({
       user: {
         id: user.id,
@@ -192,6 +200,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
         },
         branchIds,
         teamCodes,
+        permissions,
       },
       accessToken,
     });
@@ -224,7 +233,11 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     const user = await prisma.user.findUnique({
       where: { id: mfaPayload.userId },
       include: {
-        role: true,
+        role: {
+          include: {
+            permissions: true,
+          },
+        },
         userBranches: true,
         userTeams: { include: { team: true } },
       },
@@ -289,6 +302,14 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       req: request,
     });
 
+    // Build permissions dictionary
+    const permissions: Record<string, string> = {};
+    if (user.role && user.role.permissions) {
+      for (const rp of user.role.permissions) {
+        permissions[rp.permission] = rp.scope;
+      }
+    }
+
     return reply.send({
       user: {
         id: user.id,
@@ -302,6 +323,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
         },
         branchIds,
         teamCodes,
+        permissions,
       },
       accessToken,
     });
