@@ -4,7 +4,7 @@
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
       <div>
         <h1 class="text-2xl font-semibold text-slate-900 dark:text-slate-100 tracking-tight">
-          {{ t('nav.admin') }}
+          {{ t('nav.settings') }}
         </h1>
         <p class="text-sm text-slate-500">
           User directory, master picklists, SLA settings, and audit logs

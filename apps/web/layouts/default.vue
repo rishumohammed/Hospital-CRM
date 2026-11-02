@@ -453,7 +453,7 @@ const managementNavItems = computed(() => {
     ['owner', 'admin', 'center_head', 'telecaller_manager', 'product_manager'].includes(role) ||
     authStore.hasPermission('settings.manage');
   if (canAccessAdmin) {
-    items.push({ to: '/admin', label: 'Admin & Picklists', icon: 'i-heroicons-cog-6-tooth' });
+    items.push({ to: '/admin', label: t('nav.settings') || 'Settings', icon: 'i-heroicons-cog-6-tooth' });
   }
   return items;
 });

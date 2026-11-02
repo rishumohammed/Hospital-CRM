@@ -14,7 +14,8 @@
     "exports": "Exports",
     "audit_logs": "Audit Logs",
     "testimonials": "Testimonials",
-    "admin": "Admin",
+    "admin": "Settings",
+    "settings": "Settings",
     "login": "Login",
     "logout": "Logout"
   },
