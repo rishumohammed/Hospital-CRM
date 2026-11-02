@@ -383,14 +383,15 @@ export const createUserSchema = z.object({
   password: z.string().min(8, 'Password must be at least 8 characters'),
   roleId: z.number().int().positive(),
   branchIds: z.array(z.number().int().positive()).min(1, 'At least one branch required'),
-  teamCodes: z.array(z.enum([Teams.SUPPORT, Teams.ADMISSION, Teams.AFTERCARE])),
+  teamCodes: z.array(z.string()).default([]),
   language: z.enum(['en', 'ml']).default('en'),
   dutyNurse: z.boolean().default(false),
   dutyDoctor: z.boolean().default(false),
 });
 
 export const updateUserSchema = createUserSchema.partial().omit({ password: true }).extend({
-  password: z.string().min(8).optional(),
+  password: z.string().min(8).optional().or(z.literal('')),
+  status: z.enum(['active', 'inactive']).optional(),
 });
 
 // Export Schemas

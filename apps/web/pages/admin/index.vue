@@ -15,7 +15,7 @@
       <div class="flex items-center space-x-2">
         <button
           v-if="activeTab === 'users' && canManageUsers"
-          @click="showCreateUserModal = true"
+          @click="openCreateUserModal"
           class="inline-flex items-center justify-center min-h-[44px] px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm shadow-sm transition-all shadow-teal-600/20 active:scale-95"
         >
           + Add New User
@@ -119,14 +119,47 @@
                   </span>
                 </td>
                 <td class="py-3.5 px-4 text-right">
-                  <button
-                    v-if="u.status === 'active'"
-                    @click="initiateDeactivation(u)"
-                    class="text-xs text-red-600 dark:text-red-400 font-semibold hover:underline"
-                  >
-                    Deactivate
-                  </button>
-                  <span v-else class="text-xs text-slate-400">Deactivated</span>
+                  <div class="flex items-center justify-end gap-1.5">
+                    <!-- Edit User Button -->
+                    <button
+                      type="button"
+                      @click="openEditUserModal(u)"
+                      class="p-1.5 rounded-lg text-slate-500 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950/50 transition-colors"
+                      title="Edit User"
+                    >
+                      <UIcon name="i-heroicons-pencil-square" class="w-4 h-4" />
+                    </button>
+
+                    <!-- Deactivate / Reactivate Button -->
+                    <button
+                      v-if="u.status === 'active'"
+                      type="button"
+                      @click="initiateDeactivation(u)"
+                      class="p-1.5 rounded-lg text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50 transition-colors"
+                      title="Deactivate with Reassignment"
+                    >
+                      <UIcon name="i-heroicons-pause-circle" class="w-4 h-4" />
+                    </button>
+                    <button
+                      v-else
+                      type="button"
+                      @click="reactivateUser(u)"
+                      class="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 transition-colors"
+                      title="Reactivate User"
+                    >
+                      <UIcon name="i-heroicons-play-circle" class="w-4 h-4" />
+                    </button>
+
+                    <!-- Soft Delete Button -->
+                    <button
+                      type="button"
+                      @click="initiateSoftDelete(u)"
+                      class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors"
+                      title="Soft Delete User"
+                    >
+                      <UIcon name="i-heroicons-trash" class="w-4 h-4" />
+                    </button>
+                  </div>
                 </td>
               </tr>
             </tbody>
@@ -965,6 +998,288 @@
         </div>
       </div>
     </div>
+
+    <!-- MODAL: ADD / EDIT USER -->
+    <div
+      v-if="showUserModal"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto"
+    >
+      <div class="bg-white dark:bg-slate-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-slate-200 dark:border-slate-700 space-y-4 my-8">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700">
+          <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+            <UIcon :name="isEditingUser ? 'i-heroicons-pencil-square' : 'i-heroicons-user-plus'" class="w-5 h-5 text-teal-600" />
+            <span>{{ isEditingUser ? `Edit User: ${userForm.name}` : 'Add New User' }}</span>
+          </h3>
+          <button
+            type="button"
+            @click="showUserModal = false"
+            class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
+          >
+            <UIcon name="i-heroicons-x-mark" class="w-5 h-5" />
+          </button>
+        </div>
+
+        <div v-if="userModalError" class="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-medium">
+          {{ userModalError }}
+        </div>
+
+        <form @submit.prevent="saveUser" class="space-y-4">
+          <!-- Name & Email -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Full Name *
+              </label>
+              <input
+                v-model="userForm.name"
+                type="text"
+                required
+                placeholder="e.g. Dr. Ramesh Kumar"
+                class="w-full min-h-[40px] px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-teal-500"
+              />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Email Address *
+              </label>
+              <input
+                v-model="userForm.email"
+                type="email"
+                required
+                placeholder="name@hospital.test"
+                class="w-full min-h-[40px] px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-teal-500"
+              />
+            </div>
+          </div>
+
+          <!-- Mobile & Role -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Mobile Number *
+              </label>
+              <input
+                v-model="userForm.mobile"
+                type="tel"
+                required
+                placeholder="+919800000000"
+                class="w-full min-h-[40px] px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-teal-500"
+              />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Role *
+              </label>
+              <select
+                v-model="userForm.roleId"
+                required
+                class="w-full min-h-[40px] px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-teal-500"
+              >
+                <option :value="null" disabled>Select a role...</option>
+                <option v-for="r in roles" :key="r.id" :value="r.id">
+                  {{ r.name || r.code }}
+                </option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Branches Assignment -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              Branches Assignment *
+            </label>
+            <div class="flex flex-wrap gap-2 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50">
+              <label
+                v-for="b in branches"
+                :key="b.id"
+                class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium cursor-pointer transition-colors"
+                :class="userForm.branchIds.includes(b.id) ? 'bg-teal-50 border-teal-300 text-teal-800 dark:bg-teal-950 dark:border-teal-700 dark:text-teal-300' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'"
+              >
+                <input
+                  type="checkbox"
+                  :value="b.id"
+                  v-model="userForm.branchIds"
+                  class="rounded text-teal-600 focus:ring-teal-500"
+                />
+                <span>{{ b.name }} ({{ b.code }})</span>
+              </label>
+              <span v-if="branches.length === 0" class="text-xs text-slate-400">No branches loaded</span>
+            </div>
+          </div>
+
+          <!-- Teams Assignment -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              Teams Assignment
+            </label>
+            <div class="flex flex-wrap gap-2 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50">
+              <label
+                v-for="t in teams"
+                :key="t.id"
+                class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium cursor-pointer transition-colors"
+                :class="userForm.teamCodes.includes(t.code) ? 'bg-teal-50 border-teal-300 text-teal-800 dark:bg-teal-950 dark:border-teal-700 dark:text-teal-300' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'"
+              >
+                <input
+                  type="checkbox"
+                  :value="t.code"
+                  v-model="userForm.teamCodes"
+                  class="rounded text-teal-600 focus:ring-teal-500"
+                />
+                <span>{{ t.name }}</span>
+              </label>
+              <span v-if="teams.length === 0" class="text-xs text-slate-400">No teams loaded</span>
+            </div>
+          </div>
+
+          <!-- Password & Status -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                {{ isEditingUser ? 'New Password (Optional)' : 'Password *' }}
+              </label>
+              <input
+                v-model="userForm.password"
+                type="password"
+                :required="!isEditingUser"
+                :placeholder="isEditingUser ? 'Leave blank to keep unchanged' : 'Min 8 characters'"
+                class="w-full min-h-[40px] px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-teal-500"
+              />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Account Status
+              </label>
+              <select
+                v-model="userForm.status"
+                class="w-full min-h-[40px] px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-teal-500"
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Clinical Toggles & Language -->
+          <div class="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-700 text-xs">
+            <div class="flex items-center gap-4">
+              <label class="inline-flex items-center gap-1.5 cursor-pointer">
+                <input type="checkbox" v-model="userForm.dutyDoctor" class="rounded text-teal-600 focus:ring-teal-500" />
+                <span class="text-slate-700 dark:text-slate-300 font-medium">Duty Doctor</span>
+              </label>
+              <label class="inline-flex items-center gap-1.5 cursor-pointer">
+                <input type="checkbox" v-model="userForm.dutyNurse" class="rounded text-teal-600 focus:ring-teal-500" />
+                <span class="text-slate-700 dark:text-slate-300 font-medium">Duty Nurse</span>
+              </label>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <label class="font-semibold text-slate-500 uppercase text-[11px]">Lang:</label>
+              <select
+                v-model="userForm.language"
+                class="px-2 py-1 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs"
+              >
+                <option value="en">English</option>
+                <option value="ml">Malayalam</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100 dark:border-slate-700">
+            <button
+              type="button"
+              @click="showUserModal = false"
+              class="px-4 py-2 min-h-[42px] rounded-xl text-slate-600 dark:text-slate-400 font-semibold text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              :disabled="savingUser"
+              class="inline-flex items-center gap-2 px-5 py-2 min-h-[42px] rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm disabled:opacity-50 transition-colors shadow-sm shadow-teal-600/20"
+            >
+              <UIcon v-if="savingUser" name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin" />
+              <span>{{ savingUser ? 'Saving...' : (isEditingUser ? 'Update User' : 'Create User') }}</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL: SOFT DELETE USER -->
+    <div
+      v-if="deletingUser"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs"
+    >
+      <div class="bg-white dark:bg-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-200 dark:border-slate-700 space-y-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 flex items-center justify-center flex-shrink-0">
+            <UIcon name="i-heroicons-trash" class="w-5 h-5" />
+          </div>
+          <div>
+            <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">
+              Soft Delete User
+            </h3>
+            <p class="text-xs text-slate-500">
+              Archive {{ deletingUser.name }} ({{ deletingUser.email }})
+            </p>
+          </div>
+        </div>
+
+        <p class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+          This user will be soft-deleted and removed from the active directory. They will immediately lose access to log in.
+        </p>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            Reassign Open Records (Leads, Cases, Tasks) To:
+          </label>
+          <select
+            v-model="deleteReassignTargetUserId"
+            class="w-full min-h-[40px] px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs focus:ring-2 focus:ring-teal-500"
+          >
+            <option :value="null">Do not reassign (Leave unassigned)</option>
+            <option
+              v-for="target in eligibleDeleteTargets"
+              :key="target.id"
+              :value="target.id"
+            >
+              {{ target.name }} ({{ target.role?.name || target.role?.code }})
+            </option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            Deletion Reason (Audit Log)
+          </label>
+          <input
+            v-model="deleteReason"
+            type="text"
+            placeholder="e.g. Employee offboarding / role termination"
+            class="w-full min-h-[40px] px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs focus:ring-2 focus:ring-teal-500"
+          />
+        </div>
+
+        <div class="flex items-center justify-end space-x-2 pt-2">
+          <button
+            type="button"
+            @click="deletingUser = null"
+            class="px-4 py-2 min-h-[42px] rounded-xl text-slate-600 dark:text-slate-400 font-semibold text-xs hover:bg-slate-100 dark:hover:bg-slate-700"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            @click="confirmSoftDelete"
+            :disabled="executingDelete"
+            class="inline-flex items-center gap-1.5 px-4 py-2 min-h-[42px] rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs disabled:opacity-50 transition-colors shadow-sm"
+          >
+            <UIcon v-if="executingDelete" name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin" />
+            <span>{{ executingDelete ? 'Deleting...' : 'Confirm Soft Delete' }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -1116,6 +1431,8 @@ const filteredPicklistItems = computed(() => {
 
 const users = ref<any[]>([]);
 const roles = ref<any[]>([]);
+const branches = ref<any[]>([]);
+const teams = ref<any[]>([]);
 const auditLogs = ref<any[]>([]);
 const auditTotal = ref(0);
 const auditLoading = ref(false);
@@ -1236,10 +1553,39 @@ const settingsForm = ref({
   testimonial_followup_hours: 24,
 });
 
-const showCreateUserModal = ref(false);
+const showUserModal = ref(false);
+const isEditingUser = ref(false);
+const savingUser = ref(false);
+const userModalError = ref<string | null>(null);
+
+const userForm = ref({
+  id: 0,
+  name: '',
+  email: '',
+  mobile: '',
+  roleId: null as number | null,
+  branchIds: [] as number[],
+  teamCodes: [] as string[],
+  language: 'en' as 'en' | 'ml',
+  status: 'active' as 'active' | 'inactive',
+  password: '',
+  dutyNurse: false,
+  dutyDoctor: false,
+});
+
 const deactivatingUser = ref<any | null>(null);
 const reassignTargetUserId = ref<number | null>(null);
 const deactivationReason = ref('');
+
+const deletingUser = ref<any | null>(null);
+const deleteReassignTargetUserId = ref<number | null>(null);
+const deleteReason = ref('');
+const executingDelete = ref(false);
+
+const eligibleDeleteTargets = computed(() => {
+  if (!deletingUser.value) return [];
+  return users.value.filter((u) => u.id !== deletingUser.value.id && u.status === 'active');
+});
 
 const filteredUsers = computed(() => {
   if (!userSearch.value.trim()) return users.value;
@@ -1432,15 +1778,19 @@ async function loadData() {
       ? { Authorization: `Bearer ${authStore.accessToken}` }
       : {};
 
-    const [uRes, rRes, aRes, setRes] = await Promise.all([
+    const [uRes, rRes, aRes, setRes, bRes, tRes] = await Promise.all([
       canManageUsers.value ? $fetch<any>(`${apiBase}/users`, { headers, credentials: 'include' }).catch(() => ({ items: [] })) : Promise.resolve({ items: [] }),
       $fetch<any>(`${apiBase}/roles`, { headers, credentials: 'include' }).catch(() => []),
       canViewAudit.value ? $fetch<any>(`${apiBase}/audit-logs`, { headers, credentials: 'include' }).catch(() => ({ items: [] })) : Promise.resolve({ items: [] }),
       canManageSettings.value ? $fetch<any>(`${apiBase}/settings`, { headers, credentials: 'include' }).catch(() => null) : Promise.resolve(null),
+      $fetch<any>(`${apiBase}/branches`, { headers, credentials: 'include' }).catch(() => []),
+      $fetch<any>(`${apiBase}/teams`, { headers, credentials: 'include' }).catch(() => []),
     ]);
 
     users.value = uRes.items || [];
     roles.value = rRes || [];
+    branches.value = bRes || [];
+    teams.value = tRes || [];
     auditLogs.value = aRes.items || [];
     auditTotal.value = aRes.total ?? (aRes.items?.length || 0);
 
@@ -1534,6 +1884,166 @@ async function confirmDeactivation() {
     await loadData();
   } catch (err: any) {
     alert(err.data?.error?.message || 'Failed to deactivate user');
+  }
+}
+
+function openCreateUserModal() {
+  isEditingUser.value = false;
+  userModalError.value = null;
+  const defaultBranchId = branches.value[0]?.id ? [branches.value[0].id] : [];
+  userForm.value = {
+    id: 0,
+    name: '',
+    email: '',
+    mobile: '',
+    roleId: roles.value[0]?.id || null,
+    branchIds: defaultBranchId,
+    teamCodes: [],
+    language: 'en',
+    status: 'active',
+    password: '',
+    dutyNurse: false,
+    dutyDoctor: false,
+  };
+  showUserModal.value = true;
+}
+
+function openEditUserModal(user: any) {
+  isEditingUser.value = true;
+  userModalError.value = null;
+  userForm.value = {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    mobile: user.mobile,
+    roleId: user.role?.id || null,
+    branchIds: (user.branches || []).map((b: any) => b.id),
+    teamCodes: (user.teams || []).map((t: any) => t.code || t.name),
+    language: user.language || 'en',
+    status: user.status || 'active',
+    password: '',
+    dutyNurse: Boolean(user.dutyNurse),
+    dutyDoctor: Boolean(user.dutyDoctor),
+  };
+  showUserModal.value = true;
+}
+
+async function saveUser() {
+  userModalError.value = null;
+  savingUser.value = true;
+  try {
+    const headers: Record<string, string> = authStore.accessToken
+      ? { Authorization: `Bearer ${authStore.accessToken}` }
+      : {};
+
+    if (userForm.value.branchIds.length === 0) {
+      userModalError.value = 'Please select at least one branch';
+      savingUser.value = false;
+      return;
+    }
+
+    if (isEditingUser.value) {
+      const payload: any = {
+        name: userForm.value.name,
+        email: userForm.value.email,
+        mobile: userForm.value.mobile,
+        roleId: userForm.value.roleId,
+        branchIds: userForm.value.branchIds,
+        teamCodes: userForm.value.teamCodes,
+        language: userForm.value.language,
+        status: userForm.value.status,
+        dutyNurse: userForm.value.dutyNurse,
+        dutyDoctor: userForm.value.dutyDoctor,
+      };
+      if (userForm.value.password && userForm.value.password.trim().length >= 8) {
+        payload.password = userForm.value.password.trim();
+      }
+
+      await $fetch(`${apiBase}/users/${userForm.value.id}`, {
+        method: 'PATCH',
+        headers,
+        credentials: 'include',
+        body: payload,
+      });
+    } else {
+      const payload: any = {
+        name: userForm.value.name,
+        email: userForm.value.email,
+        mobile: userForm.value.mobile,
+        password: userForm.value.password,
+        roleId: userForm.value.roleId,
+        branchIds: userForm.value.branchIds,
+        teamCodes: userForm.value.teamCodes,
+        language: userForm.value.language,
+        dutyNurse: userForm.value.dutyNurse,
+        dutyDoctor: userForm.value.dutyDoctor,
+      };
+
+      await $fetch(`${apiBase}/users`, {
+        method: 'POST',
+        headers,
+        credentials: 'include',
+        body: payload,
+      });
+    }
+
+    showUserModal.value = false;
+    await loadData();
+  } catch (err: any) {
+    userModalError.value = err.data?.error?.message || err.message || 'Failed to save user';
+  } finally {
+    savingUser.value = false;
+  }
+}
+
+function initiateSoftDelete(user: any) {
+  deletingUser.value = user;
+  deleteReassignTargetUserId.value = null;
+  deleteReason.value = '';
+}
+
+async function confirmSoftDelete() {
+  if (!deletingUser.value) return;
+  executingDelete.value = true;
+  try {
+    const headers: Record<string, string> = authStore.accessToken
+      ? { Authorization: `Bearer ${authStore.accessToken}` }
+      : {};
+
+    await $fetch(`${apiBase}/users/${deletingUser.value.id}`, {
+      method: 'DELETE',
+      headers,
+      credentials: 'include',
+      body: {
+        reassignToUserId: deleteReassignTargetUserId.value,
+        reason: deleteReason.value,
+      },
+    });
+
+    deletingUser.value = null;
+    await loadData();
+  } catch (err: any) {
+    alert(err.data?.error?.message || 'Failed to soft delete user');
+  } finally {
+    executingDelete.value = false;
+  }
+}
+
+async function reactivateUser(user: any) {
+  try {
+    const headers: Record<string, string> = authStore.accessToken
+      ? { Authorization: `Bearer ${authStore.accessToken}` }
+      : {};
+
+    await $fetch(`${apiBase}/users/${user.id}/reactivate`, {
+      method: 'POST',
+      headers,
+      credentials: 'include',
+    });
+
+    await loadData();
+  } catch (err: any) {
+    alert(err.data?.error?.message || 'Failed to reactivate user');
   }
 }
 

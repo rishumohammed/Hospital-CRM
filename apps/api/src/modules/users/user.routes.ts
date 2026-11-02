@@ -245,10 +245,11 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
       if (data.mobile) updatePayload.mobile = data.mobile;
       if (data.roleId) updatePayload.roleId = data.roleId;
       if (data.language) updatePayload.language = data.language;
+      if (data.status) updatePayload.status = data.status;
       if (data.dutyNurse !== undefined) updatePayload.dutyNurse = data.dutyNurse;
       if (data.dutyDoctor !== undefined) updatePayload.dutyDoctor = data.dutyDoctor;
-      if (data.password) {
-        updatePayload.passwordHash = await hashPassword(data.password);
+      if (data.password && data.password.trim().length >= 8) {
+        updatePayload.passwordHash = await hashPassword(data.password.trim());
       }
 
       // Execute update inside transaction
@@ -410,6 +411,112 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
           cases: openCasesCount,
           tasks: openTasksCount,
         },
+      });
+    }
+  );
+
+  // Soft Delete User (Archive)
+  fastify.delete(
+    '/users/:id',
+    { preHandler: [requirePermission(Permissions.USER_MANAGE)] },
+    async (request, reply) => {
+      const id = parseInt((request.params as any).id, 10);
+      const user = await prisma.user.findUnique({ where: { id } });
+      if (!user || user.archivedAt) {
+        return reply.status(404).send({
+          error: { code: 'NOT_FOUND', message: 'User not found or already deleted' },
+        });
+      }
+
+      if (request.user?.id === id) {
+        return reply.status(400).send({
+          error: { code: 'CANNOT_DELETE_SELF', message: 'You cannot delete your own account' },
+        });
+      }
+
+      const body = (request.body || {}) as { reassignToUserId?: number; reason?: string };
+      const reassignToUserId = body.reassignToUserId;
+
+      await prisma.$transaction(async (tx) => {
+        if (reassignToUserId) {
+          await tx.lead.updateMany({
+            where: { ownerId: id, status: { notIn: ['converted', 'closed', 'junk'] }, archivedAt: null },
+            data: { ownerId: reassignToUserId },
+          });
+          await tx.case.updateMany({
+            where: { ownerId: id, stage: { notIn: ['completed', 'not_started', 'dropped_out'] }, archivedAt: null },
+            data: { ownerId: reassignToUserId },
+          });
+          await tx.task.updateMany({
+            where: { ownerId: id, status: 'open', archivedAt: null },
+            data: { ownerId: reassignToUserId },
+          });
+        }
+
+        await tx.user.update({
+          where: { id },
+          data: {
+            archivedAt: new Date(),
+            status: 'inactive',
+            available: false,
+          },
+        });
+      });
+
+      await logAudit(prisma, {
+        userId: request.user!.id,
+        action: 'USER_DELETED',
+        entity: 'user',
+        entityId: id,
+        before: { name: user.name, email: user.email, status: user.status },
+        after: { archivedAt: new Date(), status: 'inactive', reason: body.reason },
+        req: request,
+      });
+
+      return reply.send({
+        success: true,
+        message: 'User soft deleted successfully',
+        userId: id,
+      });
+    }
+  );
+
+  // Reactivate User
+  fastify.post(
+    '/users/:id/reactivate',
+    { preHandler: [requirePermission(Permissions.USER_MANAGE)] },
+    async (request, reply) => {
+      const id = parseInt((request.params as any).id, 10);
+      const user = await prisma.user.findUnique({ where: { id } });
+      if (!user) {
+        return reply.status(404).send({
+          error: { code: 'NOT_FOUND', message: 'User not found' },
+        });
+      }
+
+      await prisma.user.update({
+        where: { id },
+        data: {
+          status: 'active',
+          available: true,
+          archivedAt: null,
+        },
+      });
+
+      await logAudit(prisma, {
+        userId: request.user!.id,
+        action: 'USER_REACTIVATED',
+        entity: 'user',
+        entityId: id,
+        before: { status: user.status },
+        after: { status: 'active' },
+        req: request,
+      });
+
+      return reply.send({
+        success: true,
+        message: 'User reactivated successfully',
+        userId: id,
       });
     }
   );
