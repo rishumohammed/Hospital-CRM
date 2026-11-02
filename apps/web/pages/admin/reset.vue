@@ -21,10 +21,11 @@
         <p class="font-semibold text-slate-700 dark:text-slate-300">Clean State Verified:</p>
         <ul class="space-y-1 text-slate-500 dark:text-slate-400 list-disc list-inside">
           <li>Leads, inquiries &amp; product pipeline: <strong class="text-emerald-600">0 records</strong></li>
+          <li>Marketing campaigns &amp; ad spend: <strong class="text-emerald-600">0 records (₹0 spend)</strong></li>
           <li>Telecaller tasks &amp; queues: <strong class="text-emerald-600">0 records</strong></li>
           <li>Patient cases &amp; follow-up visits: <strong class="text-emerald-600">0 records</strong></li>
           <li>Staff logins &amp; roles: <strong class="text-teal-600">Preserved &amp; Active</strong></li>
-          <li>Master picklists &amp; product catalog: <strong class="text-teal-600">Preserved</strong></li>
+          <li>Products &amp; Categories: <strong class="text-teal-600">Preserved</strong></li>
         </ul>
       </div>
 
