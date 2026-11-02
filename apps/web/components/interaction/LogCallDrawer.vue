@@ -61,6 +61,8 @@
               class="w-full text-xs rounded-xl border border-amber-300 dark:border-amber-600 bg-white dark:bg-slate-800 p-3 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
               placeholder="e.g. Patient requested an urgent callback on WhatsApp"
             ></textarea>
+          </div>
+
           <!-- Product Lead Interests Context Banner -->
           <div
             v-if="lead?.productInterests?.length"
