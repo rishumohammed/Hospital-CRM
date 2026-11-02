@@ -4,26 +4,26 @@
     <div class="bg-gradient-to-r from-teal-700 via-teal-800 to-emerald-900 rounded-2xl p-6 sm:p-8 text-white shadow-xl shadow-teal-900/10">
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <div class="flex items-center gap-2.5">
-            <span class="w-8 h-8 rounded-xl bg-teal-600/70 border border-teal-400/40 flex items-center justify-center text-sm font-semibold shadow-xs">
-              📊
+          <div class="flex items-center gap-3">
+            <span class="w-9 h-9 rounded-xl bg-teal-600/70 border border-teal-400/40 flex items-center justify-center text-teal-100 shadow-xs">
+              <UIcon name="i-heroicons-squares-plus" class="w-5 h-5" />
             </span>
-            <h1 class="text-2xl sm:text-3xl font-semibold tracking-tight">
+            <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-white">
               {{ t('nav.my_work') }}
             </h1>
           </div>
-          <p class="mt-1 text-teal-100 text-sm leading-relaxed">
-            {{ authStore.user?.name || 'Telecaller' }} &bull; {{ authStore.user?.role?.name || authStore.user?.role?.code }} &bull; MAIN Campus
+          <p class="mt-1 text-teal-100/90 text-sm leading-relaxed font-medium">
+            {{ authStore.user?.name || 'Managing Director' }} &bull; {{ userRoleDisplay }} &bull; MAIN Campus
           </p>
         </div>
 
         <div class="flex items-center gap-3">
           <button
             type="button"
-            class="px-4 py-2.5 rounded-xl bg-teal-600/80 hover:bg-teal-500 text-white font-semibold text-xs tracking-wider uppercase border border-teal-400/30 transition-all flex items-center gap-2 min-h-[44px]"
+            class="px-4 py-2.5 rounded-xl bg-teal-600/90 hover:bg-teal-500 text-white font-semibold text-xs tracking-wider uppercase border border-teal-400/40 transition-all flex items-center gap-2 min-h-[44px] shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0"
             @click="isQuickCreateOpen = true"
           >
-            <span>+</span>
+            <UIcon name="i-heroicons-plus" class="w-4 h-4 stroke-2" />
             <span>{{ t('common.quick_create_lead') }}</span>
           </button>
         </div>
@@ -31,68 +31,69 @@
 
       <!-- Live Executive KPI Metrics Controls & Switcher -->
       <div class="mt-6 pt-5 border-t border-teal-600/50 flex flex-col gap-4">
-        <div class="flex items-center justify-between flex-wrap gap-2">
+        <div class="flex items-center justify-between flex-wrap gap-3">
           <!-- View Switcher Tabs -->
-          <div class="inline-flex p-1 rounded-xl bg-teal-950/40 border border-teal-500/30 text-xs">
+          <div class="inline-flex p-1 rounded-2xl bg-teal-950/50 border border-teal-500/30 text-xs shadow-inner">
             <button
               type="button"
-              @click="activeMetricTab = 'all'"
+              @click="switchMetricTab('clinical')"
               :class="[
-                'px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5',
-                activeMetricTab === 'all'
-                  ? 'bg-white text-teal-900 shadow-sm'
-                  : 'text-teal-200 hover:text-white'
-              ]"
-            >
-              <span>⚡</span>
-              <span>All Operations</span>
-            </button>
-            <button
-              type="button"
-              @click="activeMetricTab = 'clinical'"
-              :class="[
-                'px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5',
+                'px-3.5 py-1.5 rounded-xl font-semibold transition-all flex items-center gap-2',
                 activeMetricTab === 'clinical'
-                  ? 'bg-white text-teal-900 shadow-sm'
-                  : 'text-teal-200 hover:text-white'
+                  ? 'bg-white text-teal-900 shadow-sm shadow-teal-950/20'
+                  : 'text-teal-200 hover:text-white hover:bg-teal-900/40'
               ]"
             >
-              <span>🏥</span>
+              <UIcon name="i-heroicons-user-group" class="w-4 h-4 text-teal-600" />
               <span>Consultation Leads</span>
-              <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-teal-800 text-teal-100 font-mono">{{ supportMetrics?.totalLeads || 0 }}</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded-full font-mono" :class="activeMetricTab === 'clinical' ? 'bg-teal-100 text-teal-800' : 'bg-teal-900 text-teal-200'">{{ supportMetrics?.totalLeads || 0 }}</span>
             </button>
+
             <button
               type="button"
-              @click="activeMetricTab = 'product'"
+              @click="switchMetricTab('product')"
               :class="[
-                'px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5',
+                'px-3.5 py-1.5 rounded-xl font-semibold transition-all flex items-center gap-2',
                 activeMetricTab === 'product'
-                  ? 'bg-white text-teal-900 shadow-sm'
-                  : 'text-teal-200 hover:text-white'
+                  ? 'bg-white text-teal-900 shadow-sm shadow-teal-950/20'
+                  : 'text-teal-200 hover:text-white hover:bg-teal-900/40'
               ]"
             >
-              <span>🛍️</span>
+              <UIcon name="i-heroicons-shopping-bag" class="w-4 h-4 text-emerald-600" />
               <span>Product Leads</span>
-              <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-teal-800 text-teal-100 font-mono">{{ productMetrics?.kpis?.totalLeads || 0 }}</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded-full font-mono" :class="activeMetricTab === 'product' ? 'bg-emerald-100 text-emerald-800' : 'bg-teal-900 text-teal-200'">{{ productMetrics?.kpis?.totalLeads || 0 }}</span>
+            </button>
+
+            <button
+              type="button"
+              @click="switchMetricTab('all')"
+              :class="[
+                'px-3.5 py-1.5 rounded-xl font-semibold transition-all flex items-center gap-2',
+                activeMetricTab === 'all'
+                  ? 'bg-white text-teal-900 shadow-sm shadow-teal-950/20'
+                  : 'text-teal-200 hover:text-white hover:bg-teal-900/40'
+              ]"
+            >
+              <UIcon name="i-heroicons-squares-2x2" class="w-4 h-4 text-amber-500" />
+              <span>All Operations</span>
             </button>
           </div>
 
           <div class="flex items-center gap-2">
             <NuxtLink
-              v-if="activeMetricTab === 'product' || activeMetricTab === 'all'"
               to="/reports/products"
-              class="text-xs font-semibold text-teal-100 hover:text-white flex items-center gap-1 transition-colors px-2.5 py-1 rounded-lg bg-teal-800/40 border border-teal-500/20"
+              class="text-xs font-semibold text-teal-100 hover:text-white flex items-center gap-1.5 transition-all px-3 py-1.5 rounded-xl bg-teal-800/50 hover:bg-teal-700/60 border border-teal-500/30 shadow-xs"
             >
-              <UIcon name="i-heroicons-chart-pie" class="w-3.5 h-3.5" />
+              <UIcon name="i-heroicons-chart-pie" class="w-3.5 h-3.5 text-teal-300" />
               <span>Product Reports</span>
               <UIcon name="i-heroicons-arrow-right" class="w-3.5 h-3.5" />
             </NuxtLink>
+
             <NuxtLink
-              v-if="activeMetricTab === 'clinical' || activeMetricTab === 'all'"
               to="/reports"
-              class="text-xs font-semibold text-teal-100 hover:text-white flex items-center gap-1 transition-colors px-2.5 py-1 rounded-lg bg-teal-800/40 border border-teal-500/20"
+              class="text-xs font-semibold text-teal-100 hover:text-white flex items-center gap-1.5 transition-all px-3 py-1.5 rounded-xl bg-teal-800/50 hover:bg-teal-700/60 border border-teal-500/30 shadow-xs"
             >
-              <UIcon name="i-heroicons-chart-bar" class="w-3.5 h-3.5" />
+              <UIcon name="i-heroicons-chart-bar" class="w-3.5 h-3.5 text-teal-300" />
               <span>Hospital Reports</span>
               <UIcon name="i-heroicons-arrow-right" class="w-3.5 h-3.5" />
             </NuxtLink>
@@ -100,88 +101,128 @@
         </div>
 
         <!-- 1. Clinical / Support Consultation Leads Grid -->
-        <div v-if="activeMetricTab === 'all' || activeMetricTab === 'clinical'" class="space-y-2">
-          <div v-if="activeMetricTab === 'all'" class="flex items-center justify-between text-xs font-semibold text-teal-200 uppercase tracking-wider">
-            <span class="flex items-center gap-1.5">
-              <span>🏥</span>
-              <span>Clinical &amp; Consultation Desk Leads</span>
+        <div v-if="activeMetricTab === 'all' || activeMetricTab === 'clinical'" class="space-y-2.5">
+          <div v-if="activeMetricTab === 'all'" class="flex items-center justify-between pt-1">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-teal-800/80 border border-teal-500/30 text-teal-100">
+              <UIcon name="i-heroicons-user-group" class="w-3.5 h-3.5 text-teal-300" />
+              <span>Clinical &amp; Consultation Leads</span>
             </span>
-            <span class="text-[11px] text-teal-300 font-normal font-mono">Patient inquiries &amp; appointments</span>
+            <span class="text-[11px] text-teal-200/80 font-medium hidden sm:inline">Click any card to filter tasks or view leads</span>
           </div>
+
           <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             <!-- 1. Total Leads -->
-            <div class="bg-teal-900/40 rounded-xl p-3.5 border border-teal-500/20 backdrop-blur-sm flex flex-col justify-between">
+            <div
+              @click="navigateTo('/leads')"
+              class="group relative cursor-pointer rounded-2xl p-4 bg-teal-900/40 hover:bg-teal-900/70 border border-teal-500/20 hover:border-teal-400/50 backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg flex flex-col justify-between"
+              title="Click to view all leads"
+            >
+              <UIcon name="i-heroicons-arrow-up-right" class="w-3.5 h-3.5 text-teal-300/40 group-hover:text-teal-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all opacity-0 group-hover:opacity-100 absolute top-3.5 right-3.5" />
               <div>
-                <p class="text-[11px] text-teal-200 font-semibold uppercase tracking-wider">Total Leads</p>
-                <p class="mt-1 font-semibold text-2xl text-white">
+                <p class="text-[11px] text-teal-200/90 font-semibold uppercase tracking-wider">Total Leads</p>
+                <p class="mt-1 font-bold text-2xl text-white tracking-tight">
                   {{ supportMetrics?.totalLeads ?? '—' }}
                 </p>
               </div>
-              <span class="text-[10px] text-teal-200/80 mt-1.5 flex items-center gap-1 font-normal">
+              <span class="text-[10px] text-teal-200/80 mt-2 flex items-center gap-1 font-normal">
                 <span class="w-1.5 h-1.5 rounded-full bg-teal-300"></span>
                 <span>New Inquiries: {{ supportMetrics?.newLeads || 0 }}</span>
               </span>
             </div>
 
             <!-- 2. Conversion Ratio -->
-            <div class="bg-teal-900/40 rounded-xl p-3.5 border border-teal-500/20 backdrop-blur-sm flex flex-col justify-between">
+            <div
+              @click="navigateTo('/reports')"
+              class="group relative cursor-pointer rounded-2xl p-4 bg-teal-900/40 hover:bg-teal-900/70 border border-teal-500/20 hover:border-teal-400/50 backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg flex flex-col justify-between"
+              title="Click to view conversion report"
+            >
+              <UIcon name="i-heroicons-arrow-up-right" class="w-3.5 h-3.5 text-teal-300/40 group-hover:text-teal-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all opacity-0 group-hover:opacity-100 absolute top-3.5 right-3.5" />
               <div>
-                <p class="text-[11px] text-teal-200 font-semibold uppercase tracking-wider">Conversion Ratio</p>
-                <p class="mt-1 font-semibold text-2xl text-emerald-300">
+                <p class="text-[11px] text-teal-200/90 font-semibold uppercase tracking-wider">Conversion Ratio</p>
+                <p class="mt-1 font-bold text-2xl text-emerald-300 tracking-tight">
                   {{ supportMetrics?.conversionRate ?? 0 }}%
                 </p>
               </div>
-              <span class="text-[10px] text-emerald-200/90 mt-1.5 flex items-center gap-1 font-normal">
-                <span>✓ {{ supportMetrics?.convertedLeads || 0 }} converted</span>
-              </span>
+              <div>
+                <div class="w-full bg-teal-950/60 rounded-full h-1 mt-1.5 overflow-hidden">
+                  <div class="bg-emerald-400 h-1 rounded-full transition-all" :style="{ width: `${Math.min(supportMetrics?.conversionRate || 0, 100)}%` }"></div>
+                </div>
+                <span class="text-[10px] text-emerald-200/90 mt-1.5 flex items-center gap-1 font-normal">
+                  <span>✓ {{ supportMetrics?.convertedLeads || 0 }} converted</span>
+                </span>
+              </div>
             </div>
 
-            <!-- 3. Today's Follow-ups Due -->
-            <div class="bg-teal-900/40 rounded-xl p-3.5 border border-teal-500/20 backdrop-blur-sm flex flex-col justify-between">
+            <!-- 3. Today Due -->
+            <div
+              @click="selectTimingFilter('today')"
+              class="group relative cursor-pointer rounded-2xl p-4 bg-teal-900/40 hover:bg-teal-900/70 border border-teal-500/20 hover:border-amber-400/50 backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg flex flex-col justify-between"
+              title="Click to view today's tasks queue"
+            >
+              <UIcon name="i-heroicons-arrow-down" class="w-3.5 h-3.5 text-amber-300/40 group-hover:text-amber-200 group-hover:translate-y-0.5 transition-all opacity-0 group-hover:opacity-100 absolute top-3.5 right-3.5" />
               <div>
-                <p class="text-[11px] text-teal-200 font-semibold uppercase tracking-wider">{{ t('common.today') }} Due</p>
-                <p class="mt-1 font-semibold text-2xl text-amber-300">{{ todayCount }}</p>
+                <p class="text-[11px] text-teal-200/90 font-semibold uppercase tracking-wider">{{ t('common.today') }} Due</p>
+                <p class="mt-1 font-bold text-2xl tracking-tight" :class="todayCount > 0 ? 'text-amber-300' : 'text-teal-100'">
+                  {{ todayCount }}
+                </p>
               </div>
-              <span class="text-[10px] text-amber-200/90 mt-1.5 flex items-center gap-1 font-normal">
-                <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
-                <span>Current shift queue</span>
+              <span class="text-[10px] mt-2 flex items-center gap-1 font-normal" :class="todayCount > 0 ? 'text-amber-200/90' : 'text-teal-300/80'">
+                <span v-if="todayCount > 0" class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+                <span>{{ todayCount > 0 ? 'Current shift queue' : '✓ Shift queue clear' }}</span>
               </span>
             </div>
 
             <!-- 4. Overdue Tasks -->
-            <div class="bg-teal-900/40 rounded-xl p-3.5 border border-teal-500/20 backdrop-blur-sm flex flex-col justify-between">
+            <div
+              @click="selectTimingFilter('overdue')"
+              class="group relative cursor-pointer rounded-2xl p-4 bg-teal-900/40 hover:bg-teal-900/70 border border-teal-500/20 hover:border-rose-400/50 backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg flex flex-col justify-between"
+              title="Click to view overdue alerts queue"
+            >
+              <UIcon name="i-heroicons-arrow-down" class="w-3.5 h-3.5 text-rose-300/40 group-hover:text-rose-200 group-hover:translate-y-0.5 transition-all opacity-0 group-hover:opacity-100 absolute top-3.5 right-3.5" />
               <div>
-                <p class="text-[11px] text-teal-200 font-semibold uppercase tracking-wider">{{ t('common.overdue') }}</p>
-                <p class="mt-1 font-semibold text-2xl text-rose-300">{{ overdueCount }}</p>
+                <p class="text-[11px] text-teal-200/90 font-semibold uppercase tracking-wider">{{ t('common.overdue') }}</p>
+                <p class="mt-1 font-bold text-2xl tracking-tight" :class="overdueCount > 0 ? 'text-rose-300 animate-pulse' : 'text-teal-100'">
+                  {{ overdueCount }}
+                </p>
               </div>
-              <span class="text-[10px] text-rose-200/90 mt-1.5 flex items-center gap-1 font-normal">
-                <span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
-                <span>SLA breach alerts</span>
+              <span class="text-[10px] mt-2 flex items-center gap-1 font-normal" :class="overdueCount > 0 ? 'text-rose-200 font-semibold' : 'text-emerald-300'">
+                <span v-if="overdueCount > 0" class="w-1.5 h-1.5 rounded-full bg-rose-400 animate-ping"></span>
+                <span>{{ overdueCount > 0 ? 'SLA breach alerts' : '✓ Zero overdue tasks' }}</span>
               </span>
             </div>
 
             <!-- 5. Consultations Booked -->
-            <div class="bg-teal-900/40 rounded-xl p-3.5 border border-teal-500/20 backdrop-blur-sm flex flex-col justify-between">
+            <div
+              @click="navigateTo('/cases')"
+              class="group relative cursor-pointer rounded-2xl p-4 bg-teal-900/40 hover:bg-teal-900/70 border border-teal-500/20 hover:border-teal-400/50 backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg flex flex-col justify-between"
+              title="Click to view booked appointments"
+            >
+              <UIcon name="i-heroicons-arrow-up-right" class="w-3.5 h-3.5 text-teal-300/40 group-hover:text-teal-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all opacity-0 group-hover:opacity-100 absolute top-3.5 right-3.5" />
               <div>
-                <p class="text-[11px] text-teal-200 font-semibold uppercase tracking-wider">Booked Appts</p>
-                <p class="mt-1 font-semibold text-2xl text-teal-100">
+                <p class="text-[11px] text-teal-200/90 font-semibold uppercase tracking-wider">Booked Appts</p>
+                <p class="mt-1 font-bold text-2xl text-teal-100 tracking-tight">
                   {{ (supportMetrics?.appointmentBookedLeads || 0) + (supportMetrics?.visitedLeads || 0) }}
                 </p>
               </div>
-              <span class="text-[10px] text-teal-200/90 mt-1.5 flex items-center gap-1 font-normal">
+              <span class="text-[10px] text-teal-200/90 mt-2 flex items-center gap-1 font-normal">
                 <span>Booking Rate: {{ supportMetrics?.bookingRate || 0 }}%</span>
               </span>
             </div>
 
             <!-- 6. Response SLA -->
-            <div class="bg-teal-900/40 rounded-xl p-3.5 border border-teal-500/20 backdrop-blur-sm flex flex-col justify-between">
+            <div
+              @click="navigateTo('/reports')"
+              class="group relative cursor-pointer rounded-2xl p-4 bg-teal-900/40 hover:bg-teal-900/70 border border-teal-500/20 hover:border-teal-400/50 backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg flex flex-col justify-between"
+              title="Click to view SLA metrics report"
+            >
+              <UIcon name="i-heroicons-arrow-up-right" class="w-3.5 h-3.5 text-teal-300/40 group-hover:text-teal-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all opacity-0 group-hover:opacity-100 absolute top-3.5 right-3.5" />
               <div>
-                <p class="text-[11px] text-teal-200 font-semibold uppercase tracking-wider">SLA Compliance</p>
-                <p class="mt-1 font-semibold text-2xl text-emerald-300">
+                <p class="text-[11px] text-teal-200/90 font-semibold uppercase tracking-wider">SLA Compliance</p>
+                <p class="mt-1 font-bold text-2xl text-emerald-300 tracking-tight">
                   {{ supportMetrics?.sla?.complianceRate ?? 96 }}%
                 </p>
               </div>
-              <div class="mt-1.5 flex items-center space-x-1.5 text-[10px] text-teal-200/90 font-normal">
+              <div class="mt-2 flex items-center space-x-1.5 text-[10px] text-teal-200/90 font-normal">
                 <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                 <span>Avg ~{{ supportMetrics?.sla?.avgResponseMinutes ?? 12 }}m Response</span>
               </div>
@@ -190,91 +231,130 @@
         </div>
 
         <!-- 2. Product & Formulation Leads Grid -->
-        <div v-if="activeMetricTab === 'all' || activeMetricTab === 'product'" class="space-y-2">
-          <div v-if="activeMetricTab === 'all'" class="flex items-center justify-between text-xs font-semibold text-teal-200 uppercase tracking-wider">
-            <span class="flex items-center gap-1.5">
-              <span>🛍️</span>
-              <span>Product &amp; Campaign Sales Leads</span>
+        <div v-if="activeMetricTab === 'all' || activeMetricTab === 'product'" class="space-y-2.5">
+          <div v-if="activeMetricTab === 'all'" class="flex items-center justify-between pt-1">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-teal-800/80 border border-teal-500/30 text-teal-100">
+              <UIcon name="i-heroicons-shopping-bag" class="w-3.5 h-3.5 text-emerald-300" />
+              <span>Product Sales &amp; Campaigns</span>
             </span>
-            <span class="text-[11px] text-teal-300 font-normal font-mono">Formulation orders &amp; campaign ROI</span>
+            <NuxtLink to="/reports/products" class="text-[11px] text-teal-200 hover:text-white font-medium flex items-center gap-1">
+              <span>View full product analytics</span>
+              <UIcon name="i-heroicons-arrow-right" class="w-3 h-3" />
+            </NuxtLink>
           </div>
+
           <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             <!-- P1. Total Product Leads -->
-            <div class="bg-teal-900/40 rounded-xl p-3.5 border border-teal-500/20 backdrop-blur-sm flex flex-col justify-between">
+            <div
+              @click="selectProductTeam()"
+              class="group relative cursor-pointer rounded-2xl p-4 bg-teal-900/40 hover:bg-teal-900/70 border border-teal-500/20 hover:border-emerald-400/50 backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg flex flex-col justify-between"
+              title="Click to view product desk tasks"
+            >
+              <UIcon name="i-heroicons-arrow-down" class="w-3.5 h-3.5 text-emerald-300/40 group-hover:text-emerald-200 group-hover:translate-y-0.5 transition-all opacity-0 group-hover:opacity-100 absolute top-3.5 right-3.5" />
               <div>
-                <p class="text-[11px] text-teal-200 font-semibold uppercase tracking-wider">Product Leads</p>
-                <p class="mt-1 font-semibold text-2xl text-white">
+                <p class="text-[11px] text-teal-200/90 font-semibold uppercase tracking-wider">Product Leads</p>
+                <p class="mt-1 font-bold text-2xl text-white tracking-tight">
                   {{ productMetrics?.kpis?.totalLeads ?? 0 }}
                 </p>
               </div>
-              <span class="text-[10px] text-teal-200/80 mt-1.5 flex items-center gap-1 font-normal">
+              <span class="text-[10px] text-teal-200/80 mt-2 flex items-center gap-1 font-normal">
                 <span class="w-1.5 h-1.5 rounded-full bg-teal-300"></span>
                 <span>New Inquiries: {{ newProductLeadsCount }}</span>
               </span>
             </div>
 
             <!-- P2. Product Conversion Rate -->
-            <div class="bg-teal-900/40 rounded-xl p-3.5 border border-teal-500/20 backdrop-blur-sm flex flex-col justify-between">
+            <div
+              @click="navigateTo('/reports/products')"
+              class="group relative cursor-pointer rounded-2xl p-4 bg-teal-900/40 hover:bg-teal-900/70 border border-teal-500/20 hover:border-emerald-400/50 backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg flex flex-col justify-between"
+              title="Click to view product analytics"
+            >
+              <UIcon name="i-heroicons-arrow-up-right" class="w-3.5 h-3.5 text-teal-300/40 group-hover:text-teal-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all opacity-0 group-hover:opacity-100 absolute top-3.5 right-3.5" />
               <div>
-                <p class="text-[11px] text-teal-200 font-semibold uppercase tracking-wider">Product Conversion</p>
-                <p class="mt-1 font-semibold text-2xl text-emerald-300">
+                <p class="text-[11px] text-teal-200/90 font-semibold uppercase tracking-wider">Product Conversion</p>
+                <p class="mt-1 font-bold text-2xl text-emerald-300 tracking-tight">
                   {{ productMetrics?.kpis?.conversionRate ?? '0%' }}
                 </p>
               </div>
-              <span class="text-[10px] text-emerald-200/90 mt-1.5 flex items-center gap-1 font-normal">
-                <span>✓ {{ productMetrics?.kpis?.convertedLeads || 0 }} converted</span>
-              </span>
+              <div>
+                <div class="w-full bg-teal-950/60 rounded-full h-1 mt-1.5 overflow-hidden">
+                  <div class="bg-emerald-400 h-1 rounded-full transition-all" :style="{ width: `${productMetrics?.kpis?.conversionRate || '0%'}` }"></div>
+                </div>
+                <span class="text-[10px] text-emerald-200/90 mt-1.5 flex items-center gap-1 font-normal">
+                  <span>✓ {{ productMetrics?.kpis?.convertedLeads || 0 }} converted</span>
+                </span>
+              </div>
             </div>
 
             <!-- P3. Total Confirmed Revenue -->
-            <div class="bg-teal-900/40 rounded-xl p-3.5 border border-teal-500/20 backdrop-blur-sm flex flex-col justify-between">
+            <div
+              @click="navigateTo('/reports/products')"
+              class="group relative cursor-pointer rounded-2xl p-4 bg-teal-900/40 hover:bg-teal-900/70 border border-teal-500/20 hover:border-amber-400/50 backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg flex flex-col justify-between"
+              title="Click to view sales revenue report"
+            >
+              <UIcon name="i-heroicons-arrow-up-right" class="w-3.5 h-3.5 text-amber-300/40 group-hover:text-amber-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all opacity-0 group-hover:opacity-100 absolute top-3.5 right-3.5" />
               <div>
-                <p class="text-[11px] text-teal-200 font-semibold uppercase tracking-wider">Product Revenue</p>
-                <p class="mt-1 font-semibold text-2xl text-amber-300">
+                <p class="text-[11px] text-teal-200/90 font-semibold uppercase tracking-wider">Product Revenue</p>
+                <p class="mt-1 font-bold text-2xl text-amber-300 tracking-tight">
                   ₹{{ (productMetrics?.kpis?.totalRevenue || 0).toLocaleString() }}
                 </p>
               </div>
-              <span class="text-[10px] text-amber-200/90 mt-1.5 flex items-center gap-1 font-normal">
+              <span class="text-[10px] text-amber-200/90 mt-2 flex items-center gap-1 font-normal">
                 <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
                 <span>Confirmed orders</span>
               </span>
             </div>
 
             <!-- P4. Campaign Volume -->
-            <div class="bg-teal-900/40 rounded-xl p-3.5 border border-teal-500/20 backdrop-blur-sm flex flex-col justify-between">
+            <div
+              @click="navigateTo('/products/campaigns')"
+              class="group relative cursor-pointer rounded-2xl p-4 bg-teal-900/40 hover:bg-teal-900/70 border border-teal-500/20 hover:border-teal-400/50 backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg flex flex-col justify-between"
+              title="Click to view campaigns"
+            >
+              <UIcon name="i-heroicons-arrow-up-right" class="w-3.5 h-3.5 text-teal-300/40 group-hover:text-teal-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all opacity-0 group-hover:opacity-100 absolute top-3.5 right-3.5" />
               <div>
-                <p class="text-[11px] text-teal-200 font-semibold uppercase tracking-wider">Campaign Leads</p>
-                <p class="mt-1 font-semibold text-2xl text-teal-100">
+                <p class="text-[11px] text-teal-200/90 font-semibold uppercase tracking-wider">Campaign Leads</p>
+                <p class="mt-1 font-bold text-2xl text-teal-100 tracking-tight">
                   {{ totalCampaignLeadsCount }}
                 </p>
               </div>
-              <span class="text-[10px] text-teal-200/90 mt-1.5 flex items-center gap-1 font-normal">
+              <span class="text-[10px] text-teal-200/90 mt-2 flex items-center gap-1 font-normal">
                 <span>Across {{ productMetrics?.campaigns?.length || 0 }} campaigns</span>
               </span>
             </div>
 
             <!-- P5. Average Order Value -->
-            <div class="bg-teal-900/40 rounded-xl p-3.5 border border-teal-500/20 backdrop-blur-sm flex flex-col justify-between">
+            <div
+              @click="navigateTo('/reports/products')"
+              class="group relative cursor-pointer rounded-2xl p-4 bg-teal-900/40 hover:bg-teal-900/70 border border-teal-500/20 hover:border-teal-400/50 backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg flex flex-col justify-between"
+              title="Click to view product analytics"
+            >
+              <UIcon name="i-heroicons-arrow-up-right" class="w-3.5 h-3.5 text-teal-300/40 group-hover:text-teal-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all opacity-0 group-hover:opacity-100 absolute top-3.5 right-3.5" />
               <div>
-                <p class="text-[11px] text-teal-200 font-semibold uppercase tracking-wider">Avg Order Value</p>
-                <p class="mt-1 font-semibold text-2xl text-teal-100">
+                <p class="text-[11px] text-teal-200/90 font-semibold uppercase tracking-wider">Avg Order Value</p>
+                <p class="mt-1 font-bold text-2xl text-teal-100 tracking-tight">
                   ₹{{ avgProductOrderValue.toLocaleString() }}
                 </p>
               </div>
-              <span class="text-[10px] text-teal-200/90 mt-1.5 flex items-center gap-1 font-normal">
+              <span class="text-[10px] text-teal-200/90 mt-2 flex items-center gap-1 font-normal">
                 <span>Per converted buyer</span>
               </span>
             </div>
 
             <!-- P6. Active Pipeline Inquiries -->
-            <div class="bg-teal-900/40 rounded-xl p-3.5 border border-teal-500/20 backdrop-blur-sm flex flex-col justify-between">
+            <div
+              @click="selectProductTeam()"
+              class="group relative cursor-pointer rounded-2xl p-4 bg-teal-900/40 hover:bg-teal-900/70 border border-teal-500/20 hover:border-emerald-400/50 backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg flex flex-col justify-between"
+              title="Click to view product queue"
+            >
+              <UIcon name="i-heroicons-arrow-down" class="w-3.5 h-3.5 text-emerald-300/40 group-hover:text-emerald-200 group-hover:translate-y-0.5 transition-all opacity-0 group-hover:opacity-100 absolute top-3.5 right-3.5" />
               <div>
-                <p class="text-[11px] text-teal-200 font-semibold uppercase tracking-wider">Active Pipeline</p>
-                <p class="mt-1 font-semibold text-2xl text-emerald-300">
+                <p class="text-[11px] text-teal-200/90 font-semibold uppercase tracking-wider">Active Pipeline</p>
+                <p class="mt-1 font-bold text-2xl text-emerald-300 tracking-tight">
                   {{ inPipelineProductLeadsCount }}
                 </p>
               </div>
-              <div class="mt-1.5 flex items-center space-x-1.5 text-[10px] text-teal-200/90 font-normal">
+              <div class="mt-2 flex items-center space-x-1.5 text-[10px] text-teal-200/90 font-normal">
                 <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                 <span>Contacted &amp; negotiating</span>
               </div>
@@ -503,7 +583,7 @@
     </div>
 
     <!-- Desk Tabs Navigation -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-2">
+    <div id="work-queue-section" class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-2 scroll-mt-6">
       <!-- Team Queue Tabs -->
       <div class="flex space-x-2 overflow-x-auto pb-1 sm:pb-0">
         <button
@@ -553,7 +633,7 @@
           ]"
           @click="activeTeam = 'product'; loadWorkQueue()"
         >
-          <span>📦</span>
+          <UIcon name="i-heroicons-shopping-bag" class="w-4 h-4" />
           <span>Product Desk</span>
         </button>
       </div>
@@ -811,6 +891,16 @@ const config = useRuntimeConfig();
 const rawApiBase = config.public.apiBase || 'http://localhost:4000/api/v1';
 const apiBase = rawApiBase.endsWith('/api/v1') ? rawApiBase : `${rawApiBase}/api/v1`;
 
+const userRoleDisplay = computed(() => {
+  if (!authStore.user) return 'Staff';
+  const role = authStore.user.role;
+  if (typeof role === 'object' && role) return role.name || role.code || 'Staff';
+  if (typeof role === 'string' && role) {
+    return role.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  }
+  return 'Staff';
+});
+
 const activeTeam = ref<'support' | 'admission' | 'aftercare' | 'product'>('support');
 const activeTiming = ref<'overdue' | 'today' | 'upcoming'>('today');
 const tasks = ref<any[]>([]);
@@ -1051,6 +1141,41 @@ const loadWorkQueue = async () => {
   } finally {
     isLoading.value = false;
   }
+};
+
+const scrollToWorkQueue = () => {
+  if (typeof document !== 'undefined') {
+    const el = document.getElementById('work-queue-section');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+};
+
+const switchMetricTab = (tab: 'clinical' | 'product' | 'all') => {
+  activeMetricTab.value = tab;
+  if (tab === 'product') {
+    activeTeam.value = 'product';
+    loadWorkQueue();
+  } else if (tab === 'clinical') {
+    if (activeTeam.value === 'product') {
+      activeTeam.value = 'support';
+      loadWorkQueue();
+    }
+  }
+};
+
+const selectTimingFilter = (timing: 'today' | 'overdue' | 'upcoming') => {
+  activeTiming.value = timing;
+  loadWorkQueue();
+  scrollToWorkQueue();
+};
+
+const selectProductTeam = () => {
+  activeMetricTab.value = 'product';
+  activeTeam.value = 'product';
+  loadWorkQueue();
+  scrollToWorkQueue();
 };
 
 const isSlaBreached = (dueAtStr: string) => {
