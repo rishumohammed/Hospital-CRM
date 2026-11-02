@@ -23,7 +23,7 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
         querystring: {
           type: 'object',
           properties: {
-            team: { type: 'string', enum: ['support', 'admission', 'aftercare'] },
+            team: { type: 'string', enum: ['support', 'admission', 'aftercare', 'product'] },
             status: { type: 'string', enum: ['open', 'done', 'cancelled', 'snoozed', 'all'] },
             due: { type: 'string', enum: ['overdue', 'today', 'upcoming'] },
             ownerId: { type: 'number' },

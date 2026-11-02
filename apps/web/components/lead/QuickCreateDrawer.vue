@@ -12,14 +12,14 @@
         <div class="px-6 py-5 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
           <div class="flex items-center space-x-3">
             <div class="w-10 h-10 rounded-xl bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-800 flex items-center justify-center text-teal-600 dark:text-teal-400">
-              <span class="text-xl">⚡</span>
+              <span class="text-xl">{{ form.leadType === 'product' ? '📦' : '⚡' }}</span>
             </div>
             <div>
               <h3 class="text-lg font-semibold text-slate-900 dark:text-white">
-                Quick Create Lead
+                {{ form.leadType === 'product' ? 'Quick Create Product Lead' : 'Quick Create Treatment Lead' }}
               </h3>
               <p class="text-xs text-slate-500 dark:text-slate-400">
-                Register a new patient inquiry
+                Register a new customer inquiry
               </p>
             </div>
           </div>
@@ -33,7 +33,37 @@
         </div>
 
         <!-- Form Body -->
-        <form @submit.prevent="submitLead" class="flex-1 overflow-y-auto p-6 space-y-5">
+        <form @submit.prevent="submitLead" class="flex-1 overflow-y-auto p-6 space-y-4">
+          <!-- Lead Type Toggle -->
+          <div class="grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-700">
+            <button
+              type="button"
+              :class="[
+                'py-2 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5',
+                form.leadType === 'treatment'
+                  ? 'bg-white dark:bg-slate-800 text-teal-700 dark:text-teal-300 shadow-2xs'
+                  : 'text-slate-600 dark:text-slate-400'
+              ]"
+              @click="form.leadType = 'treatment'"
+            >
+              <span>🏥</span>
+              <span>Treatment</span>
+            </button>
+            <button
+              type="button"
+              :class="[
+                'py-2 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5',
+                form.leadType === 'product'
+                  ? 'bg-white dark:bg-slate-800 text-teal-700 dark:text-teal-300 shadow-2xs'
+                  : 'text-slate-600 dark:text-slate-400'
+              ]"
+              @click="form.leadType = 'product'"
+            >
+              <span>📦</span>
+              <span>Product Lead</span>
+            </button>
+          </div>
+
           <!-- Live Duplicate Alert Banner -->
           <div
             v-if="duplicateLead"
@@ -41,16 +71,11 @@
           >
             <div class="flex items-center space-x-2 font-semibold text-sm">
               <span>⚠️</span>
-              <span>
-                Duplicate Phone Number Detected!
-              </span>
+              <span>Duplicate Phone Number Detected!</span>
             </div>
             <p class="text-xs leading-relaxed">
-              Lead:
-              <strong class="font-semibold">{{ duplicateLead.name }}</strong>
-              ({{ duplicateLead.status }}) -
-              Owner:
-              {{ duplicateLead.ownerName || 'Unassigned' }}
+              Lead: <strong class="font-semibold">{{ duplicateLead.name }}</strong> ({{ duplicateLead.status }}) -
+              Owner: {{ duplicateLead.ownerName || 'Unassigned' }}
             </p>
             <div class="pt-2 border-t border-amber-200 dark:border-amber-800/60">
               <label class="flex items-start space-x-2 cursor-pointer">
@@ -83,65 +108,58 @@
             {{ errorMessage }}
           </div>
 
-          <!-- 1. Patient Name -->
+          <!-- 1. Patient / Customer Name -->
           <div>
             <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-              Patient Name *
+              {{ form.leadType === 'product' ? 'Customer Name *' : 'Patient Name *' }}
             </label>
             <input
               v-model="form.name"
               type="text"
               required
-              class="w-full h-11 px-3.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+              class="w-full h-10 px-3.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-normal focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
               placeholder="e.g. Fathima Rahman"
             />
           </div>
 
-          <!-- 2. Mobile Phone (with live duplicate check) -->
+          <!-- 2. Mobile Phone -->
           <div>
             <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-              Mobile Number *
+              Mobile Phone *
             </label>
             <div class="relative">
               <input
                 v-model="form.mobile"
                 type="tel"
                 required
+                class="w-full h-10 px-3.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-normal focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                placeholder="10-digit mobile number"
                 @input="handlePhoneInput"
-                class="w-full h-11 px-3.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 font-mono"
-                placeholder="+91 98471 23456"
               />
-              <div v-if="isCheckingDuplicate" class="absolute right-3 top-3 text-slate-400">
-                <span class="inline-block animate-spin text-sm">⟳</span>
-              </div>
+              <span v-if="isCheckingDuplicate" class="absolute right-3 top-2.5 text-xs text-slate-400 animate-spin">
+                ⟳
+              </span>
             </div>
-            <p class="text-[11px] text-slate-500 mt-1">
-              10-digit Indian number or E.164 (+91...)
-            </p>
           </div>
 
-          <!-- 3. Language & Preferred Communication -->
+          <!-- 3. Language & Source -->
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Language
-              </label>
+              <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Language</label>
               <select
                 v-model="form.language"
-                class="w-full h-11 px-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-teal-500"
+                class="w-full h-10 px-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-normal"
               >
                 <option value="en">English</option>
                 <option value="ml">Malayalam</option>
               </select>
             </div>
             <div>
-              <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Source *
-              </label>
+              <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Source *</label>
               <select
                 v-model.number="form.sourceId"
                 required
-                class="w-full h-11 px-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-teal-500"
+                class="w-full h-10 px-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-normal"
               >
                 <option v-for="s in sources" :key="s.id" :value="s.id">
                   {{ s.labelEn }}
@@ -150,15 +168,51 @@
             </div>
           </div>
 
-          <!-- 4. Department -->
-          <div>
-            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-              Department *
-            </label>
+          <!-- Product Fields when leadType is 'product' -->
+          <div v-if="form.leadType === 'product'" class="space-y-3 p-3.5 rounded-2xl bg-teal-50/50 dark:bg-teal-950/30 border border-teal-200/80 dark:border-teal-800/60">
+            <div>
+              <label class="block text-xs font-semibold text-teal-900 dark:text-teal-200 mb-1">Marketing Campaign (Optional)</label>
+              <select
+                v-model="form.campaignId"
+                class="w-full h-10 px-3 rounded-xl border border-teal-200 dark:border-teal-800 bg-white dark:bg-slate-850 text-xs font-normal text-slate-800 dark:text-slate-100"
+              >
+                <option :value="null">Direct Inbound / No Campaign</option>
+                <option v-for="c in campaigns" :key="c.id" :value="c.id">
+                  {{ c.name }} ({{ c.channel }})
+                </option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-teal-900 dark:text-teal-200 mb-1">Products Inquired</label>
+              <div class="max-h-36 overflow-y-auto p-2 bg-white dark:bg-slate-850 rounded-xl border border-teal-200 dark:border-teal-800 divide-y divide-slate-100 dark:divide-slate-750">
+                <label
+                  v-for="p in products"
+                  :key="p.id"
+                  class="py-1 px-1.5 flex items-center justify-between text-xs cursor-pointer select-none"
+                >
+                  <div class="flex items-center gap-1.5">
+                    <span class="font-semibold text-slate-800 dark:text-slate-200">{{ p.name }}</span>
+                    <span class="text-[10px] text-slate-400 font-mono">({{ p.sku }})</span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    :value="p.id"
+                    v-model="form.productIds"
+                    class="rounded text-teal-600 focus:ring-teal-500 border-slate-300"
+                  />
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Treatment Department if leadType is 'treatment' -->
+          <div v-else>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Department *</label>
             <select
               v-model.number="form.departmentId"
               required
-              class="w-full h-11 px-3.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-teal-500"
+              class="w-full h-10 px-3.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-normal"
             >
               <option v-for="d in departments" :key="d.id" :value="d.id">
                 {{ d.labelEn }}
@@ -166,24 +220,24 @@
             </select>
           </div>
 
-          <!-- 5. Medical Concern / Inquiry Details -->
+          <!-- Notes / Concern -->
           <div>
             <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-              Medical Concern / Inquiry Details
+              {{ form.leadType === 'product' ? 'Caller Notes / Requested Remedies' : 'Medical Concern / Inquiry Details' }}
             </label>
             <textarea
               v-model="form.concern"
-              rows="3"
-              class="w-full p-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-teal-500"
-              placeholder="Patient symptoms, concerns, or requested procedures..."
+              rows="2"
+              class="w-full p-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-normal"
+              placeholder="Notes, symptoms, or requested formulations..."
             />
           </div>
 
-          <!-- Submit Buttons -->
-          <div class="pt-4 border-t border-slate-200 dark:border-slate-700 flex items-center justify-end space-x-3">
+          <!-- Action Buttons -->
+          <div class="pt-3 border-t border-slate-200 dark:border-slate-700 flex items-center justify-end space-x-2">
             <button
               type="button"
-              class="min-h-[44px] px-5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
+              class="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-600 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
               @click="close"
             >
               Cancel
@@ -191,9 +245,9 @@
             <button
               type="submit"
               :disabled="isSubmitting"
-              class="min-h-[44px] px-6 py-2.5 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-semibold text-sm shadow-md shadow-teal-500/20 disabled:opacity-50 flex items-center space-x-2"
+              class="px-5 py-2 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-semibold text-xs shadow-md shadow-teal-500/20 disabled:opacity-50 flex items-center space-x-1.5"
             >
-              <span v-if="isSubmitting" class="animate-spin text-sm">⟳</span>
+              <span v-if="isSubmitting" class="animate-spin text-xs">⟳</span>
               <span>Save Lead</span>
             </button>
           </div>
@@ -204,10 +258,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, onMounted, watch } from 'vue';
+import { useAuthStore } from '../../stores/auth';
 
 const props = defineProps<{
   isOpen: boolean;
+  defaultLeadType?: 'treatment' | 'product';
 }>();
 
 const emit = defineEmits<{
@@ -215,17 +271,22 @@ const emit = defineEmits<{
   (e: 'created', lead: any): void;
 }>();
 
+const authStore = useAuthStore();
 const config = useRuntimeConfig();
 const apiBase = config.public.apiBase || 'http://localhost:4000/api/v1';
 
 const departments = ref<any[]>([]);
 const sources = ref<any[]>([]);
+const campaigns = ref<any[]>([]);
+const products = ref<any[]>([]);
+
 const isCheckingDuplicate = ref(false);
 const duplicateLead = ref<any | null>(null);
 const isSubmitting = ref(false);
 const errorMessage = ref('');
 
 const form = reactive({
+  leadType: 'treatment' as 'treatment' | 'product',
   name: '',
   mobile: '',
   language: 'en',
@@ -233,17 +294,30 @@ const form = reactive({
   departmentId: 1,
   sourceId: 1,
   branchId: 1,
+  campaignId: null as number | null,
+  productIds: [] as number[],
   overrideDuplicate: false,
   overrideReason: '',
 });
+
+watch(
+  () => props.defaultLeadType,
+  (val) => {
+    if (val) form.leadType = val;
+  },
+  { immediate: true }
+);
 
 let debounceTimer: any = null;
 
 const fetchPicklists = async () => {
   try {
-    const [deptRes, srcRes] = await Promise.all([
-      fetch(`${apiBase}/picklists/departments`, { credentials: 'include' }),
-      fetch(`${apiBase}/picklists/sources`, { credentials: 'include' }),
+    const headers = { Authorization: `Bearer ${authStore.token}` };
+    const [deptRes, srcRes, campRes, prodRes] = await Promise.all([
+      fetch(`${apiBase}/picklists/departments`, { headers }),
+      fetch(`${apiBase}/picklists/sources`, { headers }),
+      fetch(`${apiBase}/product-campaigns`, { headers }),
+      fetch(`${apiBase}/products?pageSize=50`, { headers }),
     ]);
 
     if (deptRes.ok) {
@@ -253,6 +327,14 @@ const fetchPicklists = async () => {
     if (srcRes.ok) {
       sources.value = await srcRes.json();
       if (sources.value.length > 0) form.sourceId = sources.value[0].id;
+    }
+    if (campRes.ok) {
+      const campData = await campRes.json();
+      campaigns.value = campData.campaigns || [];
+    }
+    if (prodRes.ok) {
+      const prodData = await prodRes.json();
+      products.value = prodData.products || [];
     }
   } catch (err) {
     console.error('Failed to load picklists', err);
@@ -274,7 +356,7 @@ const handlePhoneInput = () => {
     try {
       const res = await fetch(
         `${apiBase}/leads/check-duplicate?mobile=${encodeURIComponent(form.mobile.trim())}`,
-        { credentials: 'include' }
+        { headers: { Authorization: `Bearer ${authStore.token}` } }
       );
       if (res.ok) {
         const data = await res.json();
@@ -299,21 +381,31 @@ const submitLead = async () => {
   isSubmitting.value = true;
 
   try {
+    const payload: any = {
+      leadType: form.leadType,
+      name: form.name.trim(),
+      mobile: form.mobile.trim(),
+      language: form.language,
+      concern: form.concern.trim() || undefined,
+      departmentId: form.departmentId,
+      sourceId: form.sourceId,
+      branchId: form.branchId,
+      overrideDuplicate: form.overrideDuplicate,
+      overrideReason: form.overrideDuplicate ? form.overrideReason : undefined,
+    };
+
+    if (form.leadType === 'product') {
+      if (form.campaignId) payload.campaignId = form.campaignId;
+      if (form.productIds.length > 0) payload.productIds = form.productIds;
+    }
+
     const res = await fetch(`${apiBase}/leads`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({
-        name: form.name,
-        mobile: form.mobile,
-        language: form.language,
-        concern: form.concern,
-        departmentId: form.departmentId,
-        sourceId: form.sourceId,
-        branchId: form.branchId,
-        overrideDuplicate: form.overrideDuplicate,
-        overrideReason: form.overrideDuplicate ? form.overrideReason : undefined,
-      }),
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${authStore.token}`,
+      },
+      body: JSON.stringify(payload),
     });
 
     const data = await res.json();

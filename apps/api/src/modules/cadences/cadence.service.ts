@@ -528,6 +528,102 @@ export const DEFAULT_CADENCES: DefaultCadenceDefinition[] = [
       },
     ],
   },
+  {
+    key: 'product.no_answer',
+    name: 'Product Lead - No Answer Sequence',
+    steps: [
+      {
+        stepNo: 1,
+        offsetUnit: 'hours',
+        offsetValue: 4,
+        taskType: 'call',
+        titleTemplate: 'Product Inquiry: No answer - Call attempt 2',
+        assigneeRule: 'owner',
+      },
+      {
+        stepNo: 2,
+        offsetUnit: 'days',
+        offsetValue: 1,
+        taskType: 'whatsapp',
+        titleTemplate: 'Product Inquiry: Day 2 WhatsApp catalog',
+        assigneeRule: 'owner',
+      },
+      {
+        stepNo: 3,
+        offsetUnit: 'days',
+        offsetValue: 2,
+        taskType: 'call',
+        titleTemplate: 'Product Inquiry: Final call before close',
+        assigneeRule: 'owner',
+      },
+    ],
+  },
+  {
+    key: 'product.interested_not_ready',
+    name: 'Product Lead - Interested Not Ready Sequence',
+    steps: [
+      {
+        stepNo: 1,
+        offsetUnit: 'days',
+        offsetValue: 2,
+        taskType: 'call',
+        titleTemplate: 'Product Follow-up: Customer interested (Day 2)',
+        assigneeRule: 'owner',
+      },
+      {
+        stepNo: 2,
+        offsetUnit: 'days',
+        offsetValue: 7,
+        taskType: 'call',
+        titleTemplate: 'Product Follow-up: Benefits & usage consultation (Day 7)',
+        assigneeRule: 'owner',
+      },
+      {
+        stepNo: 3,
+        offsetUnit: 'days',
+        offsetValue: 14,
+        taskType: 'call',
+        titleTemplate: 'Product Follow-up: Final check-in (Day 14)',
+        assigneeRule: 'owner',
+      },
+    ],
+  },
+  {
+    key: 'product.price_concern',
+    name: 'Product Lead - Price Concern Sequence',
+    steps: [
+      {
+        stepNo: 1,
+        offsetUnit: 'days',
+        offsetValue: 2,
+        taskType: 'call',
+        titleTemplate: 'Price Follow-up: Suggest smaller pack or complementary bundle (Day 2)',
+        assigneeRule: 'owner',
+      },
+      {
+        stepNo: 2,
+        offsetUnit: 'days',
+        offsetValue: 7,
+        taskType: 'whatsapp',
+        titleTemplate: 'Price Follow-up: Seasonal wellness discount code via WhatsApp',
+        assigneeRule: 'owner',
+      },
+    ],
+  },
+  {
+    key: 'product.refill',
+    name: 'Product Lead - Routine Refill Sequence',
+    steps: [
+      {
+        stepNo: 1,
+        offsetUnit: 'days',
+        offsetValue: 25,
+        taskType: 'call',
+        titleTemplate: 'Refill Reminder: Check supply level & schedule reorder',
+        assigneeRule: 'owner',
+      },
+    ],
+  },
 ];
 
 /**

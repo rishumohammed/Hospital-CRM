@@ -2,6 +2,7 @@ import { prisma } from './client';
 import { hashPassword } from '../modules/auth/password';
 import { Roles, Teams, Scopes, Permissions } from '@hospital-crm/shared';
 import { ensureDefaultCadences } from '../modules/cadences/cadence.service';
+import { seedProductModule } from './seed-products';
 
 export async function seedDatabase() {
   console.log('--- Starting Database Seed ---');
@@ -30,6 +31,7 @@ export async function seedDatabase() {
     { code: Teams.ADMISSION, name: 'Admission Team' },
     { code: Teams.AFTERCARE, name: 'Aftercare Team' },
     { code: Teams.TREATMENT_FOLLOWUP, name: 'Treatment Follow-up Team' },
+    { code: Teams.PRODUCT_SALES, name: 'Product Sales Team' },
   ];
 
   const seededTeams: Record<string, any> = {};
@@ -40,7 +42,7 @@ export async function seedDatabase() {
       create: { code: t.code, name: t.name },
     });
   }
-  console.log('✓ Teams seeded: Support, Admission, Aftercare, Treatment Follow-up');
+  console.log('✓ Teams seeded: Support, Admission, Aftercare, Treatment Follow-up, Product Sales');
 
   // 3. Seed Roles & Starter Permissions Matrix
   const roleDefinitions = [
@@ -55,6 +57,9 @@ export async function seedDatabase() {
     { code: Roles.FRONT_OFFICE, name: 'Front Office / Reception', maskPhone: false },
     { code: Roles.DOCTOR, name: 'Treating Doctor', maskPhone: false },
     { code: Roles.AUDITOR, name: 'Quality / External Auditor', maskPhone: false },
+    { code: Roles.PRODUCT_SALES_EXECUTIVE, name: 'Product Sales Executive', maskPhone: false },
+    { code: Roles.PRODUCT_MANAGER, name: 'Product Manager', maskPhone: false },
+    { code: Roles.PHARMACY_STORE, name: 'Pharmacy Store', maskPhone: false },
   ];
 
   const seededRoles: Record<string, any> = {};
@@ -79,7 +84,7 @@ export async function seedDatabase() {
         scope: Scopes.ALL,
       })),
     },
-    // 2. Admin: settings, user, role, cadence, rules, audit: 'all'; Content is 'none' by default
+    // 2. Admin: settings, user, role, cadence, rules, audit: 'all'; Content is 'none' by default. Catalog management is allowed.
     {
       roleCode: Roles.ADMIN,
       permissions: [
@@ -90,6 +95,12 @@ export async function seedDatabase() {
         { permission: Permissions.ASSIGNMENT_RULE_MANAGE, scope: Scopes.ALL },
         { permission: Permissions.IMPORT_RUN, scope: Scopes.ALL },
         { permission: Permissions.AUDIT_VIEW, scope: Scopes.ALL },
+        { permission: Permissions.PRODUCT_VIEW, scope: Scopes.ALL },
+        { permission: Permissions.PRODUCT_CREATE, scope: Scopes.ALL },
+        { permission: Permissions.PRODUCT_EDIT, scope: Scopes.ALL },
+        { permission: Permissions.PRODUCT_ARCHIVE, scope: Scopes.ALL },
+        { permission: Permissions.PRODUCT_IMPORT, scope: Scopes.ALL },
+        { permission: Permissions.PRODUCT_CATEGORY_MANAGE, scope: Scopes.ALL },
       ],
     },
     // 3. Center Head: branch-level for everything, export approve: branch
@@ -125,6 +136,13 @@ export async function seedDatabase() {
         { permission: Permissions.VISIT_MARK, scope: Scopes.BRANCH },
         { permission: Permissions.CHECKIN_CREATE, scope: Scopes.BRANCH },
         { permission: Permissions.FOLLOWUP_REPORT, scope: Scopes.BRANCH },
+        { permission: Permissions.PRODUCT_VIEW, scope: Scopes.ALL },
+        { permission: Permissions.PRODUCT_CAMPAIGN_MANAGE, scope: Scopes.BRANCH },
+        { permission: Permissions.PRODUCT_LEAD_VIEW, scope: Scopes.BRANCH },
+        { permission: Permissions.PRODUCT_LEAD_CREATE, scope: Scopes.BRANCH },
+        { permission: Permissions.PRODUCT_LEAD_EDIT, scope: Scopes.BRANCH },
+        { permission: Permissions.PRODUCT_LEAD_REASSIGN, scope: Scopes.BRANCH },
+        { permission: Permissions.PRODUCT_REPORT_VIEW, scope: Scopes.BRANCH },
       ],
     },
     // 4. Telecaller Manager: branch-level for leads & cases, report: branch
@@ -158,6 +176,7 @@ export async function seedDatabase() {
         { permission: Permissions.VISIT_MARK, scope: Scopes.BRANCH },
         { permission: Permissions.CHECKIN_CREATE, scope: Scopes.BRANCH },
         { permission: Permissions.FOLLOWUP_REPORT, scope: Scopes.BRANCH },
+        { permission: Permissions.PRODUCT_VIEW, scope: Scopes.ALL },
       ],
     },
     // 5. Support Telecaller: own leads, own tasks, own reports
@@ -274,6 +293,58 @@ export async function seedDatabase() {
         { permission: Permissions.SCHEDULE_VIEW, scope: Scopes.ALL },
         { permission: Permissions.VISIT_VIEW, scope: Scopes.ALL },
         { permission: Permissions.FOLLOWUP_REPORT, scope: Scopes.ALL },
+        { permission: Permissions.PRODUCT_VIEW, scope: Scopes.ALL },
+        { permission: Permissions.PRODUCT_LEAD_VIEW, scope: Scopes.ALL },
+        { permission: Permissions.PRODUCT_REPORT_VIEW, scope: Scopes.ALL },
+      ],
+    },
+    // 12. Product Manager: owns catalog, categories, relations, campaigns, reports, and leads
+    {
+      roleCode: Roles.PRODUCT_MANAGER,
+      permissions: [
+        { permission: Permissions.PRODUCT_VIEW, scope: Scopes.ALL },
+        { permission: Permissions.PRODUCT_CREATE, scope: Scopes.ALL },
+        { permission: Permissions.PRODUCT_EDIT, scope: Scopes.ALL },
+        { permission: Permissions.PRODUCT_APPROVE, scope: Scopes.ALL },
+        { permission: Permissions.PRODUCT_ARCHIVE, scope: Scopes.ALL },
+        { permission: Permissions.PRODUCT_STOCK_UPDATE, scope: Scopes.ALL },
+        { permission: Permissions.PRODUCT_IMPORT, scope: Scopes.ALL },
+        { permission: Permissions.PRODUCT_CATEGORY_MANAGE, scope: Scopes.ALL },
+        { permission: Permissions.PRODUCT_RELATION_MANAGE, scope: Scopes.ALL },
+        { permission: Permissions.PRODUCT_CAMPAIGN_MANAGE, scope: Scopes.ALL },
+        { permission: Permissions.PRODUCT_LEAD_VIEW, scope: Scopes.ALL },
+        { permission: Permissions.PRODUCT_LEAD_CREATE, scope: Scopes.ALL },
+        { permission: Permissions.PRODUCT_LEAD_EDIT, scope: Scopes.ALL },
+        { permission: Permissions.PRODUCT_LEAD_REASSIGN, scope: Scopes.ALL },
+        { permission: Permissions.PRODUCT_REPORT_VIEW, scope: Scopes.ALL },
+        { permission: Permissions.AUDIT_VIEW, scope: Scopes.ALL },
+        { permission: Permissions.TASK_VIEW, scope: Scopes.ALL },
+        { permission: Permissions.TASK_MANAGE, scope: Scopes.ALL },
+        { permission: Permissions.INTERACTION_CREATE, scope: Scopes.ALL },
+        { permission: Permissions.EXPORT_REQUEST, scope: Scopes.ALL },
+      ],
+    },
+    // 13. Product Sales Executive: calls product leads
+    {
+      roleCode: Roles.PRODUCT_SALES_EXECUTIVE,
+      permissions: [
+        { permission: Permissions.PRODUCT_VIEW, scope: Scopes.ALL },
+        { permission: Permissions.PRODUCT_LEAD_VIEW, scope: Scopes.OWN },
+        { permission: Permissions.PRODUCT_LEAD_CREATE, scope: Scopes.OWN },
+        { permission: Permissions.PRODUCT_LEAD_EDIT, scope: Scopes.OWN },
+        { permission: Permissions.PRODUCT_REPORT_VIEW, scope: Scopes.OWN },
+        { permission: Permissions.TASK_VIEW, scope: Scopes.OWN },
+        { permission: Permissions.TASK_MANAGE, scope: Scopes.OWN },
+        { permission: Permissions.INTERACTION_CREATE, scope: Scopes.OWN },
+        { permission: Permissions.EXPORT_REQUEST, scope: Scopes.OWN },
+      ],
+    },
+    // 14. Pharmacy Store: stock updates only
+    {
+      roleCode: Roles.PHARMACY_STORE,
+      permissions: [
+        { permission: Permissions.PRODUCT_VIEW, scope: Scopes.ALL },
+        { permission: Permissions.PRODUCT_STOCK_UPDATE, scope: Scopes.ALL },
       ],
     },
   ];
@@ -405,6 +476,33 @@ export async function seedDatabase() {
       dutyNurse: false,
       dutyDoctor: false,
     },
+    {
+      name: 'Deepak V (Product Sales Executive)',
+      email: 'prod_caller@hospital.test',
+      mobile: '+919800000060',
+      roleCode: Roles.PRODUCT_SALES_EXECUTIVE,
+      teams: [Teams.PRODUCT_SALES],
+      dutyNurse: false,
+      dutyDoctor: false,
+    },
+    {
+      name: 'Meera N (Product Manager)',
+      email: 'prod_mgr@hospital.test',
+      mobile: '+919800000061',
+      roleCode: Roles.PRODUCT_MANAGER,
+      teams: [Teams.PRODUCT_SALES],
+      dutyNurse: false,
+      dutyDoctor: false,
+    },
+    {
+      name: 'George K (Pharmacy Store)',
+      email: 'pharmacy@hospital.test',
+      mobile: '+919800000062',
+      roleCode: Roles.PHARMACY_STORE,
+      teams: [],
+      dutyNurse: false,
+      dutyDoctor: false,
+    },
   ];
 
   const seededUsers: Record<string, any> = {};
@@ -515,26 +613,32 @@ export async function seedDatabase() {
 
   // 7. Seed Call Outcomes
   const callOutcomeDefs = [
-    { code: 'APPOINTMENT_BOOKED', labelEn: 'Appointment Booked', labelMl: 'അപ്പോയിന്റ്മെന്റ് ബുക്ക് ചെയ്തു', sort: 1 },
-    { code: 'CALLBACK_REQUESTED', labelEn: 'Callback Requested', labelMl: 'തിരിച്ചുവിളിക്കാൻ ആവശ്യപ്പെട്ടു', sort: 2 },
-    { code: 'INTERESTED_NOT_READY', labelEn: 'Interested Not Ready', labelMl: 'താല്പര്യമുണ്ട്, ഇപ്പോൾ സാധ്യമല്ല', sort: 3 },
-    { code: 'INFORMATION_GIVEN', labelEn: 'Information Given', labelMl: 'വിവരങ്ങൾ നൽകി', sort: 4 },
-    { code: 'NO_ANSWER', labelEn: 'No Answer', labelMl: 'ഫോൺ എടുത്തില്ല', sort: 5 },
-    { code: 'SWITCHED_OFF_BUSY', labelEn: 'Switched Off or Busy', labelMl: 'സ്വിച്ച്ഡ് ഓഫ് അല്ലെങ്കിൽ ബിസി', sort: 6 },
-    { code: 'WRONG_NUMBER', labelEn: 'Wrong Number', labelMl: 'തെറ്റായ നമ്പർ', sort: 7 },
-    { code: 'NOT_INTERESTED', labelEn: 'Not Interested', labelMl: 'താല്പര്യമില്ല', sort: 8 },
-    { code: 'EMERGENCY_REDIRECTED', labelEn: 'Emergency Redirected', labelMl: 'അടിയന്തിര വിഭാഗത്തിലേക്ക് തിരിച്ചുവിട്ടു', sort: 9 },
-    { code: 'COMPLAINT', labelEn: 'Complaint', labelMl: 'പരാതി', sort: 10 },
+    { code: 'APPOINTMENT_BOOKED', labelEn: 'Appointment Booked', labelMl: 'അപ്പോയിന്റ്മെന്റ് ബുക്ക് ചെയ്തു', scope: 'treatment', sort: 1 },
+    { code: 'CALLBACK_REQUESTED', labelEn: 'Callback Requested', labelMl: 'തിരിച്ചുവിളിക്കാൻ ആവശ്യപ്പെട്ടു', scope: 'both', sort: 2 },
+    { code: 'INTERESTED_NOT_READY', labelEn: 'Interested Not Ready', labelMl: 'താല്പര്യമുണ്ട്, ഇപ്പോൾ സാധ്യമല്ല', scope: 'treatment', sort: 3 },
+    { code: 'INFORMATION_GIVEN', labelEn: 'Information Given', labelMl: 'വിവരങ്ങൾ നൽകി', scope: 'both', sort: 4 },
+    { code: 'NO_ANSWER', labelEn: 'No Answer', labelMl: 'ഫോൺ എടുത്തില്ല', scope: 'both', sort: 5 },
+    { code: 'SWITCHED_OFF_BUSY', labelEn: 'Switched Off or Busy', labelMl: 'സ്വിച്ച്ഡ് ഓഫ് അല്ലെങ്കിൽ ബിസി', scope: 'both', sort: 6 },
+    { code: 'WRONG_NUMBER', labelEn: 'Wrong Number', labelMl: 'തെറ്റായ നമ്പർ', scope: 'both', sort: 7 },
+    { code: 'NOT_INTERESTED', labelEn: 'Not Interested', labelMl: 'താല്പര്യമില്ല', scope: 'both', sort: 8 },
+    { code: 'EMERGENCY_REDIRECTED', labelEn: 'Emergency Redirected', labelMl: 'അടിയന്തിര വിഭാഗത്തിലേക്ക് തിരിച്ചുവിട്ടു', scope: 'treatment', sort: 9 },
+    { code: 'COMPLAINT', labelEn: 'Complaint', labelMl: 'പരാതി', scope: 'treatment', sort: 10 },
+    // Product Call Outcomes
+    { code: 'INTERESTED', labelEn: 'Interested', labelMl: 'താല്പര്യമുണ്ട്', scope: 'product', sort: 11 },
+    { code: 'ORDER_CONFIRMED', labelEn: 'Order Confirmed', labelMl: 'ഓർഡർ സ്ഥിരീകരിച്ചു', scope: 'product', sort: 12 },
+    { code: 'PRICE_CONCERN', labelEn: 'Price Concern', labelMl: 'വില കൂടുതൽ', scope: 'product', sort: 13 },
+    { code: 'OUT_OF_STOCK_WAITLISTED', labelEn: 'Out of Stock and Waitlisted', labelMl: 'സ്റ്റോക്കില്ല, വെയിറ്റ്‌ലിസ്റ്റ് ചെയ്തു', scope: 'product', sort: 14 },
+    { code: 'NEEDS_DOCTOR_ADVICE', labelEn: 'Needs Doctor Advice', labelMl: 'ഡോക്ടറുടെ ഉപദേശം വേണം', scope: 'product', sort: 15 },
   ];
 
   for (const co of callOutcomeDefs) {
     await prisma.callOutcome.upsert({
       where: { code: co.code },
-      update: { labelEn: co.labelEn, labelMl: co.labelMl, sort: co.sort },
+      update: { labelEn: co.labelEn, labelMl: co.labelMl, scope: co.scope, sort: co.sort },
       create: co,
     });
   }
-  console.log('✓ 10 Call Outcomes seeded');
+  console.log('✓ 15 Call Outcomes seeded (treatment, product, and both)');
 
   // 8. Seed Lost Reasons (Leads)
   const lostReasonDefs = [
@@ -669,6 +773,10 @@ export async function seedDatabase() {
       key: 'unmarked_visit_grace_minutes',
       value: 60,
     },
+    {
+      key: 'product_first_response_minutes',
+      value: 15,
+    },
   ];
 
   for (const s of defaultSettings) {
@@ -679,6 +787,29 @@ export async function seedDatabase() {
     });
   }
   console.log('✓ System Settings (calling hours, SLA, contact rules, adherence thresholds, followup limits) seeded');
+
+  // 12. Seed Starter Product Categories
+  const starterCategories = [
+    { name: 'Uncategorized', slug: 'uncategorized', sort: 1, description: 'Default category for products' },
+    { name: 'Immunity and Wellness', slug: 'immunity-and-wellness', sort: 2, description: 'Products supporting immune health and overall vitality' },
+    { name: 'Pain and Joint Care', slug: 'pain-and-joint-care', sort: 3, description: 'Ayurvedic formulations for joints, muscles, and mobility' },
+    { name: 'Digestive Health', slug: 'digestive-health', sort: 4, description: 'Gut health, digestion, and metabolic balance' },
+    { name: 'Skin and Hair', slug: 'skin-and-hair', sort: 5, description: 'Natural remedies for skin clarity and hair nourishment' },
+    { name: 'Women\'s Health', slug: 'womens-health', sort: 6, description: 'Dedicated wellness products for women' },
+    { name: 'Diabetes Care', slug: 'diabetes-care', sort: 7, description: 'Herbal and dietary support for healthy glucose levels' },
+    { name: 'Respiratory Care', slug: 'respiratory-care', sort: 8, description: 'Herbal formulations for respiratory comfort' },
+    { name: 'Oils and External Use', slug: 'oils-and-external-use', sort: 9, description: 'Traditional thailams and external application remedies' },
+    { name: 'General', slug: 'general', sort: 10, description: 'General health and daily wellness' },
+  ];
+
+  for (const cat of starterCategories) {
+    await prisma.productCategory.upsert({
+      where: { slug: cat.slug },
+      update: { name: cat.name, sort: cat.sort, description: cat.description },
+      create: { name: cat.name, slug: cat.slug, sort: cat.sort, description: cat.description, active: true },
+    });
+  }
+  console.log('✓ 10 Starter Product Categories seeded');
 
   // 11b. Seed Therapies & Visit Types
   const therapyDefs = [
@@ -1492,6 +1623,9 @@ export async function seedDatabase() {
   }
 
   console.log(`✓ Seeded ${syntheticCases.length} cases with schedules, ${totalVisitsSeeded} visits (mixed statuses), 5 IP check-ins, 2 high-risk cohorts, and 1 pending extension request.`);
+
+  // 17. Seed Product Module (Catalog, Relations, Campaigns, Product Leads, Waitlist)
+  await seedProductModule();
 
   console.log('--- Database Seed Complete ---');
 }

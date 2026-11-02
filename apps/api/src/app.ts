@@ -25,6 +25,10 @@ import { escalationRoutes } from './modules/escalations/escalation.routes';
 import { exportRoutes } from './modules/exports/export.routes';
 import { testimonialRoutes } from './modules/testimonials/testimonial.routes';
 import { treatmentRoutes } from './modules/treatment-followup/treatment.routes';
+import { productCategoryRoutes } from './modules/products/product-category.routes';
+import { productRoutes } from './modules/products/product.routes';
+import { productRelationRoutes } from './modules/products/product-relation.routes';
+import { productCampaignRoutes } from './modules/products/product-campaign.routes';
 
 export async function buildApp() {
   const isTest = process.env.NODE_ENV === 'test';
@@ -152,6 +156,10 @@ export async function buildApp() {
   await fastify.register(exportRoutes, { prefix: '/api/v1' });
   await fastify.register(testimonialRoutes, { prefix: '/api/v1' });
   await fastify.register(treatmentRoutes, { prefix: '/api/v1' });
+  await fastify.register(productCategoryRoutes, { prefix: '/api/v1' });
+  await fastify.register(productRoutes, { prefix: '/api/v1' });
+  await fastify.register(productRelationRoutes, { prefix: '/api/v1' });
+  await fastify.register(productCampaignRoutes, { prefix: '/api/v1' });
 
   return fastify;
 }

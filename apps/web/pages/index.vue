@@ -369,6 +369,20 @@
         >
           {{ t('desks.aftercare_title') }}
         </button>
+        <button
+          v-if="canViewProductDesk"
+          type="button"
+          :class="[
+            'px-4 py-2.5 text-sm font-semibold rounded-xl transition-all whitespace-nowrap min-h-[44px] flex items-center gap-1.5',
+            activeTeam === 'product'
+              ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/20'
+              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+          ]"
+          @click="activeTeam = 'product'; loadWorkQueue()"
+        >
+          <span>📦</span>
+          <span>Product Desk</span>
+        </button>
       </div>
 
       <!-- Timing Sub-Filter: Overdue / Today / Upcoming -->
@@ -491,6 +505,9 @@
 
             <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
               <span class="font-mono">{{ task.lead?.mobile || task.case?.patient?.mobileNorm || '—' }}</span>
+              <span v-if="task.lead?.leadType === 'product'" class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300">
+                📦 Product
+              </span>
               <span v-if="task.lead?.language || task.case?.patient?.preferredLang" class="px-1.5 py-0.2 bg-slate-100 dark:bg-slate-700 rounded text-[10px] font-semibold">
                 {{ (task.lead?.language || task.case?.patient?.preferredLang || 'en').toUpperCase() }}
               </span>
@@ -505,6 +522,15 @@
             <p v-if="task.lead?.concern || task.case?.planNote" class="text-xs text-slate-600 dark:text-slate-400 mt-1 line-clamp-2">
               {{ task.lead?.concern || task.case?.planNote }}
             </p>
+            <div v-if="task.lead?.productInterests?.length" class="mt-2 flex flex-wrap gap-1">
+              <span
+                v-for="interest in task.lead.productInterests"
+                :key="interest.id"
+                class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
+              >
+                {{ interest.product?.name || 'Product' }} (x{{ interest.quantity }})
+              </span>
+            </div>
             <div class="mt-2 flex items-center gap-2 text-[11px] text-slate-400">
               <span v-if="task.lead?.department || task.case?.department">
                 🏥 {{ task.lead?.department?.labelEn || task.case?.department?.labelEn }}
@@ -519,7 +545,7 @@
           </div>
 
           <!-- Testimonials Status Chip -->
-          <div v-if="task.lead" class="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+          <div v-if="task.lead && task.lead.leadType !== 'product'" class="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
             <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
               {{ t('testimonials.title') }}:
             </span>
@@ -612,10 +638,22 @@ const config = useRuntimeConfig();
 const rawApiBase = config.public.apiBase || 'http://localhost:4000/api/v1';
 const apiBase = rawApiBase.endsWith('/api/v1') ? rawApiBase : `${rawApiBase}/api/v1`;
 
-const activeTeam = ref<'support' | 'admission' | 'aftercare'>('support');
+const activeTeam = ref<'support' | 'admission' | 'aftercare' | 'product'>('support');
 const activeTiming = ref<'overdue' | 'today' | 'upcoming'>('today');
 const tasks = ref<any[]>([]);
 const isLoading = ref(true);
+
+const canViewProductDesk = computed(() => {
+  return (
+    authStore.hasPermission('product_lead.view') ||
+    authStore.hasPermission('product.view') ||
+    authStore.user?.role?.code === 'product_sales_executive' ||
+    authStore.user?.role?.code === 'product_manager' ||
+    authStore.user?.role?.code === 'super_admin' ||
+    authStore.user?.role?.code === 'owner' ||
+    authStore.user?.role?.code === 'admin'
+  );
+});
 
 const overdueCount = ref(0);
 const todayCount = ref(0);

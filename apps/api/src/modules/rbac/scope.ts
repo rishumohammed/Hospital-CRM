@@ -20,6 +20,10 @@ export interface UserContext {
 
 export type ResourceType =
   | 'lead'
+  | 'product_lead'
+  | 'product'
+  | 'product_category'
+  | 'product_campaign'
   | 'case'
   | 'task'
   | 'interaction'
@@ -93,6 +97,18 @@ export function scopeWhere(
 
   if (!permission) {
     switch (resource) {
+      case 'product_lead':
+        permission = Permissions.PRODUCT_LEAD_VIEW;
+        break;
+      case 'product':
+        permission = Permissions.PRODUCT_VIEW;
+        break;
+      case 'product_category':
+        permission = Permissions.PRODUCT_CATEGORY_MANAGE;
+        break;
+      case 'product_campaign':
+        permission = Permissions.PRODUCT_CAMPAIGN_MANAGE;
+        break;
       case 'lead':
         permission = Permissions.LEAD_VIEW;
         break;
@@ -137,6 +153,16 @@ export function scopeWhere(
 
   // Handle 'all' scope
   if (scope === 'all') {
+    if (resource === 'product') {
+      const canViewDrafts =
+        hasPermission(user, Permissions.PRODUCT_CREATE) ||
+        hasPermission(user, Permissions.PRODUCT_EDIT) ||
+        hasPermission(user, Permissions.PRODUCT_APPROVE);
+      return canViewDrafts ? { archivedAt: null } : { status: 'approved', archivedAt: null };
+    }
+    if (resource === 'product_lead') {
+      return { leadType: 'product', archivedAt: null };
+    }
     return resource === 'audit' || resource === 'handover' ? {} : { archivedAt: null };
   }
 
@@ -186,6 +212,13 @@ export function scopeWhere(
         case: { branchId: { in: branches } },
       };
     }
+    if (resource === 'product_lead') {
+      return {
+        branchId: { in: branches },
+        leadType: 'product',
+        archivedAt: null,
+      };
+    }
     return {
       branchId: { in: branches },
       archivedAt: null,
@@ -196,6 +229,21 @@ export function scopeWhere(
   if (scope === 'team') {
     const teams = user.teamCodes.length > 0 ? user.teamCodes : ['__none__'];
     const branches = user.branchIds.length > 0 ? user.branchIds : [-1];
+
+    if (resource === 'product_lead') {
+      return {
+        branchId: { in: branches },
+        owner: {
+          userTeams: {
+            some: {
+              team: { code: { in: teams } },
+            },
+          },
+        },
+        leadType: 'product',
+        archivedAt: null,
+      };
+    }
 
     if (resource === 'lead') {
       return {
@@ -286,6 +334,18 @@ export function scopeWhere(
 
   // Handle 'own' scope
   if (scope === 'own') {
+    if (resource === 'product_lead') {
+      return {
+        ownerId: user.id,
+        leadType: 'product',
+        archivedAt: null,
+      };
+    }
+
+    if (resource === 'product') {
+      return { status: 'approved', archivedAt: null };
+    }
+
     if (resource === 'lead') {
       return {
         ownerId: user.id,

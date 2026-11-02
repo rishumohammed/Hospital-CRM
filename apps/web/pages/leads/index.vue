@@ -15,8 +15,6 @@
       </div>
 
       <div class="flex items-center space-x-3">
-
-
         <!-- Quick Create Button -->
         <button
           type="button"
@@ -27,6 +25,39 @@
           <span>Quick Create</span>
         </button>
       </div>
+    </div>
+
+    <!-- Treatment vs Product Leads Top Toggle Bar -->
+    <div v-if="canViewTreatmentLeads || canViewProductLeads" class="flex items-center gap-2 border-b border-slate-200 dark:border-slate-700 pb-2">
+      <button
+        v-if="canViewTreatmentLeads"
+        type="button"
+        :class="[
+          'px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 border shadow-2xs',
+          activeLeadType === 'treatment'
+            ? 'bg-teal-600 text-white border-teal-600 shadow-sm'
+            : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-50'
+        ]"
+        @click="setLeadType('treatment')"
+      >
+        <span>🏥</span>
+        <span>Treatment Leads</span>
+      </button>
+
+      <button
+        v-if="canViewProductLeads"
+        type="button"
+        :class="[
+          'px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 border shadow-2xs',
+          activeLeadType === 'product'
+            ? 'bg-teal-600 text-white border-teal-600 shadow-sm'
+            : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-50'
+        ]"
+        @click="setLeadType('product')"
+      >
+        <span>📦</span>
+        <span>Product Leads</span>
+      </button>
     </div>
 
     <!-- Filters & Search Toolbar -->
@@ -281,6 +312,26 @@
               {{ lead.concern }}
             </p>
 
+            <!-- Product Inquiries Row (when product lead) -->
+            <div v-if="lead.leadType === 'product' || (lead.productInterests && lead.productInterests.length > 0)" class="flex items-center gap-1.5 flex-wrap pt-0.5">
+              <span v-if="lead.campaign" class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                📢 {{ lead.campaign.name }}
+              </span>
+              <span
+                v-for="pi in lead.productInterests"
+                :key="pi.id"
+                :class="[
+                  'px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 border',
+                  pi.product?.stockStatus === 'out_of_stock'
+                    ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:border-rose-800'
+                    : 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-750 dark:border-slate-700'
+                ]"
+              >
+                <span>{{ pi.product?.name }}</span>
+                <span v-if="pi.product?.stockStatus === 'out_of_stock'" class="text-[9px] text-rose-600 font-bold">(OOS)</span>
+              </span>
+            </div>
+
             <!-- Metadata Row -->
             <div class="flex items-center space-x-3 text-xs text-slate-500 dark:text-slate-400 flex-wrap gap-y-1">
               <span class="font-mono font-semibold text-slate-700 dark:text-slate-300">
@@ -373,6 +424,7 @@
     <!-- Quick Create Drawer Modal -->
     <LeadQuickCreateDrawer
       :is-open="showQuickCreate"
+      :default-lead-type="activeLeadType"
       @close="showQuickCreate = false"
       @created="onLeadCreated"
     />
@@ -464,6 +516,17 @@ const applySavedView = (view: 'all' | 'not_sent' | 'sent') => {
 
 const activeScope = ref<'my' | 'all'>('my');
 
+const canViewTreatmentLeads = computed(() => authStore.hasPermission('lead.view'));
+const canViewProductLeads = computed(() => authStore.hasPermission('product_lead.view'));
+
+const activeLeadType = ref<'treatment' | 'product'>('treatment');
+
+const setLeadType = (type: 'treatment' | 'product') => {
+  activeLeadType.value = type;
+  pagination.page = 1;
+  fetchLeads();
+};
+
 const canViewAllLeads = computed(() => {
   const role = authStore.user?.role?.code;
   return role === 'owner' || role === 'admin' || role === 'center_head' || role === 'telecaller_manager';
@@ -481,6 +544,7 @@ const fetchLeads = async () => {
     const params = new URLSearchParams({
       page: pagination.page.toString(),
       pageSize: pagination.pageSize.toString(),
+      leadType: activeLeadType.value,
     });
 
     if (activeScope.value === 'my' && authStore.user?.id) {
@@ -520,6 +584,9 @@ const fetchLeads = async () => {
 };
 
 onMounted(() => {
+  if (!canViewTreatmentLeads.value && canViewProductLeads.value) {
+    activeLeadType.value = 'product';
+  }
   fetchLeads();
 });
 

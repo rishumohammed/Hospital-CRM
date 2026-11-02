@@ -61,6 +61,31 @@
               class="w-full text-xs rounded-xl border border-amber-300 dark:border-amber-600 bg-white dark:bg-slate-800 p-3 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
               placeholder="e.g. Patient requested an urgent callback on WhatsApp"
             ></textarea>
+          <!-- Product Lead Interests Context Banner -->
+          <div
+            v-if="lead?.productInterests?.length"
+            class="p-3.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl space-y-1.5"
+          >
+            <div class="flex items-center justify-between text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+              <span class="flex items-center gap-1.5">
+                <span>📦</span>
+                <span>Products Inquired</span>
+              </span>
+              <span class="text-[10px] text-emerald-600 dark:text-emerald-400 font-normal">
+                Click to mention in notes
+              </span>
+            </div>
+            <div class="flex flex-wrap gap-1.5 pt-0.5">
+              <button
+                v-for="interest in lead.productInterests"
+                :key="interest.id"
+                type="button"
+                @click="appendProductToNote(interest.product?.name)"
+                class="px-2 py-0.5 rounded-lg text-xs bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-emerald-300 dark:border-emerald-700/60 shadow-xs hover:border-emerald-500 font-medium transition-all"
+              >
+                + {{ interest.product?.name }} (₹{{ interest.product?.mrp }})
+              </button>
+            </div>
           </div>
 
           <!-- Call Outcome Selector -->
@@ -415,11 +440,25 @@ const nextAction = ref({
   priority: 'warm',
 });
 
+const appendProductToNote = (productName?: string) => {
+  if (!productName) return;
+  const mention = `Discussed: ${productName}`;
+  if (!note.value) {
+    note.value = mention;
+  } else if (!note.value.includes(productName)) {
+    note.value += ` | ${mention}`;
+  }
+};
+
 // Load Picklists
 const loadPicklists = async () => {
   try {
+    const outcomeUrl = props.lead?.leadType === 'product'
+      ? `${apiBase}/picklists/call-outcomes?scope=product`
+      : (props.lead?.leadType === 'treatment' ? `${apiBase}/picklists/call-outcomes?scope=treatment` : `${apiBase}/picklists/call-outcomes`);
+
     const [coRes, lrRes] = await Promise.all([
-      fetch(`${apiBase}/picklists/call-outcomes`, {
+      fetch(outcomeUrl, {
         headers: { Authorization: `Bearer ${authStore.token}` },
       }),
       fetch(`${apiBase}/picklists/lost-reasons`, {
@@ -468,7 +507,9 @@ watch(
       durationSeconds.value = 60;
       nextAction.value = {
         type: 'call',
-        title: `Follow-up with ${props.recipientName || props.lead?.name || 'patient'}`,
+        title: props.lead?.leadType === 'product'
+          ? `Product follow-up with ${props.recipientName || props.lead?.name || 'customer'}`
+          : `Follow-up with ${props.recipientName || props.lead?.name || 'patient'}`,
         dueAt: getTomorrow10AM(),
         priority: 'warm',
       };

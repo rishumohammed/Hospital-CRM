@@ -10,6 +10,9 @@ export const Roles = {
   FRONT_OFFICE: 'front_office',
   DOCTOR: 'doctor',
   AUDITOR: 'auditor',
+  PRODUCT_SALES_EXECUTIVE: 'product_sales_executive',
+  PRODUCT_MANAGER: 'product_manager',
+  PHARMACY_STORE: 'pharmacy_store',
 } as const;
 
 export type RoleCode = (typeof Roles)[keyof typeof Roles];
@@ -19,6 +22,7 @@ export const Teams = {
   ADMISSION: 'admission',
   AFTERCARE: 'aftercare',
   TREATMENT_FOLLOWUP: 'treatment_followup',
+  PRODUCT_SALES: 'product_sales',
 } as const;
 
 export type TeamCode = (typeof Teams)[keyof typeof Teams];
@@ -68,9 +72,95 @@ export const Permissions = {
   VISIT_MARK: 'visit.mark',
   CHECKIN_CREATE: 'checkin.create',
   FOLLOWUP_REPORT: 'followup.report',
+  // Product Module Permissions
+  PRODUCT_VIEW: 'product.view',
+  PRODUCT_CREATE: 'product.create',
+  PRODUCT_EDIT: 'product.edit',
+  PRODUCT_APPROVE: 'product.approve',
+  PRODUCT_ARCHIVE: 'product.archive',
+  PRODUCT_STOCK_UPDATE: 'product.stock_update',
+  PRODUCT_IMPORT: 'product.import',
+  PRODUCT_CATEGORY_MANAGE: 'product_category.manage',
+  PRODUCT_RELATION_MANAGE: 'product_relation.manage',
+  PRODUCT_CAMPAIGN_MANAGE: 'product_campaign.manage',
+  PRODUCT_LEAD_VIEW: 'product_lead.view',
+  PRODUCT_LEAD_CREATE: 'product_lead.create',
+  PRODUCT_LEAD_EDIT: 'product_lead.edit',
+  PRODUCT_LEAD_REASSIGN: 'product_lead.reassign',
+  PRODUCT_REPORT_VIEW: 'product_report.view',
 } as const;
 
 export type PermissionCode = (typeof Permissions)[keyof typeof Permissions];
+
+export const LeadTypes = {
+  TREATMENT: 'treatment',
+  PRODUCT: 'product',
+} as const;
+
+export type LeadType = (typeof LeadTypes)[keyof typeof LeadTypes];
+
+export const ProductStatuses = {
+  DRAFT: 'draft',
+  APPROVED: 'approved',
+  ARCHIVED: 'archived',
+} as const;
+
+export type ProductStatus = (typeof ProductStatuses)[keyof typeof ProductStatuses];
+
+export const StockStatuses = {
+  IN_STOCK: 'in_stock',
+  OUT_OF_STOCK: 'out_of_stock',
+} as const;
+
+export type StockStatus = (typeof StockStatuses)[keyof typeof StockStatuses];
+
+export const ProductRelationTypes = {
+  CROSS_SELL: 'cross_sell',
+  UPSELL: 'upsell',
+  FREQUENTLY_TOGETHER: 'frequently_together',
+  SUBSTITUTE: 'substitute',
+} as const;
+
+export type ProductRelationType = (typeof ProductRelationTypes)[keyof typeof ProductRelationTypes];
+
+export const CampaignChannels = {
+  META_ADS: 'meta_ads',
+  GOOGLE_ADS: 'google_ads',
+  WHATSAPP: 'whatsapp',
+  SMS: 'sms',
+  EMAIL: 'email',
+  WEBSITE: 'website',
+  CAMP: 'camp',
+  OTHER: 'other',
+} as const;
+
+export type CampaignChannel = (typeof CampaignChannels)[keyof typeof CampaignChannels];
+
+export const CampaignStatuses = {
+  DRAFT: 'draft',
+  ACTIVE: 'active',
+  PAUSED: 'paused',
+  ENDED: 'ended',
+} as const;
+
+export type CampaignStatus = (typeof CampaignStatuses)[keyof typeof CampaignStatuses];
+
+export const LeadProductInterestStatuses = {
+  INTERESTED: 'interested',
+  OFFERED: 'offered',
+  ACCEPTED: 'accepted',
+  DECLINED: 'declined',
+} as const;
+
+export type LeadProductInterestStatus = (typeof LeadProductInterestStatuses)[keyof typeof LeadProductInterestStatuses];
+
+export const LeadProductInterestOrigins = {
+  SELECTED: 'selected',
+  CROSS_SELL: 'cross_sell',
+  CAMPAIGN: 'campaign',
+} as const;
+
+export type LeadProductInterestOrigin = (typeof LeadProductInterestOrigins)[keyof typeof LeadProductInterestOrigins];
 
 export const LeadStatuses = {
   NEW: 'new',

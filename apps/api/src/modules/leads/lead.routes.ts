@@ -11,6 +11,10 @@ import {
   intakeLeadSchema,
   importLeadsPreviewSchema,
   importLeadsCommitSchema,
+  addLeadProductInterestSchema,
+  updateLeadProductInterestSchema,
+  confirmSaleSchema,
+  referToTreatmentSchema,
   normalizePhoneNumber,
   Permissions,
 } from '@hospital-crm/shared';
@@ -27,6 +31,13 @@ import {
   checkDuplicateLead,
   calculateFirstResponseDue,
   assignLeadRoundRobin,
+  assignProductLeadRoundRobin,
+  getLeadProducts,
+  addLeadProductInterest,
+  updateLeadProductInterest,
+  waitlistLeadProduct,
+  referLeadToTreatment,
+  confirmLeadSale,
 } from './lead.service';
 import { authenticate, requirePermission } from '../auth/auth.middleware';
 import { prisma } from '../../database/client';
@@ -128,13 +139,37 @@ export const leadRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) =
       });
     }
 
+    // Resolve product campaign if key provided
+    const campaignKey = body.campaignKey || body.campaign_key;
+    let campaign: any = null;
+    let isProduct = body.leadType === 'product' || body.lead_type === 'product';
+
+    if (campaignKey) {
+      campaign = await prisma.productCampaign.findUnique({
+        where: { campaignKey },
+        include: { campaignProducts: { include: { product: true } } },
+      });
+      if (campaign) {
+        isProduct = true;
+      }
+    }
+
     // Calculate SLA
-    const firstResponseDueAt = await calculateFirstResponseDue(source.code, branch.id);
-    const assignedOwnerId = await assignLeadRoundRobin(branch.id);
+    const firstResponseDueAt = await calculateFirstResponseDue(
+      source.code,
+      branch.id,
+      new Date(),
+      isProduct ? 'product' : 'treatment'
+    );
+    const assignedOwnerId = isProduct
+      ? await assignProductLeadRoundRobin(branch.id)
+      : await assignLeadRoundRobin(branch.id);
     const isAd = source.code.toUpperCase() === 'META_ADS' || source.code.toUpperCase() === 'GOOGLE_ADS';
 
     const lead = await prisma.lead.create({
       data: {
+        leadType: isProduct ? 'product' : 'treatment',
+        campaignId: campaign ? campaign.id : null,
         name: body.name,
         mobile: body.mobile,
         mobileNorm: normMobile,
@@ -156,6 +191,61 @@ export const leadRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) =
         consentDate: new Date(),
       },
     });
+
+    // If product lead and productSkus / campaign products provided
+    const productSkus = body.productSkus || body.product_skus;
+    if (isProduct) {
+      if (productSkus && productSkus.length > 0) {
+        const prods = await prisma.product.findMany({
+          where: { sku: { in: productSkus.map((s: string) => s.trim().toUpperCase()) } },
+        });
+        for (const p of prods) {
+          await prisma.leadProductInterest.create({
+            data: {
+              leadId: lead.id,
+              productId: p.id,
+              quantity: 1,
+              unitPriceAtTime: p.price,
+              status: 'interested',
+              origin: 'campaign',
+              prescriptionVerified: false,
+              waitlisted: p.stockStatus === 'out_of_stock',
+              addedById: assignedOwnerId || 1,
+            },
+          });
+          if (p.stockStatus === 'out_of_stock') {
+            await prisma.productWaitlist.upsert({
+              where: { leadId_productId: { leadId: lead.id, productId: p.id } },
+              create: { leadId: lead.id, productId: p.id },
+              update: {},
+            });
+          }
+        }
+      } else if (campaign && campaign.campaignProducts.length > 0) {
+        for (const cp of campaign.campaignProducts) {
+          await prisma.leadProductInterest.create({
+            data: {
+              leadId: lead.id,
+              productId: cp.productId,
+              quantity: 1,
+              unitPriceAtTime: cp.product.price,
+              status: 'interested',
+              origin: 'campaign',
+              prescriptionVerified: false,
+              waitlisted: cp.product.stockStatus === 'out_of_stock',
+              addedById: assignedOwnerId || 1,
+            },
+          });
+          if (cp.product.stockStatus === 'out_of_stock') {
+            await prisma.productWaitlist.upsert({
+              where: { leadId_productId: { leadId: lead.id, productId: cp.productId } },
+              create: { leadId: lead.id, productId: cp.productId },
+              update: {},
+            });
+          }
+        }
+      }
+    }
 
     if (assignedOwnerId) {
       await prisma.notification.create({
@@ -213,7 +303,7 @@ export const leadRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) =
     // 2. Quick Create Lead
     authGroup.post(
       '/leads',
-      { preHandler: [requirePermission(Permissions.LEAD_CREATE, 'lead')] },
+      { preHandler: [requirePermission([Permissions.LEAD_CREATE, Permissions.PRODUCT_LEAD_CREATE], 'lead')] },
       async (req, reply) => {
         const parseResult = quickCreateLeadSchema.safeParse(req.body);
         if (!parseResult.success) {
@@ -252,7 +342,7 @@ export const leadRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) =
     // 3. List Leads
     authGroup.get(
       '/leads',
-      { preHandler: [requirePermission(Permissions.LEAD_VIEW, 'lead')] },
+      { preHandler: [requirePermission([Permissions.LEAD_VIEW, Permissions.PRODUCT_LEAD_VIEW], 'lead')] },
       async (req, reply) => {
         const parseResult = leadFilterSchema.safeParse(req.query);
         if (!parseResult.success) {
@@ -273,7 +363,7 @@ export const leadRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) =
     // 4. Get Lead by ID
     authGroup.get(
       '/leads/:id',
-      { preHandler: [requirePermission(Permissions.LEAD_VIEW, 'lead')] },
+      { preHandler: [requirePermission([Permissions.LEAD_VIEW, Permissions.PRODUCT_LEAD_VIEW], 'lead')] },
       async (req, reply) => {
         const { id } = req.params as { id: string };
         const leadId = parseInt(id, 10);
@@ -291,7 +381,7 @@ export const leadRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) =
     // 5. Update Lead
     authGroup.patch(
       '/leads/:id',
-      { preHandler: [requirePermission(Permissions.LEAD_EDIT, 'lead')] },
+      { preHandler: [requirePermission([Permissions.LEAD_EDIT, Permissions.PRODUCT_LEAD_EDIT], 'lead')] },
       async (req, reply) => {
         const { id } = req.params as { id: string };
         const leadId = parseInt(id, 10);
@@ -661,6 +751,191 @@ export const leadRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) =
           importedCount: createdCount,
           createdLeadIds,
         });
+      }
+    );
+
+    // ==========================================
+    // Product Leads & Line Endpoints
+    // ==========================================
+
+    // 1. Get Lead Product Lines
+    authGroup.get(
+      '/leads/:id/products',
+      { preHandler: [requirePermission([Permissions.PRODUCT_LEAD_VIEW, Permissions.LEAD_VIEW], 'lead')] },
+      async (req, reply) => {
+        const { id } = req.params as { id: string };
+        const leadId = parseInt(id, 10);
+        if (isNaN(leadId)) {
+          return reply.status(400).send({
+            error: { code: 'INVALID_ID', message: 'Lead ID must be an integer' },
+          });
+        }
+
+        const result = await getLeadProducts(leadId, req.user!);
+        return reply.send(result);
+      }
+    );
+
+    // 2. Add Product Line to Lead
+    authGroup.post(
+      '/leads/:id/products',
+      { preHandler: [requirePermission([Permissions.PRODUCT_LEAD_CREATE, Permissions.PRODUCT_LEAD_EDIT], 'lead')] },
+      async (req, reply) => {
+        const { id } = req.params as { id: string };
+        const leadId = parseInt(id, 10);
+        if (isNaN(leadId)) {
+          return reply.status(400).send({
+            error: { code: 'INVALID_ID', message: 'Lead ID must be an integer' },
+          });
+        }
+
+        const parseResult = addLeadProductInterestSchema.safeParse(req.body);
+        if (!parseResult.success) {
+          return reply.status(400).send({
+            error: {
+              code: 'VALIDATION_ERROR',
+              message: 'Invalid product interest payload',
+              details: parseResult.error.format(),
+            },
+          });
+        }
+
+        const line = await addLeadProductInterest(
+          leadId,
+          parseResult.data,
+          req.user!,
+          req.ip,
+          req.headers['user-agent']
+        );
+        return reply.status(201).send(line);
+      }
+    );
+
+    // 3. Update Product Line on Lead
+    authGroup.patch(
+      '/lead-products/:id',
+      { preHandler: [requirePermission(Permissions.PRODUCT_LEAD_EDIT, 'lead')] },
+      async (req, reply) => {
+        const { id } = req.params as { id: string };
+        const lineId = parseInt(id, 10);
+        if (isNaN(lineId)) {
+          return reply.status(400).send({
+            error: { code: 'INVALID_ID', message: 'Line ID must be an integer' },
+          });
+        }
+
+        const parseResult = updateLeadProductInterestSchema.safeParse(req.body);
+        if (!parseResult.success) {
+          return reply.status(400).send({
+            error: {
+              code: 'VALIDATION_ERROR',
+              message: 'Invalid product line update payload',
+              details: parseResult.error.format(),
+            },
+          });
+        }
+
+        const updated = await updateLeadProductInterest(
+          lineId,
+          parseResult.data,
+          req.user!,
+          req.ip,
+          req.headers['user-agent']
+        );
+        return reply.send(updated);
+      }
+    );
+
+    // 4. Waitlist Product Line on Lead
+    authGroup.post(
+      '/lead-products/:id/waitlist',
+      { preHandler: [requirePermission(Permissions.PRODUCT_LEAD_EDIT, 'lead')] },
+      async (req, reply) => {
+        const { id } = req.params as { id: string };
+        const lineId = parseInt(id, 10);
+        if (isNaN(lineId)) {
+          return reply.status(400).send({
+            error: { code: 'INVALID_ID', message: 'Line ID must be an integer' },
+          });
+        }
+
+        const result = await waitlistLeadProduct(
+          lineId,
+          req.user!,
+          req.ip,
+          req.headers['user-agent']
+        );
+        return reply.send(result);
+      }
+    );
+
+    // 5. Refer Product Lead to Treatment Desk
+    authGroup.post(
+      '/leads/:id/refer-to-treatment',
+      { preHandler: [requirePermission(Permissions.PRODUCT_LEAD_EDIT, 'lead')] },
+      async (req, reply) => {
+        const { id } = req.params as { id: string };
+        const leadId = parseInt(id, 10);
+        if (isNaN(leadId)) {
+          return reply.status(400).send({
+            error: { code: 'INVALID_ID', message: 'Lead ID must be an integer' },
+          });
+        }
+
+        const parseResult = referToTreatmentSchema.safeParse(req.body);
+        if (!parseResult.success) {
+          return reply.status(400).send({
+            error: {
+              code: 'VALIDATION_ERROR',
+              message: 'Invalid refer to treatment payload',
+              details: parseResult.error.format(),
+            },
+          });
+        }
+
+        const result = await referLeadToTreatment(
+          leadId,
+          parseResult.data,
+          req.user!,
+          req.ip,
+          req.headers['user-agent']
+        );
+        return reply.status(201).send(result);
+      }
+    );
+
+    // 6. Confirm Product Lead Sale
+    authGroup.post(
+      '/leads/:id/confirm-sale',
+      { preHandler: [requirePermission(Permissions.PRODUCT_LEAD_EDIT, 'lead')] },
+      async (req, reply) => {
+        const { id } = req.params as { id: string };
+        const leadId = parseInt(id, 10);
+        if (isNaN(leadId)) {
+          return reply.status(400).send({
+            error: { code: 'INVALID_ID', message: 'Lead ID must be an integer' },
+          });
+        }
+
+        const parseResult = confirmSaleSchema.safeParse(req.body);
+        if (!parseResult.success) {
+          return reply.status(400).send({
+            error: {
+              code: 'VALIDATION_ERROR',
+              message: 'Invalid sale confirmation payload',
+              details: parseResult.error.format(),
+            },
+          });
+        }
+
+        const result = await confirmLeadSale(
+          leadId,
+          parseResult.data,
+          req.user!,
+          req.ip,
+          req.headers['user-agent']
+        );
+        return reply.send(result);
       }
     );
   });

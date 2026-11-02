@@ -64,11 +64,22 @@ export const quickCreateLeadSchema = z.object({
   altMobile: optionalPhoneSchema,
   language: z.enum(['en', 'ml']).default('en'),
   concern: z.string().max(1000).optional().default(''),
-  departmentId: z.number().int().positive('Department is required'),
-  sourceId: z.number().int().positive('Source is required'),
-  branchId: z.number().int().positive('Branch is required'),
+  departmentId: z.number().int().positive('Department is required').optional(),
+  department_id: z.number().int().positive().optional(),
+  sourceId: z.number().int().positive('Source is required').optional(),
+  source_id: z.number().int().positive().optional(),
+  branchId: z.number().int().positive('Branch is required').optional(),
+  branch_id: z.number().int().positive().optional(),
   campaignText: z.string().max(100).optional().nullable(),
+  campaign_text: z.string().max(100).optional().nullable(),
   referrerText: z.string().max(100).optional().nullable(),
+  referrer_text: z.string().max(100).optional().nullable(),
+  leadType: z.enum(['treatment', 'product']).default('treatment').optional(),
+  lead_type: z.enum(['treatment', 'product']).optional(),
+  campaignId: z.coerce.number().int().positive().optional().nullable(),
+  campaign_id: z.coerce.number().int().positive().optional().nullable(),
+  productIds: z.array(z.coerce.number().int().positive()).optional(),
+  product_ids: z.array(z.coerce.number().int().positive()).optional(),
   consentCalls: z.boolean().default(true),
   consentWhatsapp: z.boolean().default(false),
   consentSms: z.boolean().default(false),
@@ -81,9 +92,23 @@ export const leadFilterSchema = z.object({
   pageSize: z.coerce.number().int().positive().max(100).default(20),
   status: z.string().optional(),
   sourceId: z.coerce.number().int().positive().optional(),
+  source_id: z.coerce.number().int().positive().optional(),
   branchId: z.coerce.number().int().positive().optional(),
+  branch_id: z.coerce.number().int().positive().optional(),
   departmentId: z.coerce.number().int().positive().optional(),
+  department_id: z.coerce.number().int().positive().optional(),
   ownerId: z.coerce.number().int().positive().optional(),
+  owner_id: z.coerce.number().int().positive().optional(),
+  leadType: z.enum(['treatment', 'product']).optional(),
+  lead_type: z.enum(['treatment', 'product']).optional(),
+  campaignId: z.coerce.number().int().positive().optional(),
+  campaign_id: z.coerce.number().int().positive().optional(),
+  productId: z.coerce.number().int().positive().optional(),
+  product_id: z.coerce.number().int().positive().optional(),
+  categoryId: z.coerce.number().int().positive().optional(),
+  category_id: z.coerce.number().int().positive().optional(),
+  stockAffected: z.coerce.boolean().optional(),
+  stock_affected: z.coerce.boolean().optional(),
   priority: z.enum(['hot', 'warm', 'cold']).optional(),
   language: z.enum(['en', 'ml']).optional(),
   search: z.string().optional(),
@@ -120,6 +145,12 @@ export const intakeLeadSchema = z.object({
   branchCode: z.string().default('MAIN'),
   campaignText: z.string().max(100).optional().nullable(),
   referrerText: z.string().max(100).optional().nullable(),
+  campaignKey: z.string().optional().nullable(),
+  campaign_key: z.string().optional().nullable(),
+  productSkus: z.array(z.string()).optional(),
+  product_skus: z.array(z.string()).optional(),
+  leadType: z.enum(['treatment', 'product']).optional(),
+  lead_type: z.enum(['treatment', 'product']).optional(),
 });
 
 export const importLeadRowSchema = z.object({
@@ -825,5 +856,255 @@ export const missedReasonsReportQuerySchema = z.object({
 });
 
 export type MissedReasonsReportQuery = z.infer<typeof missedReasonsReportQuerySchema>;
+
+// ==========================================
+// Product Module Schemas
+// ==========================================
+
+export const PHONE_NUMBER_PATTERN = /(?:\+?\d{1,3}[-.\s]?)?(?:\(?\d{2,4}\)?[-.\s]?)?\d{3,4}[-.\s]?\d{4}|\b\d{10}\b/;
+
+export const skuSchema = z
+  .string()
+  .trim()
+  .min(3, 'SKU must be at least 3 characters')
+  .max(40, 'SKU cannot exceed 40 characters')
+  .regex(/^[A-Za-z0-9_-]+$/, 'SKU must contain only letters, numbers, hyphens, and underscores')
+  .transform((val) => val.toUpperCase());
+
+export const createProductCategorySchema = z.object({
+  name: z.string().trim().min(2, 'Name must be at least 2 characters').max(100),
+  slug: z.string().trim().min(2).max(100).optional(),
+  parentId: z.coerce.number().int().positive().optional().nullable(),
+  parent_id: z.coerce.number().int().positive().optional().nullable(),
+  sort: z.coerce.number().int().default(0).optional(),
+  active: z.boolean().default(true).optional(),
+  description: z.string().trim().max(500).optional().nullable(),
+});
+
+export type CreateProductCategoryInput = z.infer<typeof createProductCategorySchema>;
+
+export const updateProductCategorySchema = createProductCategorySchema.partial();
+export type UpdateProductCategoryInput = z.infer<typeof updateProductCategorySchema>;
+
+export const moveCategoryProductsSchema = z.object({
+  targetCategoryId: z.coerce.number().int().positive('Target category ID is required'),
+  target_category_id: z.coerce.number().int().positive().optional(),
+});
+
+export const createProductSchema = z.object({
+  sku: skuSchema,
+  name: z.string().trim().min(2, 'Name must be at least 2 characters').max(150),
+  price: z.coerce.number().min(0, 'Price must be zero or greater'),
+  usageDescription: z
+    .string()
+    .trim()
+    .min(10, 'Usage description must be at least 10 characters')
+    .max(1000, 'Usage description cannot exceed 1000 characters')
+    .refine((val) => !PHONE_NUMBER_PATTERN.test(val), {
+      message: 'Product description must not contain contact numbers or personal data',
+    }),
+  usage_description: z.string().optional(),
+  categoryId: z.coerce.number().int().positive('Category is required').optional(),
+  category_id: z.coerce.number().int().positive().optional(),
+  shortDescription: z.string().trim().max(160).optional().nullable(),
+  short_description: z.string().trim().max(160).optional().nullable(),
+  packSize: z.string().trim().max(100).optional().nullable(),
+  pack_size: z.string().trim().max(100).optional().nullable(),
+  howToUse: z.string().trim().max(2000).optional().nullable(),
+  how_to_use: z.string().trim().max(2000).optional().nullable(),
+  ingredients: z.string().trim().max(2000).optional().nullable(),
+  precautions: z.string().trim().max(2000).optional().nullable(),
+  prescriptionRequired: z.boolean().default(false).optional(),
+  prescription_required: z.boolean().default(false).optional(),
+  refillDays: z.coerce.number().int().positive().optional().nullable(),
+  refill_days: z.coerce.number().int().positive().optional().nullable(),
+  imageUrl: z.string().url().max(500).optional().nullable().or(z.literal('')),
+  image_url: z.string().url().max(500).optional().nullable().or(z.literal('')),
+  internalNote: z.string().trim().max(2000).optional().nullable(),
+  internal_note: z.string().trim().max(2000).optional().nullable(),
+  status: z.enum(['draft', 'approved', 'archived']).default('draft').optional(),
+  approvalConfirmed: z.boolean().optional(),
+}).refine((data) => data.categoryId !== undefined || data.category_id !== undefined, {
+  message: 'Category is required',
+});
+
+export type CreateProductInput = z.infer<typeof createProductSchema>;
+
+export const updateProductSchema = z.object({
+  sku: skuSchema.optional(),
+  name: z.string().trim().min(2).max(150).optional(),
+  price: z.coerce.number().min(0).optional(),
+  priceChangeReason: z.string().max(255).optional().nullable(),
+  price_change_reason: z.string().max(255).optional().nullable(),
+  usageDescription: z
+    .string()
+    .trim()
+    .min(10)
+    .max(1000)
+    .refine((val) => !PHONE_NUMBER_PATTERN.test(val), {
+      message: 'Product description must not contain contact numbers or personal data',
+    })
+    .optional(),
+  usage_description: z.string().optional(),
+  categoryId: z.coerce.number().int().positive().optional(),
+  category_id: z.coerce.number().int().positive().optional(),
+  shortDescription: z.string().trim().max(160).optional().nullable(),
+  short_description: z.string().trim().max(160).optional().nullable(),
+  packSize: z.string().trim().max(100).optional().nullable(),
+  pack_size: z.string().trim().max(100).optional().nullable(),
+  howToUse: z.string().trim().max(2000).optional().nullable(),
+  how_to_use: z.string().trim().max(2000).optional().nullable(),
+  ingredients: z.string().trim().max(2000).optional().nullable(),
+  precautions: z.string().trim().max(2000).optional().nullable(),
+  prescriptionRequired: z.boolean().optional(),
+  prescription_required: z.boolean().optional(),
+  refillDays: z.coerce.number().int().positive().optional().nullable(),
+  refill_days: z.coerce.number().int().positive().optional().nullable(),
+  imageUrl: z.string().max(500).optional().nullable().or(z.literal('')),
+  image_url: z.string().max(500).optional().nullable().or(z.literal('')),
+  internalNote: z.string().trim().max(2000).optional().nullable(),
+  internal_note: z.string().trim().max(2000).optional().nullable(),
+  status: z.enum(['draft', 'approved', 'archived']).optional(),
+  approvalConfirmed: z.boolean().optional(),
+  approval_confirmed: z.boolean().optional(),
+});
+
+export type UpdateProductInput = z.infer<typeof updateProductSchema>;
+
+export const approveProductSchema = z.object({
+  confirmed: z.boolean().optional(),
+  confirmation: z.boolean().optional(),
+  confirmApprovedWording: z.boolean().optional(),
+  confirm_approved_wording: z.boolean().optional(),
+}).refine(
+  (data) =>
+    data.confirmed === true ||
+    data.confirmation === true ||
+    data.confirmApprovedWording === true ||
+    data.confirm_approved_wording === true,
+  {
+    message: 'The description uses only approved wording statement must be confirmed',
+  }
+);
+
+export const updateProductStockSchema = z.object({
+  stockStatus: z.enum(['in_stock', 'out_of_stock']).optional(),
+  stock_status: z.enum(['in_stock', 'out_of_stock']).optional(),
+  note: z.string().max(500).optional().nullable(),
+}).refine((data) => data.stockStatus !== undefined || data.stock_status !== undefined, {
+  message: 'Stock status is required',
+});
+
+export const bulkStockUpdateSchema = z.object({
+  productIds: z.array(z.coerce.number().int().positive()).min(1, 'Select at least one product').optional(),
+  product_ids: z.array(z.coerce.number().int().positive()).optional(),
+  stockStatus: z.enum(['in_stock', 'out_of_stock']).optional(),
+  stock_status: z.enum(['in_stock', 'out_of_stock']).optional(),
+  note: z.string().max(500).optional().nullable(),
+}).refine((data) => (data.productIds && data.productIds.length > 0) || (data.product_ids && data.product_ids.length > 0), {
+  message: 'Select at least one product',
+}).refine((data) => data.stockStatus !== undefined || data.stock_status !== undefined, {
+  message: 'Stock status is required',
+});
+
+export const createProductRelationSchema = z.object({
+  relatedProductId: z.coerce.number().int().positive('Related product is required').optional(),
+  related_product_id: z.coerce.number().int().positive().optional(),
+  relationType: z.enum(['cross_sell', 'upsell', 'frequently_together', 'substitute']).optional(),
+  relation_type: z.enum(['cross_sell', 'upsell', 'frequently_together', 'substitute']).optional(),
+  talkingPoint: z.string().trim().min(3, 'Talking point is required').max(1000).refine((val) => !PHONE_NUMBER_PATTERN.test(val), {
+    message: 'Talking points cannot contain contact numbers',
+  }).optional(),
+  talking_point: z.string().optional(),
+  sort: z.coerce.number().int().default(0).optional(),
+  active: z.boolean().default(true).optional(),
+  mirror: z.boolean().default(false).optional(),
+}).refine((data) => data.relatedProductId !== undefined || data.related_product_id !== undefined, {
+  message: 'Related product is required',
+}).refine((data) => data.relationType !== undefined || data.relation_type !== undefined, {
+  message: 'Relation type is required',
+});
+
+export type CreateProductRelationInput = z.infer<typeof createProductRelationSchema>;
+
+export const updateProductRelationSchema = z.object({
+  relationType: z.enum(['cross_sell', 'upsell', 'frequently_together', 'substitute']).optional(),
+  relation_type: z.enum(['cross_sell', 'upsell', 'frequently_together', 'substitute']).optional(),
+  talkingPoint: z.string().trim().max(1000).optional(),
+  talking_point: z.string().optional(),
+  sort: z.coerce.number().int().optional(),
+  active: z.boolean().optional(),
+});
+
+export const createProductCampaignSchema = z.object({
+  name: z.string().trim().min(2, 'Name is required').max(150),
+  campaignKey: z.string().trim().min(2, 'Campaign key is required').max(100).optional(),
+  campaign_key: z.string().trim().min(2).max(100).optional(),
+  channel: z.enum(['meta_ads', 'google_ads', 'whatsapp', 'sms', 'email', 'website', 'camp', 'other']),
+  startDate: z.string().optional().nullable(),
+  start_date: z.string().optional().nullable(),
+  endDate: z.string().optional().nullable(),
+  end_date: z.string().optional().nullable(),
+  budget: z.coerce.number().min(0).optional().nullable(),
+  spent: z.coerce.number().min(0).default(0).optional(),
+  ownerId: z.coerce.number().int().positive().optional().nullable(),
+  owner_id: z.coerce.number().int().positive().optional().nullable(),
+  status: z.enum(['draft', 'active', 'paused', 'ended']).default('draft').optional(),
+  notes: z.string().max(2000).optional().nullable(),
+  productIds: z.array(z.coerce.number().int().positive()).optional(),
+  product_ids: z.array(z.coerce.number().int().positive()).optional(),
+});
+
+export type CreateProductCampaignInput = z.infer<typeof createProductCampaignSchema>;
+
+export const updateProductCampaignSchema = createProductCampaignSchema.partial();
+
+export const addLeadProductInterestSchema = z.object({
+  productId: z.coerce.number().int().positive('Product ID is required').optional(),
+  product_id: z.coerce.number().int().positive().optional(),
+  quantity: z.coerce.number().int().positive().default(1).optional(),
+  unitPriceAtTime: z.coerce.number().min(0).optional(),
+  unit_price_at_time: z.coerce.number().min(0).optional(),
+  status: z.enum(['interested', 'offered', 'accepted', 'declined']).default('interested').optional(),
+  origin: z.enum(['selected', 'cross_sell', 'campaign']).default('selected').optional(),
+  prescriptionVerified: z.boolean().default(false).optional(),
+  prescription_verified: z.boolean().default(false).optional(),
+  declinedReason: z.string().max(255).optional().nullable(),
+  declined_reason: z.string().max(255).optional().nullable(),
+  waitlisted: z.boolean().default(false).optional(),
+  note: z.string().max(1000).optional().nullable(),
+}).refine((data) => data.productId !== undefined || data.product_id !== undefined, {
+  message: 'Product ID is required',
+});
+
+export const updateLeadProductInterestSchema = z.object({
+  quantity: z.coerce.number().int().positive().optional(),
+  status: z.enum(['interested', 'offered', 'accepted', 'declined']).optional(),
+  prescriptionVerified: z.boolean().optional(),
+  prescription_verified: z.boolean().optional(),
+  declinedReason: z.string().max(255).optional().nullable(),
+  declined_reason: z.string().max(255).optional().nullable(),
+  waitlisted: z.boolean().optional(),
+  note: z.string().max(1000).optional().nullable(),
+  updatePriceToCurrent: z.boolean().optional(),
+  update_price_to_current: z.boolean().optional(),
+});
+
+export const confirmSaleSchema = z.object({
+  orderReference: z.string().trim().min(1, 'Order reference is required').max(100).optional(),
+  order_reference: z.string().trim().min(1).max(100).optional(),
+  saleAmount: z.coerce.number().min(0, 'Sale amount must be zero or greater').optional(),
+  sale_amount: z.coerce.number().min(0).optional(),
+  prescriptionVerifiedLines: z.array(z.coerce.number().int().positive()).optional(),
+  prescription_verified_lines: z.array(z.coerce.number().int().positive()).optional(),
+}).refine((data) => (data.orderReference && data.orderReference.length > 0) || (data.order_reference && data.order_reference.length > 0), {
+  message: 'Order reference is required',
+});
+
+export const referToTreatmentSchema = z.object({
+  concern: z.string().trim().min(5, 'Clinical concern details are required').max(1000),
+  departmentId: z.coerce.number().int().positive().optional(),
+  department_id: z.coerce.number().int().positive().optional(),
+});
 
 

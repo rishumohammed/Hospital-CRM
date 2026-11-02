@@ -120,31 +120,37 @@ export async function authenticate(request: FastifyRequest, reply: FastifyReply)
 }
 
 /**
- * Middleware factory requiring a specific permission code.
+ * Middleware factory requiring a specific permission code or any of an array of permission codes.
  * If user does not have permission or scope is 'none', responds with 403 Forbidden
  * and logs an audit log entry.
  */
-export function requirePermission(permissionCode: string, resource?: ResourceType) {
+export function requirePermission(permissionCode: string | string[], resource?: ResourceType) {
+  const codes = Array.isArray(permissionCode) ? permissionCode : [permissionCode];
+
   return async (request: FastifyRequest, reply: FastifyReply) => {
     if (!request.user) {
       await authenticate(request, reply);
       if (reply.sent) return;
     }
 
-    const scope = getEffectiveScope(request.user!, permissionCode);
-    if (!scope || scope === 'none') {
+    const hasAny = codes.some((code) => {
+      const scope = getEffectiveScope(request.user!, code);
+      return scope && scope !== 'none';
+    });
+
+    if (!hasAny) {
       await logAudit(prisma, {
         userId: request.user!.id,
         action: 'UNAUTHORIZED_ACCESS_ATTEMPT',
         entity: resource || 'system',
-        before: { requiredPermission: permissionCode },
+        before: { requiredPermission: codes.join(' | ') },
         req: request,
       });
 
       reply.status(403).send({
         error: {
           code: 'FORBIDDEN',
-          message: `Access denied. You do not have permission '${permissionCode}'.`,
+          message: `Access denied. You do not have permission '${codes.join(' or ')}'.`,
         },
       });
       return;

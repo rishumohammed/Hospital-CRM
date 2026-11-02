@@ -5,7 +5,7 @@ import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 import { startOfDay, endOfDay } from 'date-fns';
 
 export interface TaskFilterOptions {
-  team?: 'support' | 'admission' | 'aftercare';
+  team?: 'support' | 'admission' | 'aftercare' | 'product';
   status?: 'open' | 'done' | 'cancelled' | 'snoozed' | 'all';
   due?: 'overdue' | 'today' | 'upcoming';
   ownerId?: number;
@@ -59,7 +59,15 @@ export async function listTasks(filter: TaskFilterOptions, user: UserContext) {
 
   // Team Filter
   if (filter.team === 'support') {
-    where.AND.push({ leadId: { not: null } });
+    where.AND.push({
+      leadId: { not: null },
+      lead: { leadType: { not: 'product' } },
+    });
+  } else if (filter.team === 'product') {
+    where.AND.push({
+      leadId: { not: null },
+      lead: { leadType: 'product' },
+    });
   } else if (filter.team === 'admission') {
     where.AND.push({
       case: {
@@ -116,9 +124,16 @@ export async function listTasks(filter: TaskFilterOptions, user: UserContext) {
             firstResponseAt: true,
             slaBreached: true,
             testimonialsSentCount: true,
-            testimonialsLastSentAt: true,
+            leadType: true,
             department: { select: { id: true, code: true, labelEn: true, labelMl: true } },
             source: { select: { id: true, code: true, labelEn: true, labelMl: true } },
+            productInterests: {
+              include: {
+                product: {
+                  select: { id: true, name: true, sku: true, mrp: true },
+                },
+              },
+            },
           },
         },
         case: {

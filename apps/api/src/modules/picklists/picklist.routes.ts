@@ -38,6 +38,7 @@ export const picklistRoutes: FastifyPluginAsync = async (fastify) => {
   // Public or authenticated list of picklists
   fastify.get('/picklists/:type', async (request, reply) => {
     const { type } = request.params as { type: string };
+    const { scope } = (request.query as { scope?: string }) || {};
     const model = getPrismaModel(type);
 
     if (!model) {
@@ -46,8 +47,13 @@ export const picklistRoutes: FastifyPluginAsync = async (fastify) => {
       });
     }
 
+    const where: any = { active: true };
+    if (type === 'call-outcomes' && scope) {
+      where.scope = { in: [scope, 'both'] };
+    }
+
     const items = await model.findMany({
-      where: { active: true },
+      where,
       orderBy: [{ sort: 'asc' }, { id: 'asc' }],
     });
 

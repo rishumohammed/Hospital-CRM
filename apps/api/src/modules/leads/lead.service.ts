@@ -1,21 +1,31 @@
 import { prisma } from '../../database/client';
-import { UserContext, scopeWhere } from '../rbac/scope';
-import { normalizePhoneNumber, maskPhoneNumber, Permissions } from '@hospital-crm/shared';
+import { UserContext, scopeWhere, hasPermission, getEffectiveScope } from '../rbac/scope';
+import {
+  normalizePhoneNumber,
+  maskPhoneNumber,
+  Permissions,
+  ProductStatuses,
+  StockStatuses,
+} from '@hospital-crm/shared';
 import { recordAuditLog } from '../audit/audit.service';
 import { getSetting } from '../settings/settings.service';
 import { cancelOpenCadenceTasks, calculateStepDueAt } from '../cadences/cadence.service';
 
 export interface CreateLeadInput {
+  leadType?: 'treatment' | 'product';
   name: string;
   mobile: string;
   altMobile?: string | null;
   language?: 'en' | 'ml';
   concern?: string;
-  departmentId: number;
+  departmentId?: number;
   sourceId: number;
   branchId: number;
+  campaignId?: number | null;
   campaignText?: string | null;
   referrerText?: string | null;
+  productIds?: number[];
+  note?: string | null;
   consentCalls?: boolean;
   consentWhatsapp?: boolean;
   consentSms?: boolean;
@@ -24,6 +34,7 @@ export interface CreateLeadInput {
 }
 
 export interface ListLeadsParams {
+  leadType?: 'treatment' | 'product';
   page?: number;
   pageSize?: number;
   status?: string;
@@ -34,6 +45,10 @@ export interface ListLeadsParams {
   priority?: string;
   language?: string;
   search?: string;
+  campaignId?: number;
+  productId?: number;
+  categoryId?: number;
+  stockAffected?: boolean;
   testimonials?: 'sent' | 'not_sent';
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
@@ -42,13 +57,14 @@ export interface ListLeadsParams {
 /**
  * Calculates the first-response due timestamp based on source and business hours.
  * - Google Ads & Meta Ads: 5 minutes SLA
- * - Other sources: 15 minutes SLA
+ * - Other sources: 15 minutes SLA (or product_first_response_minutes setting)
  * - Business hours default to 09:00 - 20:00 Asia/Kolkata (UTC+05:30)
  */
 export async function calculateFirstResponseDue(
   sourceCode: string,
   branchId: number,
-  createdAt: Date = new Date()
+  createdAt: Date = new Date(),
+  leadType: 'treatment' | 'product' = 'treatment'
 ): Promise<Date> {
   const callingHours = await getSetting('calling_hours', {
     start: '09:00',
@@ -58,7 +74,12 @@ export async function calculateFirstResponseDue(
 
   const normSource = sourceCode.toUpperCase();
   const isAd = normSource === 'META_ADS' || normSource === 'GOOGLE_ADS';
-  const slaMinutes = isAd ? 5 : 15;
+  let slaMinutes = isAd ? 5 : 15;
+
+  if (leadType === 'product') {
+    const productSla = await getSetting('product_first_response_minutes', 15);
+    slaMinutes = typeof productSla === 'number' ? productSla : 15;
+  }
 
   // Convert createdAt to IST (UTC+05:30)
   const IST_OFFSET_MS = 330 * 60 * 1000;
@@ -162,6 +183,64 @@ export async function assignLeadRoundRobin(branchId: number): Promise<number | n
 }
 
 /**
+ * Assigns a product lead via round-robin to an active product sales executive in the branch.
+ */
+export async function assignProductLeadRoundRobin(branchId: number): Promise<number | null> {
+  const productUsers = await prisma.user.findMany({
+    where: {
+      status: 'active',
+      available: true,
+      role: { code: 'product_sales_executive' },
+      userBranches: { some: { branchId } },
+      userTeams: { some: { team: { code: 'product_sales' } } },
+    },
+    select: {
+      id: true,
+      _count: {
+        select: {
+          ownedLeads: {
+            where: {
+              leadType: 'product',
+              status: { in: ['new', 'contacted', 'qualified', 'interested'] },
+              archivedAt: null,
+            },
+          },
+        },
+      },
+      ownedLeads: {
+        where: { archivedAt: null },
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+        select: { createdAt: true },
+      },
+    },
+  });
+
+  if (productUsers.length === 0) {
+    const fallbackUser = await prisma.user.findFirst({
+      where: {
+        status: 'active',
+        available: true,
+        role: { code: 'product_sales_executive' },
+      },
+      select: { id: true },
+    });
+    return fallbackUser ? fallbackUser.id : null;
+  }
+
+  productUsers.sort((a, b) => {
+    const countDiff = a._count.ownedLeads - b._count.ownedLeads;
+    if (countDiff !== 0) return countDiff;
+
+    const aTime = a.ownedLeads[0]?.createdAt.getTime() || 0;
+    const bTime = b.ownedLeads[0]?.createdAt.getTime() || 0;
+    return aTime - bTime;
+  });
+
+  return productUsers[0].id;
+}
+
+/**
  * Checks if a lead with the same normalized mobile already exists.
  */
 export async function checkDuplicateLead(
@@ -213,9 +292,28 @@ export async function quickCreateLead(
     throw new Error('Invalid mobile phone number');
   }
 
+  const isProduct = input.leadType === 'product';
+
+  // Permission check
+  if (isProduct) {
+    if (!hasPermission(user, Permissions.PRODUCT_LEAD_CREATE)) {
+      const error: any = new Error('Access denied to create product leads');
+      error.statusCode = 403;
+      error.code = 'FORBIDDEN';
+      throw error;
+    }
+  } else {
+    if (!hasPermission(user, Permissions.LEAD_CREATE)) {
+      const error: any = new Error('Access denied to create treatment leads');
+      error.statusCode = 403;
+      error.code = 'FORBIDDEN';
+      throw error;
+    }
+  }
+
   const normAltMobile = input.altMobile ? normalizePhoneNumber(input.altMobile) : null;
 
-  // Duplicate Check
+  // Duplicate Check: warns across both types without merging
   const duplicate = await checkDuplicateLead(normMobile, normAltMobile);
   if (duplicate && !input.overrideDuplicate) {
     const error: any = new Error('Duplicate lead detected');
@@ -228,6 +326,7 @@ export async function quickCreateLead(
         name: duplicate.name,
         mobile: maskPhoneNumber(duplicate.mobileNorm),
         status: duplicate.status,
+        leadType: duplicate.leadType,
         ownerName: duplicate.owner?.name ?? 'Unassigned',
         branchName: duplicate.branch.name,
         createdAt: duplicate.createdAt,
@@ -244,14 +343,25 @@ export async function quickCreateLead(
 
   const firstResponseDueAt = await calculateFirstResponseDue(
     sourceCode,
-    input.branchId
+    input.branchId,
+    new Date(),
+    isProduct ? 'product' : 'treatment'
   );
 
   let assignedOwnerId: number | null = null;
-  if (user.roleCode === 'support_telecaller') {
-    assignedOwnerId = user.id;
+  if (isProduct) {
+    if (user.roleCode === 'product_sales_executive') {
+      assignedOwnerId = user.id;
+    } else {
+      assignedOwnerId = await assignProductLeadRoundRobin(input.branchId);
+      if (!assignedOwnerId) assignedOwnerId = user.id;
+    }
   } else {
-    assignedOwnerId = await assignLeadRoundRobin(input.branchId);
+    if (user.roleCode === 'support_telecaller') {
+      assignedOwnerId = user.id;
+    } else {
+      assignedOwnerId = await assignLeadRoundRobin(input.branchId);
+    }
   }
 
   // Determine initial priority: Ad leads < 24h old start as hot
@@ -259,8 +369,16 @@ export async function quickCreateLead(
   const isAd = normSource === 'META_ADS' || normSource === 'GOOGLE_ADS';
   const priority = isAd ? 'hot' : 'warm';
 
+  // Fallback department for product leads
+  let departmentId = input.departmentId;
+  if (!departmentId) {
+    const defaultDept = await prisma.department.findFirst({ where: { active: true } });
+    departmentId = defaultDept ? defaultDept.id : 1;
+  }
+
   const lead = await prisma.lead.create({
     data: {
+      leadType: isProduct ? 'product' : 'treatment',
       name: input.name,
       mobile: input.mobile,
       mobileNorm: normMobile,
@@ -268,9 +386,10 @@ export async function quickCreateLead(
       altMobileNorm: normAltMobile,
       language: input.language ?? 'en',
       concern: input.concern ?? '',
-      departmentId: input.departmentId,
+      departmentId,
       sourceId: input.sourceId,
       branchId: input.branchId,
+      campaignId: input.campaignId ?? null,
       campaignText: input.campaignText ?? null,
       referrerText: input.referrerText ?? null,
       consentCalls: input.consentCalls ?? true,
@@ -288,8 +407,60 @@ export async function quickCreateLead(
       department: true,
       owner: { select: { id: true, name: true, email: true } },
       branch: { select: { id: true, name: true, code: true } },
+      campaign: true,
     },
   });
+
+  // Attach product interests if selected
+  if (isProduct && input.productIds && input.productIds.length > 0) {
+    const products = await prisma.product.findMany({
+      where: { id: { in: input.productIds } },
+    });
+    for (const prod of products) {
+      await prisma.leadProductInterest.create({
+        data: {
+          leadId: lead.id,
+          productId: prod.id,
+          quantity: 1,
+          unitPriceAtTime: prod.price,
+          status: 'interested',
+          origin: 'selected',
+          prescriptionVerified: false,
+          waitlisted: prod.stockStatus === 'out_of_stock',
+          addedById: user.id,
+        },
+      });
+      if (prod.stockStatus === 'out_of_stock') {
+        await prisma.productWaitlist.upsert({
+          where: {
+            leadId_productId: {
+              leadId: lead.id,
+              productId: prod.id,
+            },
+          },
+          create: {
+            leadId: lead.id,
+            productId: prod.id,
+          },
+          update: {},
+        });
+      }
+    }
+  }
+
+  // Add short note if provided
+  if (input.note && input.note.trim()) {
+    await prisma.interaction.create({
+      data: {
+        leadId: lead.id,
+        userId: user.id,
+        type: 'note',
+        direction: 'inbound',
+        note: input.note.trim(),
+        occurredAt: new Date(),
+      },
+    });
+  }
 
   // Notify assigned owner
   if (assignedOwnerId) {
@@ -297,8 +468,8 @@ export async function quickCreateLead(
       data: {
         userId: assignedOwnerId,
         type: 'lead_assigned',
-        title: 'New Lead Assigned',
-        body: `You have been assigned new lead: ${lead.name} (${source?.labelEn || 'Direct'}). First response due in ${isAd ? '5' : '15'} minutes.`,
+        title: isProduct ? 'New Product Lead Assigned' : 'New Lead Assigned',
+        body: `You have been assigned new ${isProduct ? 'product ' : ''}lead: ${lead.name} (${source?.labelEn || 'Direct'}).`,
         link: `/leads/${lead.id}`,
       },
     });
@@ -307,12 +478,13 @@ export async function quickCreateLead(
   // Audit log
   await recordAuditLog({
     userId: user.id,
-    action: 'LEAD_CREATED',
+    action: isProduct ? 'PRODUCT_LEAD_CREATED' : 'LEAD_CREATED',
     entity: 'lead',
     entityId: lead.id,
     after: {
       id: lead.id,
       name: lead.name,
+      leadType: lead.leadType,
       ownerId: lead.ownerId,
       source: sourceCode,
       overrideDuplicate: input.overrideDuplicate,
@@ -336,10 +508,40 @@ export async function listLeads(
   const pageSize = Math.min(100, Math.max(1, params.pageSize || 20));
   const skip = (page - 1) * pageSize;
 
-  const scope = scopeWhere(user, 'lead');
+  const hasTreatmentView = hasPermission(user, Permissions.LEAD_VIEW);
+  const hasProductView = hasPermission(user, Permissions.PRODUCT_LEAD_VIEW);
+
+  let targetLeadType: 'treatment' | 'product';
+
+  if (params.leadType) {
+    if (params.leadType === 'product') {
+      if (!hasProductView) {
+        return { leads: [], pagination: { total: 0, page, pageSize, totalPages: 0 } };
+      }
+      targetLeadType = 'product';
+    } else {
+      if (!hasTreatmentView) {
+        return { leads: [], pagination: { total: 0, page, pageSize, totalPages: 0 } };
+      }
+      targetLeadType = 'treatment';
+    }
+  } else {
+    if (hasProductView && !hasTreatmentView) {
+      targetLeadType = 'product';
+    } else if (hasTreatmentView) {
+      targetLeadType = 'treatment';
+    } else {
+      return { leads: [], pagination: { total: 0, page, pageSize, totalPages: 0 } };
+    }
+  }
+
+  const scope = targetLeadType === 'product'
+    ? scopeWhere(user, 'product_lead', Permissions.PRODUCT_LEAD_VIEW)
+    : scopeWhere(user, 'lead', Permissions.LEAD_VIEW);
 
   const where: any = {
     ...scope,
+    leadType: targetLeadType,
     archivedAt: null,
   };
 
@@ -363,6 +565,18 @@ export async function listLeads(
   }
   if (params.language) {
     where.language = params.language;
+  }
+  if (params.campaignId) {
+    where.campaignId = params.campaignId;
+  }
+  if (params.productId) {
+    where.productInterests = { some: { productId: params.productId } };
+  }
+  if (params.categoryId) {
+    where.productInterests = { some: { product: { categoryId: params.categoryId } } };
+  }
+  if (params.stockAffected) {
+    where.productInterests = { some: { product: { stockStatus: 'out_of_stock' } } };
   }
   if (params.testimonials === 'sent') {
     where.testimonialsSentCount = { gt: 0 };
@@ -410,6 +624,12 @@ export async function listLeads(
         department: { select: { id: true, code: true, labelEn: true, labelMl: true } },
         owner: { select: { id: true, name: true, email: true } },
         branch: { select: { id: true, code: true, name: true } },
+        campaign: { select: { id: true, name: true, channel: true } },
+        productInterests: {
+          include: {
+            product: { select: { id: true, sku: true, name: true, price: true, stockStatus: true } },
+          },
+        },
       },
     }),
   ]);
@@ -437,23 +657,95 @@ export async function listLeads(
 }
 
 /**
- * Get lead details with scope checking.
+ * Get lead details with scope checking and leadType isolation.
  */
 export async function getLeadById(id: number, user: UserContext, ip?: string, userAgent?: string) {
-  const scope = scopeWhere(user, 'lead');
+  // 1. Fetch raw lead existence to check authorization & leadType
+  const rawLead = await prisma.lead.findUnique({
+    where: { id },
+    select: { id: true, leadType: true, ownerId: true, branchId: true, archivedAt: true },
+  });
+
+  if (!rawLead || rawLead.archivedAt !== null) {
+    const notFound: any = new Error('Lead not found');
+    notFound.statusCode = 404;
+    throw notFound;
+  }
+
+  // 2. Determine permissions and scope
+  let isAuthorized = false;
+  if (rawLead.leadType === 'product') {
+    const scope = getEffectiveScope(user, Permissions.PRODUCT_LEAD_VIEW);
+    if (scope === 'all') isAuthorized = true;
+    else if (scope === 'branch' && user.branchIds.includes(rawLead.branchId)) isAuthorized = true;
+    else if (scope === 'team') {
+      if (rawLead.ownerId === user.id) isAuthorized = true;
+      else if (rawLead.ownerId) {
+        const ownerTeams = await prisma.userTeam.findMany({
+          where: { userId: rawLead.ownerId },
+          include: { team: true },
+        });
+        if (ownerTeams.some((ut) => user.teamCodes.includes(ut.team.code))) isAuthorized = true;
+      }
+    } else if (scope === 'own' && rawLead.ownerId === user.id) {
+      isAuthorized = true;
+    }
+  } else {
+    // treatment lead
+    const scope = getEffectiveScope(user, Permissions.LEAD_VIEW);
+    if (scope === 'all') isAuthorized = true;
+    else if (scope === 'branch' && user.branchIds.includes(rawLead.branchId)) isAuthorized = true;
+    else if (scope === 'team') {
+      if (rawLead.ownerId === user.id) isAuthorized = true;
+      else if (rawLead.ownerId) {
+        const ownerTeams = await prisma.userTeam.findMany({
+          where: { userId: rawLead.ownerId },
+          include: { team: true },
+        });
+        if (ownerTeams.some((ut) => user.teamCodes.includes(ut.team.code))) isAuthorized = true;
+      }
+    } else if (scope === 'own' && rawLead.ownerId === user.id) {
+      isAuthorized = true;
+    }
+  }
+
+  if (!isAuthorized) {
+    await recordAuditLog({
+      userId: user.id,
+      action: 'OUT_OF_SCOPE_LEAD_ACCESS_BLOCKED',
+      entity: 'lead',
+      entityId: id,
+      ip,
+      userAgent,
+    });
+    const error: any = new Error('Access denied to lead');
+    error.statusCode = 403;
+    error.code = 'FORBIDDEN';
+    throw error;
+  }
 
   const lead = await prisma.lead.findFirst({
-    where: {
-      id,
-      archivedAt: null,
-      ...scope,
-    },
+    where: { id },
     include: {
       source: true,
       department: true,
       owner: { select: { id: true, name: true, email: true } },
       branch: true,
       closedReason: true,
+      campaign: true,
+      referredFromLead: { select: { id: true, name: true, leadType: true } },
+      referredLeads: { select: { id: true, name: true, leadType: true } },
+      productInterests: {
+        orderBy: { createdAt: 'desc' },
+        include: {
+          product: true,
+        },
+      },
+      waitlistEntries: {
+        include: {
+          product: true,
+        },
+      },
       tasks: {
         where: { archivedAt: null },
         orderBy: { dueAt: 'asc' },
@@ -474,22 +766,6 @@ export async function getLeadById(id: number, user: UserContext, ip?: string, us
   });
 
   if (!lead) {
-    // Check if it exists out of scope to log unauthorized attempt
-    const exists = await prisma.lead.findUnique({ where: { id } });
-    if (exists) {
-      await recordAuditLog({
-        userId: user.id,
-        action: 'OUT_OF_SCOPE_LEAD_ACCESS_BLOCKED',
-        entity: 'lead',
-        entityId: id,
-        ip,
-        userAgent,
-      });
-      const error: any = new Error('Access denied to lead');
-      error.statusCode = 403;
-      error.code = 'FORBIDDEN';
-      throw error;
-    }
     const notFound: any = new Error('Lead not found');
     notFound.statusCode = 404;
     throw notFound;
@@ -498,7 +774,7 @@ export async function getLeadById(id: number, user: UserContext, ip?: string, us
   // Audit lead open
   await recordAuditLog({
     userId: user.id,
-    action: 'LEAD_OPENED',
+    action: lead.leadType === 'product' ? 'PRODUCT_LEAD_OPENED' : 'LEAD_OPENED',
     entity: 'lead',
     entityId: lead.id,
     ip,
@@ -1067,4 +1343,555 @@ export async function convertLead(
 
   return result;
 }
+
+/**
+ * ==========================================
+ * Product Leads & Line Interests Methods
+ * ==========================================
+ */
+
+export async function getLeadProducts(leadId: number, user: UserContext) {
+  // Authorize user against lead
+  await getLeadById(leadId, user);
+
+  const lines = await prisma.leadProductInterest.findMany({
+    where: { leadId },
+    include: {
+      product: {
+        select: {
+          id: true,
+          sku: true,
+          name: true,
+          price: true,
+          stockStatus: true,
+          status: true,
+          prescriptionRequired: true,
+          refillDays: true,
+          packSize: true,
+          imageUrl: true,
+          shortDescription: true,
+          usageDescription: true,
+          categoryId: true,
+          category: { select: { id: true, name: true } },
+        },
+      },
+      addedBy: {
+        select: { id: true, name: true, email: true },
+      },
+    },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  let acceptedTotal = 0;
+  let acceptedCount = 0;
+  let hasPrescriptionRequired = false;
+  let allPrescriptionsVerified = true;
+
+  const enrichedLines = lines.map((line) => {
+    const currentPrice = Number(line.product.price);
+    const lockedPrice = Number(line.unitPriceAtTime);
+    const priceChanged = currentPrice !== lockedPrice;
+
+    if (line.status === 'accepted') {
+      acceptedTotal += lockedPrice * line.quantity;
+      acceptedCount++;
+      if (line.product.prescriptionRequired) {
+        hasPrescriptionRequired = true;
+        if (!line.prescriptionVerified) {
+          allPrescriptionsVerified = false;
+        }
+      }
+    }
+
+    return {
+      ...line,
+      currentPrice,
+      priceChanged,
+    };
+  });
+
+  return {
+    lines: enrichedLines,
+    summary: {
+      totalLines: enrichedLines.length,
+      acceptedCount,
+      acceptedTotal: Math.round(acceptedTotal * 100) / 100,
+      hasPrescriptionRequired,
+      allPrescriptionsVerified,
+    },
+  };
+}
+
+export async function addLeadProductInterest(
+  leadId: number,
+  input: any,
+  user: UserContext,
+  ip?: string,
+  userAgent?: string
+) {
+  const lead = await getLeadById(leadId, user);
+
+  const productId = input.productId ?? input.product_id;
+  if (!productId) {
+    const error: any = new Error('Product ID is required');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const product = await prisma.product.findUnique({
+    where: { id: productId },
+  });
+
+  if (!product || product.archivedAt || product.status !== ProductStatuses.APPROVED) {
+    const error: any = new Error('Product is not approved or is archived and cannot be added to a lead');
+    error.statusCode = 400;
+    error.code = 'PRODUCT_NOT_AVAILABLE';
+    throw error;
+  }
+
+  const quantity = Math.max(1, input.quantity ?? 1);
+  const unitPriceAtTime =
+    input.unitPriceAtTime !== undefined
+      ? input.unitPriceAtTime
+      : input.unit_price_at_time !== undefined
+      ? input.unit_price_at_time
+      : product.price;
+
+  const isOos = product.stockStatus === StockStatuses.OUT_OF_STOCK;
+  const waitlisted = input.waitlisted === true || isOos;
+
+  const result = await prisma.$transaction(async (tx) => {
+    const interest = await tx.leadProductInterest.create({
+      data: {
+        leadId,
+        productId,
+        quantity,
+        unitPriceAtTime,
+        status: input.status ?? 'interested',
+        origin: input.origin ?? 'selected',
+        prescriptionVerified: input.prescriptionVerified ?? input.prescription_verified ?? false,
+        declinedReason: input.declinedReason ?? input.declined_reason ?? null,
+        waitlisted,
+        note: input.note ?? null,
+        addedById: user.id,
+      },
+      include: {
+        product: true,
+      },
+    });
+
+    if (waitlisted) {
+      await tx.productWaitlist.upsert({
+        where: {
+          leadId_productId: {
+            leadId,
+            productId,
+          },
+        },
+        create: {
+          leadId,
+          productId,
+        },
+        update: {},
+      });
+    }
+
+    return interest;
+  });
+
+  await recordAuditLog({
+    userId: user.id,
+    action: 'LEAD_PRODUCT_INTEREST_ADDED',
+    entity: 'lead_product_interest',
+    entityId: result.id,
+    after: result,
+    ip,
+    userAgent,
+  });
+
+  return result;
+}
+
+export async function updateLeadProductInterest(
+  id: number,
+  input: any,
+  user: UserContext,
+  ip?: string,
+  userAgent?: string
+) {
+  const existing = await prisma.leadProductInterest.findUnique({
+    where: { id },
+    include: { product: true, lead: true },
+  });
+
+  if (!existing) {
+    const error: any = new Error('Lead product interest line not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Authorize user against lead
+  await getLeadById(existing.leadId, user);
+
+  const data: any = {};
+  if (input.quantity !== undefined) data.quantity = Math.max(1, input.quantity);
+  if (input.status !== undefined) data.status = input.status;
+  if (input.prescriptionVerified !== undefined || input.prescription_verified !== undefined) {
+    data.prescriptionVerified = input.prescriptionVerified ?? input.prescription_verified;
+  }
+  if (input.declinedReason !== undefined || input.declined_reason !== undefined) {
+    data.declinedReason = input.declinedReason ?? input.declined_reason;
+  }
+  if (input.note !== undefined) data.note = input.note;
+
+  // Handle waitlisting
+  if (input.waitlisted !== undefined) {
+    data.waitlisted = input.waitlisted;
+  }
+
+  // Optional price update action: "A banner warns the caller if the catalog price has changed since a line was added, with an Update price action."
+  if (input.updatePriceToCurrent === true || input.update_price_to_current === true) {
+    data.unitPriceAtTime = existing.product.price;
+  }
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const line = await tx.leadProductInterest.update({
+      where: { id },
+      data,
+      include: { product: true },
+    });
+
+    if (data.waitlisted === true) {
+      await tx.productWaitlist.upsert({
+        where: {
+          leadId_productId: {
+            leadId: existing.leadId,
+            productId: existing.productId,
+          },
+        },
+        create: {
+          leadId: existing.leadId,
+          productId: existing.productId,
+        },
+        update: {},
+      });
+    }
+
+    return line;
+  });
+
+  await recordAuditLog({
+    userId: user.id,
+    action: 'LEAD_PRODUCT_INTEREST_UPDATED',
+    entity: 'lead_product_interest',
+    entityId: id,
+    before: existing,
+    after: updated,
+    ip,
+    userAgent,
+  });
+
+  return updated;
+}
+
+export async function waitlistLeadProduct(
+  id: number,
+  user: UserContext,
+  ip?: string,
+  userAgent?: string
+) {
+  const existing = await prisma.leadProductInterest.findUnique({
+    where: { id },
+    include: { product: true },
+  });
+
+  if (!existing) {
+    const error: any = new Error('Lead product interest line not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  await getLeadById(existing.leadId, user);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.leadProductInterest.update({
+      where: { id },
+      data: { waitlisted: true },
+    });
+
+    await tx.productWaitlist.upsert({
+      where: {
+        leadId_productId: {
+          leadId: existing.leadId,
+          productId: existing.productId,
+        },
+      },
+      create: {
+        leadId: existing.leadId,
+        productId: existing.productId,
+      },
+      update: {},
+    });
+  });
+
+  await recordAuditLog({
+    userId: user.id,
+    action: 'LEAD_PRODUCT_WAITLISTED',
+    entity: 'lead_product_interest',
+    entityId: id,
+    after: { productId: existing.productId, leadId: existing.leadId },
+    ip,
+    userAgent,
+  });
+
+  return { success: true, waitlisted: true };
+}
+
+export async function referLeadToTreatment(
+  leadId: number,
+  input: { concern: string; departmentId?: number },
+  user: UserContext,
+  ip?: string,
+  userAgent?: string
+) {
+  const productLead = await getLeadById(leadId, user);
+
+  // Determine treatment department
+  let departmentId = input.departmentId;
+  if (!departmentId) {
+    const defaultDept = await prisma.department.findFirst({
+      where: { active: true },
+      orderBy: { id: 'asc' },
+    });
+    departmentId = defaultDept ? defaultDept.id : 1;
+  }
+
+  // Assign treatment lead via round robin
+  const assignedOwnerId = await assignLeadRoundRobin(productLead.branchId);
+
+  const treatmentLead = await prisma.$transaction(async (tx) => {
+    // 1. Create linked treatment lead
+    const created = await tx.lead.create({
+      data: {
+        leadType: 'treatment',
+        referredFromLeadId: leadId,
+        name: productLead.name,
+        mobile: productLead.mobile,
+        mobileNorm: productLead.mobileNorm,
+        altMobile: productLead.altMobile,
+        altMobileNorm: productLead.altMobileNorm,
+        language: productLead.language,
+        concern: input.concern.trim(),
+        departmentId,
+        sourceId: productLead.sourceId,
+        branchId: productLead.branchId,
+        status: 'new',
+        priority: 'warm',
+        ownerId: assignedOwnerId,
+        consentCalls: productLead.consentCalls,
+        consentWhatsapp: productLead.consentWhatsapp,
+        consentSms: productLead.consentSms,
+        consentDate: new Date(),
+        consentSource: 'referral_from_product_desk',
+      },
+    });
+
+    // 2. Interaction on product lead
+    await tx.interaction.create({
+      data: {
+        leadId,
+        userId: user.id,
+        type: 'note',
+        direction: 'inbound',
+        note: `Referred to treatment desk (Linked Treatment Lead #${created.id}): ${input.concern.trim()}`,
+        occurredAt: new Date(),
+      },
+    });
+
+    // 3. Interaction on treatment lead
+    await tx.interaction.create({
+      data: {
+        leadId: created.id,
+        userId: user.id,
+        type: 'note',
+        direction: 'inbound',
+        note: `Referred from Product Sales Lead #${leadId}: ${input.concern.trim()}`,
+        occurredAt: new Date(),
+      },
+    });
+
+    return created;
+  });
+
+  await recordAuditLog({
+    userId: user.id,
+    action: 'LEAD_REFERRED_TO_TREATMENT',
+    entity: 'lead',
+    entityId: leadId,
+    after: {
+      referredFromLeadId: leadId,
+      newTreatmentLeadId: treatmentLead.id,
+      concern: input.concern,
+    },
+    ip,
+    userAgent,
+  });
+
+  return {
+    success: true,
+    treatmentLead,
+  };
+}
+
+export async function confirmLeadSale(
+  leadId: number,
+  input: any,
+  user: UserContext,
+  ip?: string,
+  userAgent?: string
+) {
+  const lead = await getLeadById(leadId, user);
+
+  // 1. Require order reference
+  const orderReference = (input.orderReference ?? input.order_reference ?? '').trim();
+  if (!orderReference) {
+    const error: any = new Error('Order reference is required to confirm a sale');
+    error.statusCode = 400;
+    error.code = 'ORDER_REFERENCE_REQUIRED';
+    throw error;
+  }
+
+  // 2. Fetch lines
+  const lines = await prisma.leadProductInterest.findMany({
+    where: { leadId },
+    include: { product: true },
+  });
+
+  // Verify and update any rx lines marked in request
+  const verifiedLineIds = new Set<number>(
+    input.prescriptionVerifiedLines ?? input.prescription_verified_lines ?? []
+  );
+
+  const acceptedLines = lines.filter((l) => l.status === 'accepted');
+  if (acceptedLines.length === 0) {
+    const error: any = new Error('Order Confirmed requires at least one accepted product line');
+    error.statusCode = 400;
+    error.code = 'NO_ACCEPTED_PRODUCTS';
+    throw error;
+  }
+
+  // 3. Prescription gate:
+  // "If any accepted product has prescription_required, the caller must tick Prescription verified for each such line before saving, or the save is rejected."
+  for (const line of acceptedLines) {
+    const isRxRequired = line.product.prescriptionRequired;
+    const isVerified = line.prescriptionVerified || verifiedLineIds.has(line.id);
+    if (isRxRequired && !isVerified) {
+      const error: any = new Error(
+        `Prescription must be verified for '${line.product.name}' before confirming sale.`
+      );
+      error.statusCode = 400;
+      error.code = 'PRESCRIPTION_VERIFICATION_REQUIRED';
+      error.details = {
+        unverifiedProductId: line.productId,
+        productName: line.product.name,
+      };
+      throw error;
+    }
+  }
+
+  // 4. Calculate sale amount (default sum of accepted lines)
+  const defaultTotal = acceptedLines.reduce(
+    (sum, l) => sum + Number(l.unitPriceAtTime) * l.quantity,
+    0
+  );
+  const saleAmount =
+    input.saleAmount !== undefined
+      ? input.saleAmount
+      : input.sale_amount !== undefined
+      ? input.sale_amount
+      : defaultTotal;
+
+  const now = new Date();
+
+  const result = await prisma.$transaction(async (tx) => {
+    // Update lines verified in this payload
+    if (verifiedLineIds.size > 0) {
+      await tx.leadProductInterest.updateMany({
+        where: {
+          id: { in: Array.from(verifiedLineIds) },
+          leadId,
+        },
+        data: { prescriptionVerified: true },
+      });
+    }
+
+    // Update lead
+    const updatedLead = await tx.lead.update({
+      where: { id: leadId },
+      data: {
+        saleConfirmedAt: now,
+        saleAmount,
+        orderReference,
+        status: 'converted',
+      },
+    });
+
+    // 5. Refill reminder:
+    // "when a sale is confirmed, for each accepted line with refill_days, create a task refill_reminder due at refill_days minus 5 days, owned by the same caller, titled with the product name."
+    for (const line of acceptedLines) {
+      const refillDays = line.product.refillDays;
+      if (refillDays && refillDays > 0) {
+        const reminderDays = Math.max(1, refillDays - 5);
+        const dueAt = new Date(now.getTime() + reminderDays * 24 * 60 * 60 * 1000);
+
+        await tx.task.create({
+          data: {
+            title: `Refill Reminder: ${line.product.name}`,
+            type: 'refill_reminder',
+            dueAt,
+            leadId,
+            ownerId: lead.ownerId || user.id,
+            status: 'open',
+          },
+        });
+      }
+    }
+
+    // 6. Record interaction note
+    const productNames = acceptedLines.map((l) => `${l.product.name} (x${l.quantity})`).join(', ');
+    await tx.interaction.create({
+      data: {
+        leadId,
+        userId: user.id,
+        type: 'call',
+        direction: 'outbound',
+        note: `Order Confirmed. Reference: ${orderReference}. Total: ₹${saleAmount}. Products: ${productNames}`,
+        occurredAt: now,
+      },
+    });
+
+    return updatedLead;
+  });
+
+  await recordAuditLog({
+    userId: user.id,
+    action: 'PRODUCT_SALE_CONFIRMED',
+    entity: 'lead',
+    entityId: leadId,
+    after: {
+      orderReference,
+      saleAmount,
+      acceptedProductsCount: acceptedLines.length,
+      saleConfirmedAt: now,
+    },
+    ip,
+    userAgent,
+  });
+
+  return {
+    success: true,
+    lead: result,
+  };
+}
+
 

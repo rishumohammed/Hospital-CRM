@@ -123,7 +123,41 @@
           </div>
         </div>
 
-        <!-- Group 3: Analytics & Content -->
+        <!-- Group 3: Products & Campaigns -->
+        <div v-if="productNavItems.length > 0">
+          <div
+            v-if="!isCollapsed || isMobileMenuOpen"
+            class="px-3 mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500"
+          >
+            Products &amp; Campaigns
+          </div>
+          <div class="space-y-1">
+            <NuxtLink
+              v-for="item in productNavItems"
+              :key="item.to"
+              :to="item.to"
+              :title="isCollapsed && !isMobileMenuOpen ? item.label : undefined"
+              :class="[
+                'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all group',
+                isActive(item.to)
+                  ? 'bg-teal-600 text-white shadow-md shadow-teal-600/30'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-700/60'
+              ]"
+              @click="isMobileMenuOpen = false"
+            >
+              <UIcon
+                :name="item.icon"
+                :class="[
+                  'w-5 h-5 flex-shrink-0 transition-transform group-hover:scale-110',
+                  isActive(item.to) ? 'text-white' : 'text-slate-500 dark:text-slate-400 group-hover:text-teal-600 dark:group-hover:text-teal-400'
+                ]"
+              />
+              <span v-show="!isCollapsed || isMobileMenuOpen" class="truncate">{{ item.label }}</span>
+            </NuxtLink>
+          </div>
+        </div>
+
+        <!-- Group 4: Analytics & Content -->
         <div>
           <div
             v-if="!isCollapsed || isMobileMenuOpen"
@@ -401,6 +435,23 @@ const deskNavItems = computed(() => [
   { to: '/aftercare', label: t('nav.aftercare_desk'), icon: 'i-heroicons-heart' },
   { to: '/doctor', label: t('nav.doctor_view'), icon: 'i-heroicons-academic-cap' },
 ]);
+
+const productNavItems = computed(() => {
+  const items: { to: string; label: string; icon: string }[] = [];
+  if (authStore.hasPermission('product.view') || authStore.hasPermission('product_lead.view')) {
+    items.push({ to: '/products', label: 'Product Catalog', icon: 'i-heroicons-shopping-bag' });
+  }
+  if (authStore.hasPermission('product_category.manage') || authStore.hasPermission('product.view')) {
+    items.push({ to: '/products/categories', label: 'Categories', icon: 'i-heroicons-rectangle-stack' });
+  }
+  if (authStore.hasPermission('product_campaign.manage') || authStore.hasPermission('product_lead.view')) {
+    items.push({ to: '/products/campaigns', label: 'Campaigns', icon: 'i-heroicons-megaphone' });
+  }
+  if (authStore.hasPermission('product_report.view') || authStore.hasPermission('report.view')) {
+    items.push({ to: '/reports/products', label: 'Product Analytics', icon: 'i-heroicons-chart-pie' });
+  }
+  return items;
+});
 
 const managementNavItems = computed(() => [
   { to: '/reports', label: t('nav.reports'), icon: 'i-heroicons-chart-bar' },

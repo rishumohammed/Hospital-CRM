@@ -77,6 +77,13 @@ model User {
   treatmentCheckins TreatmentCheckin[] @relation("CheckinUser")
   handoversSent CaseHandover[] @relation("HandoverFromUser")
   handoversReceived CaseHandover[] @relation("HandoverToUser")
+  createdProducts    Product[]         @relation("ProductCreator")
+  approvedProducts   Product[]         @relation("ProductApprover")
+  stockUpdatedProducts Product[]       @relation("ProductStockUpdater")
+  changedPrices      ProductPriceHistory[] @relation("PriceHistoryChanger")
+  changedStocks      ProductStockHistory[] @relation("StockHistoryChanger")
+  ownedCampaigns     ProductCampaign[] @relation("CampaignOwner")
+  addedLeadProductInterests LeadProductInterest[] @relation("LeadProductInterestAdder")
 
   @@index([roleId])
   @@index([status])
@@ -204,6 +211,7 @@ model CallOutcome {
   code         String        @unique @db.VarChar(50)
   labelEn      String        @map("label_en") @db.VarChar(100)
   labelMl      String        @map("label_ml") @db.VarChar(100)
+  scope        String        @default("both") @db.VarChar(20) // treatment | product | both
   active       Boolean       @default(true)
   sort         Int           @default(0)
   createdAt    DateTime      @default(now()) @map("created_at")
@@ -292,6 +300,12 @@ model Lead {
   convertedPatientId  Int?         @map("converted_patient_id") @db.UnsignedInt
   testimonialsSentCount Int        @default(0) @map("testimonials_sent_count")
   testimonialsLastSentAt DateTime? @map("testimonials_last_sent_at")
+  leadType            String       @default("treatment") @map("lead_type") @db.VarChar(20) // treatment | product
+  campaignId          Int?         @map("campaign_id") @db.UnsignedInt
+  saleConfirmedAt     DateTime?    @map("sale_confirmed_at")
+  saleAmount          Decimal?     @map("sale_amount") @db.Decimal(12, 2)
+  orderReference      String?      @map("order_reference") @db.VarChar(100)
+  referredFromLeadId  Int?         @map("referred_from_lead_id") @db.UnsignedInt
   createdAt           DateTime     @default(now()) @map("created_at")
   updatedAt           DateTime     @updatedAt @map("updated_at")
   archivedAt          DateTime?    @map("archived_at")
@@ -302,12 +316,17 @@ model Lead {
   branch              Branch       @relation(fields: [branchId], references: [id])
   closedReason        LostReason?  @relation(fields: [closedReasonId], references: [id])
   convertedPatient    Patient?     @relation("ConvertedLead", fields: [convertedPatientId], references: [id])
+  campaign            ProductCampaign? @relation(fields: [campaignId], references: [id])
+  referredFromLead    Lead?        @relation("LeadReferrals", fields: [referredFromLeadId], references: [id])
+  referredLeads       Lead[]       @relation("LeadReferrals")
 
   cases               Case[]
   appointments        Appointment[]
   tasks               Task[]
   interactions        Interaction[]
   testimonialSends    LeadTestimonialSend[]
+  productInterests    LeadProductInterest[]
+  waitlistEntries     ProductWaitlist[]
 
   @@index([mobileNorm])
   @@index([altMobileNorm])
@@ -318,6 +337,8 @@ model Lead {
   @@index([firstResponseDueAt])
   @@index([archivedAt])
   @@index([testimonialsSentCount])
+  @@index([leadType])
+  @@index([campaignId])
   @@map("leads")
 }
 
@@ -904,4 +925,213 @@ model CaseHandover {
   @@index([caseId])
   @@index([at])
   @@map("case_handovers")
+}
+
+// ==========================================
+// Product Module Models
+// ==========================================
+
+model ProductCategory {
+  id          Int               @id @default(autoincrement()) @db.UnsignedInt
+  name        String            @db.VarChar(100)
+  slug        String            @unique @db.VarChar(100)
+  parentId    Int?              @map("parent_id") @db.UnsignedInt
+  sort        Int               @default(0)
+  active      Boolean           @default(true)
+  description String?           @db.Text
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+  archivedAt  DateTime?         @map("archived_at")
+
+  parent      ProductCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children    ProductCategory[] @relation("CategoryHierarchy")
+  products    Product[]
+
+  @@index([parentId])
+  @@index([active])
+  @@map("product_categories")
+}
+
+model Product {
+  id                   Int                   @id @default(autoincrement()) @db.UnsignedInt
+  sku                  String                @unique @db.VarChar(40)
+  name                 String                @db.VarChar(150)
+  price                Decimal               @db.Decimal(10, 2)
+  usageDescription     String                @map("usage_description") @db.Text
+  categoryId           Int                   @map("category_id") @db.UnsignedInt
+  shortDescription     String?               @map("short_description") @db.VarChar(160)
+  packSize             String?               @map("pack_size") @db.VarChar(100)
+  howToUse             String?               @map("how_to_use") @db.Text
+  ingredients          String?               @db.Text
+  precautions          String?               @db.Text
+  prescriptionRequired Boolean               @default(false) @map("prescription_required")
+  refillDays           Int?                  @map("refill_days")
+  imageUrl             String?               @map("image_url") @db.VarChar(500)
+  internalNote         String?               @map("internal_note") @db.Text
+  status               String                @default("draft") @db.VarChar(20) // draft | approved | archived
+  stockStatus          String                @default("in_stock") @map("stock_status") @db.VarChar(20) // in_stock | out_of_stock
+  stockUpdatedAt       DateTime?             @map("stock_updated_at")
+  stockUpdatedById     Int?                  @map("stock_updated_by_id") @db.UnsignedInt
+  stockNote            String?               @map("stock_note") @db.VarChar(500)
+  approvedById         Int?                  @map("approved_by_id") @db.UnsignedInt
+  approvedAt           DateTime?             @map("approved_at")
+  createdById          Int                   @map("created_by_id") @db.UnsignedInt
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
+  archivedAt           DateTime?             @map("archived_at")
+
+  category             ProductCategory       @relation(fields: [categoryId], references: [id])
+  creator              User                  @relation("ProductCreator", fields: [createdById], references: [id])
+  approver             User?                 @relation("ProductApprover", fields: [approvedById], references: [id])
+  stockUpdater         User?                 @relation("ProductStockUpdater", fields: [stockUpdatedById], references: [id])
+  priceHistory         ProductPriceHistory[]
+  stockHistory         ProductStockHistory[]
+  relationsFrom        ProductRelation[]     @relation("ProductRelationsFrom")
+  relationsTo          ProductRelation[]     @relation("ProductRelationsTo")
+  campaignProducts     CampaignProduct[]
+  leadInterests        LeadProductInterest[]
+  waitlistEntries      ProductWaitlist[]
+
+  @@index([categoryId])
+  @@index([status])
+  @@index([stockStatus])
+  @@index([archivedAt])
+  @@map("products")
+}
+
+model ProductPriceHistory {
+  id          Int      @id @default(autoincrement()) @db.UnsignedInt
+  productId   Int      @map("product_id") @db.UnsignedInt
+  oldPrice    Decimal  @map("old_price") @db.Decimal(10, 2)
+  newPrice    Decimal  @map("new_price") @db.Decimal(10, 2)
+  changedById Int      @map("changed_by_id") @db.UnsignedInt
+  reason      String?  @db.VarChar(255)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  changedBy   User     @relation("PriceHistoryChanger", fields: [changedById], references: [id])
+
+  @@index([productId])
+  @@index([createdAt])
+  @@map("product_price_history")
+}
+
+model ProductStockHistory {
+  id          Int      @id @default(autoincrement()) @db.UnsignedInt
+  productId   Int      @map("product_id") @db.UnsignedInt
+  status      String   @db.VarChar(20) // in_stock | out_of_stock
+  changedById Int      @map("changed_by_id") @db.UnsignedInt
+  note        String?  @db.VarChar(500)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  changedBy   User     @relation("StockHistoryChanger", fields: [changedById], references: [id])
+
+  @@index([productId])
+  @@index([createdAt])
+  @@map("product_stock_history")
+}
+
+model ProductRelation {
+  id               Int             @id @default(autoincrement()) @db.UnsignedInt
+  productId        Int             @map("product_id") @db.UnsignedInt
+  relatedProductId Int             @map("related_product_id") @db.UnsignedInt
+  relationType     String          @map("relation_type") @db.VarChar(30) // cross_sell | upsell | frequently_together | substitute
+  talkingPoint     String          @map("talking_point") @db.Text
+  sort             Int             @default(0)
+  active           Boolean         @default(true)
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+  archivedAt       DateTime?       @map("archived_at")
+
+  product          Product         @relation("ProductRelationsFrom", fields: [productId], references: [id], onDelete: Cascade)
+  relatedProduct   Product         @relation("ProductRelationsTo", fields: [relatedProductId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, relatedProductId, relationType])
+  @@index([productId])
+  @@index([relatedProductId])
+  @@map("product_relations")
+}
+
+model ProductCampaign {
+  id          Int               @id @default(autoincrement()) @db.UnsignedInt
+  name        String            @db.VarChar(150)
+  campaignKey String            @unique @map("campaign_key") @db.VarChar(100)
+  channel     String            @db.VarChar(30) // meta_ads | google_ads | whatsapp | sms | email | website | camp | other
+  startDate   DateTime?         @map("start_date")
+  endDate     DateTime?         @map("end_date")
+  budget      Decimal?          @db.Decimal(12, 2)
+  spent       Decimal           @default(0) @db.Decimal(12, 2)
+  ownerId     Int?              @map("owner_id") @db.UnsignedInt
+  status      String            @default("draft") @db.VarChar(20) // draft | active | paused | ended
+  notes       String?           @db.Text
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+  archivedAt  DateTime?         @map("archived_at")
+
+  owner       User?             @relation("CampaignOwner", fields: [ownerId], references: [id])
+  campaignProducts CampaignProduct[]
+  leads       Lead[]
+
+  @@index([status])
+  @@index([channel])
+  @@map("product_campaigns")
+}
+
+model CampaignProduct {
+  id         Int             @id @default(autoincrement()) @db.UnsignedInt
+  campaignId Int             @map("campaign_id") @db.UnsignedInt
+  productId  Int             @map("product_id") @db.UnsignedInt
+  sort       Int             @default(0)
+
+  campaign   ProductCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  product    Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, productId])
+  @@index([campaignId])
+  @@index([productId])
+  @@map("campaign_products")
+}
+
+model LeadProductInterest {
+  id                   Int       @id @default(autoincrement()) @db.UnsignedInt
+  leadId               Int       @map("lead_id") @db.UnsignedInt
+  productId            Int       @map("product_id") @db.UnsignedInt
+  quantity             Int       @default(1)
+  unitPriceAtTime      Decimal   @map("unit_price_at_time") @db.Decimal(10, 2)
+  status               String    @default("interested") @db.VarChar(20) // interested | offered | accepted | declined
+  origin               String    @default("selected") @db.VarChar(20) // selected | cross_sell | campaign
+  prescriptionVerified Boolean   @default(false) @map("prescription_verified")
+  declinedReason       String?   @map("declined_reason") @db.VarChar(255)
+  waitlisted           Boolean   @default(false)
+  note                 String?   @db.Text
+  addedById            Int       @map("added_by_id") @db.UnsignedInt
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  lead                 Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  product              Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  addedBy              User      @relation("LeadProductInterestAdder", fields: [addedById], references: [id])
+
+  @@index([leadId])
+  @@index([productId])
+  @@index([status])
+  @@index([origin])
+  @@map("lead_product_interests")
+}
+
+model ProductWaitlist {
+  id         Int       @id @default(autoincrement()) @db.UnsignedInt
+  leadId     Int       @map("lead_id") @db.UnsignedInt
+  productId  Int       @map("product_id") @db.UnsignedInt
+  notifiedAt DateTime? @map("notified_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  lead       Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  product    Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([leadId, productId])
+  @@index([productId])
+  @@index([leadId])
+  @@map("product_waitlist")
 }

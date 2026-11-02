@@ -129,6 +129,7 @@
 
             <!-- Book Appointment -->
             <button
+              v-if="lead.leadType !== 'product'"
               type="button"
               @click="showBookApptModal = true"
               class="min-h-[40px] px-3.5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-semibold text-xs flex items-center gap-1.5 shadow-sm shadow-sky-600/20 transition-all"
@@ -139,7 +140,7 @@
 
             <!-- Convert Lead -->
             <button
-              v-if="lead.status !== 'converted'"
+              v-if="lead.status !== 'converted' && lead.leadType !== 'product'"
               type="button"
               @click="showConvertModal = true"
               class="min-h-[40px] px-3.5 py-2 rounded-xl border border-teal-600 dark:border-teal-500 text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-950 font-semibold text-xs flex items-center gap-1.5 transition-colors"
@@ -201,13 +202,22 @@
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         <!-- Left Column: Patient Dossier (8 cols) -->
         <div class="lg:col-span-8 space-y-6">
-          <!-- Patient Information Grid Card -->
-          <div class="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/90 dark:border-slate-700/80 p-6 shadow-xs space-y-5">
-            <div class="flex items-center justify-between border-b pb-3 border-slate-100 dark:border-slate-700/70">
-              <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <span>👤</span>
-                <span>Patient Information & Contact</span>
-              </h2>
+          <!-- Render Product Lead Panel when leadType is product -->
+          <ProductLeadPanel
+            v-if="lead.leadType === 'product'"
+            :lead="lead"
+            @updated="fetchLead"
+          />
+
+          <!-- Clinical Treatment Dossier when leadType is treatment -->
+          <template v-else>
+            <!-- Patient Information Grid Card -->
+            <div class="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/90 dark:border-slate-700/80 p-6 shadow-xs space-y-5">
+              <div class="flex items-center justify-between border-b pb-3 border-slate-100 dark:border-slate-700/70">
+                <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                  <span>👤</span>
+                  <span>Patient Information & Contact</span>
+                </h2>
               <span class="text-xs text-slate-400 font-mono">Assigned to {{ lead.owner?.name || 'Unassigned' }}</span>
             </div>
 
@@ -332,6 +342,7 @@
               </div>
             </div>
           </div>
+          </template>
 
           <!-- Cadence Follow-up Tasks Section -->
           <div class="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/90 dark:border-slate-700/80 p-6 shadow-xs space-y-4">
@@ -592,6 +603,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import LogCallDrawer from '~/components/interaction/LogCallDrawer.vue';
 import BookAppointmentModal from '~/components/lead/BookAppointmentModal.vue';
+import ProductLeadPanel from '~/components/lead/ProductLeadPanel.vue';
 import { useAuthStore } from '~/stores/auth';
 
 const route = useRoute();

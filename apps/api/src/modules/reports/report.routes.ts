@@ -222,6 +222,69 @@ export const reportRoutes: FastifyPluginAsync = async (fastify: FastifyInstance)
         return reply.send(result);
       }
     );
+
+    // Product Reports (Milestone P5)
+    authGroup.get(
+      '/reports/product-leads',
+      { preHandler: [requirePermission(Permissions.PRODUCT_REPORT_VIEW, 'report' as any)] },
+      async (req, reply) => {
+        const query = req.query as {
+          branchId?: string;
+          campaignId?: string;
+          startDate?: string;
+          endDate?: string;
+        };
+        const { getProductLeadsReport } = await import('./product-report.service');
+        const result = await getProductLeadsReport(
+          {
+            branchId: query.branchId ? parseInt(query.branchId, 10) : undefined,
+            campaignId: query.campaignId ? parseInt(query.campaignId, 10) : undefined,
+            startDate: query.startDate,
+            endDate: query.endDate,
+          },
+          req.user!
+        );
+        return reply.send(result);
+      }
+    );
+
+    authGroup.get(
+      '/reports/cross-sell',
+      { preHandler: [requirePermission(Permissions.PRODUCT_REPORT_VIEW, 'report' as any)] },
+      async (req, reply) => {
+        const query = req.query as {
+          branchId?: string;
+        };
+        const { getCrossSellReport } = await import('./product-report.service');
+        const result = await getCrossSellReport(
+          {
+            branchId: query.branchId ? parseInt(query.branchId, 10) : undefined,
+          },
+          req.user!
+        );
+        return reply.send(result);
+      }
+    );
+
+    authGroup.get(
+      '/reports/product-demand',
+      { preHandler: [requirePermission(Permissions.PRODUCT_REPORT_VIEW, 'report' as any)] },
+      async (req, reply) => {
+        const { getProductDemandReport } = await import('./product-report.service');
+        const result = await getProductDemandReport({}, req.user!);
+        return reply.send(result);
+      }
+    );
+
+    authGroup.get(
+      '/reports/catalog-health',
+      { preHandler: [requirePermission(Permissions.PRODUCT_REPORT_VIEW, 'report' as any)] },
+      async (req, reply) => {
+        const { getCatalogHealthReport } = await import('./product-report.service');
+        const result = await getCatalogHealthReport();
+        return reply.send(result);
+      }
+    );
   });
 };
 
