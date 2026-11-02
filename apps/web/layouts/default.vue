@@ -434,10 +434,17 @@ const coreNavItems = computed(() => {
   const items: { to: string; label: string; icon: string }[] = [
     { to: '/', label: t('nav.my_work'), icon: 'i-heroicons-squares-2x2' },
   ];
-  if (authStore.hasPermission('lead.view')) {
+  const role = userRoleCode.value;
+
+  // Leads: Only for Telecallers & Management
+  const isLeadHandler = ['owner', 'admin', 'center_head', 'telecaller_manager', 'support_telecaller', 'caller'].includes(role);
+  if (isLeadHandler && authStore.hasPermission('lead.view')) {
     items.push({ to: '/leads', label: t('nav.leads'), icon: 'i-heroicons-user-group' });
   }
-  if (authStore.hasPermission('case.view')) {
+
+  // Cases: Strictly for Clinical, Inpatient, Aftercare staff, and Management
+  const isCaseHandler = ['owner', 'admin', 'center_head', 'doctor', 'admission_specialist', 'ipd_manager', 'aftercare_executive', 'treatment_followup_executive', 'auditor'].includes(role);
+  if (isCaseHandler && authStore.hasPermission('case.view')) {
     items.push({ to: '/cases', label: t('nav.cases'), icon: 'i-heroicons-briefcase' });
   }
   return items;
@@ -485,10 +492,8 @@ const managementNavItems = computed(() => {
   const items: { to: string; label: string; icon: string }[] = [];
   const role = userRoleCode.value;
 
-  const canSeeReports =
-    authStore.hasPermission('report.view') ||
-    authStore.hasPermission('product_report.view') ||
-    ['owner', 'admin', 'center_head', 'telecaller_manager', 'product_manager'].includes(role);
+  // Management Reports: strictly for Owner, Admin, Center Head, Telecaller Manager, Product Manager, Auditor
+  const canSeeReports = ['owner', 'admin', 'center_head', 'telecaller_manager', 'product_manager', 'auditor'].includes(role);
   if (canSeeReports) {
     items.push({ to: '/reports', label: t('nav.reports'), icon: 'i-heroicons-chart-bar' });
   }

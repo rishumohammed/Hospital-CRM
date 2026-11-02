@@ -720,10 +720,10 @@
       </div>
     </div>
 
-    <!-- Desk Tabs Navigation -->
+    <!-- Desk Tabs Navigation / Queue Header -->
     <div id="work-queue-section" class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-2 scroll-mt-6">
-      <!-- Team Queue Tabs -->
-      <div class="flex space-x-2 overflow-x-auto pb-1 sm:pb-0">
+      <!-- Team Queue Tabs (Only for Management/Executives who oversee multiple desks) -->
+      <div v-if="isExecutive" class="flex space-x-2 overflow-x-auto pb-1 sm:pb-0">
         <button
           v-if="canViewSupportDesk"
           type="button"
@@ -777,6 +777,16 @@
           <UIcon name="i-heroicons-shopping-bag" class="w-4 h-4" />
           <span>Product Desk</span>
         </button>
+      </div>
+
+      <!-- Operational Staff: Clean Single Queue Title (No other department tabs) -->
+      <div v-else class="flex items-center gap-2.5 py-1">
+        <span class="w-8 h-8 rounded-xl bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-800 flex items-center justify-center text-teal-600 dark:text-teal-400">
+          <UIcon :name="singleQueueIcon" class="w-4 h-4" />
+        </span>
+        <h2 class="text-base font-bold text-slate-900 dark:text-slate-100">
+          {{ singleQueueTitle }}
+        </h2>
       </div>
 
       <!-- Timing Sub-Filter: Overdue / Today / Upcoming -->
@@ -1065,24 +1075,35 @@ const isTelecaller = computed(() => ['support_telecaller', 'caller'].includes(us
 const isProductStaff = computed(() => ['product_sales_executive', 'product_caller', 'product_manager'].includes(userRoleCode.value));
 
 const canViewSupportDesk = computed(() => {
-  return isExecutive.value || isTelecaller.value || authStore.hasPermission('lead.view');
+  return isExecutive.value || isTelecaller.value;
 });
 
 const canViewAdmissionDesk = computed(() => {
-  return isExecutive.value || isAdmissionSpecialist.value || isDoctor.value || authStore.hasPermission('case.view');
+  return isExecutive.value || isAdmissionSpecialist.value;
 });
 
 const canViewAftercareDesk = computed(() => {
-  return isExecutive.value || isAftercareSpecialist.value || isDoctor.value || authStore.hasPermission('case.view');
+  return isExecutive.value || isAftercareSpecialist.value;
 });
 
 const canViewProductDesk = computed(() => {
-  return (
-    authStore.hasPermission('product_lead.view') ||
-    authStore.hasPermission('product.view') ||
-    isProductStaff.value ||
-    isExecutive.value
-  );
+  return isExecutive.value || isProductStaff.value;
+});
+
+const singleQueueTitle = computed(() => {
+  if (isTelecaller.value) return 'My Calling Queue (Assigned Leads)';
+  if (isAdmissionSpecialist.value) return 'Inpatient Admission Tasks';
+  if (isAftercareSpecialist.value) return 'Aftercare Follow-Up Tasks';
+  if (isProductStaff.value) return 'Product Orders & Inquiries Queue';
+  return 'My Assigned Tasks';
+});
+
+const singleQueueIcon = computed(() => {
+  if (isTelecaller.value) return 'i-heroicons-phone-arrow-up-right';
+  if (isAdmissionSpecialist.value) return 'i-heroicons-building-office-2';
+  if (isAftercareSpecialist.value) return 'i-heroicons-heart';
+  if (isProductStaff.value) return 'i-heroicons-shopping-bag';
+  return 'i-heroicons-clipboard-document-list';
 });
 
 const overdueCount = ref(0);
