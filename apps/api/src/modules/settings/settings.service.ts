@@ -111,11 +111,13 @@ export async function resetAllTestData() {
   await prisma.case.deleteMany();
   await prisma.lead.deleteMany();
   await prisma.patient.deleteMany();
+  await prisma.campaignProduct.deleteMany();
+  await prisma.productCampaign.deleteMany();
   await prisma.notification.deleteMany();
   await prisma.export.deleteMany();
 
   return {
     success: true,
-    message: 'All transactional data cleared successfully. System configuration, roles, staff, picklists, and catalog are ready for fresh testing.',
+    message: 'All transactional data and marketing campaigns cleared successfully. Products, categories, staff, and system settings are ready for fresh testing.',
   };
 }
