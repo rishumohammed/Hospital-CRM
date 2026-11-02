@@ -19,18 +19,15 @@
     >
       <!-- Sidebar Brand / Header -->
       <div class="h-16 flex items-center justify-between px-4 border-b border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm">
-        <NuxtLink to="/" class="flex items-center space-x-2.5 overflow-hidden focus:outline-none" @click="isMobileMenuOpen = false">
-          <div class="h-10 w-10 rounded-xl overflow-hidden bg-white border border-slate-200 flex items-center justify-center flex-shrink-0 shadow-2xs">
-            <img src="/logo.webp" alt="Samad's Elements" class="h-8 w-8 object-contain" />
-          </div>
-          <div v-show="!isCollapsed || isMobileMenuOpen" class="flex flex-col min-w-0 transition-opacity duration-200">
-            <span class="font-semibold text-sm tracking-tight text-slate-900 truncate">
-              {{ t('app_name') }}
-            </span>
-            <p class="text-[10px] text-emerald-700 font-medium tracking-wide truncate leading-none">
-              {{ t('tagline') }}
-            </p>
-          </div>
+        <NuxtLink to="/" class="flex items-center overflow-hidden focus:outline-none py-1" @click="isMobileMenuOpen = false">
+          <img
+            src="/logo.webp"
+            alt="Samad's Elements"
+            :class="[
+              'object-contain transition-all duration-200',
+              isCollapsed && !isMobileMenuOpen ? 'h-8 max-w-[44px]' : 'h-10 max-w-[170px]'
+            ]"
+          />
         </NuxtLink>
 
         <!-- Mobile Close Button -->
