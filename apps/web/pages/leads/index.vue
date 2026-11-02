@@ -10,7 +10,12 @@
           </span>
         </h1>
         <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-          {{ activeLeadType === 'product' ? 'Respond to customer product inquiries, cross-sell remedies, and track orders' : 'Respond to new inquiries within SLA, qualify patients, and book appointments' }}
+          <template v-if="selectedStaffName">
+            Showing inquiries assigned to <strong class="text-teal-700 dark:text-teal-300 font-semibold">{{ selectedStaffName }}</strong>
+          </template>
+          <template v-else>
+            {{ activeLeadType === 'product' ? 'Respond to customer product inquiries, cross-sell remedies, and track orders' : 'Respond to new inquiries within SLA, qualify patients, and book appointments' }}
+          </template>
         </p>
       </div>
 
@@ -64,8 +69,8 @@
     <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-3">
       <!-- Scope & Saved Views Bar -->
       <div class="flex items-center justify-between gap-3 overflow-x-auto pb-1 border-b border-slate-100 dark:border-slate-700/80 flex-wrap">
-        <!-- Ownership Scope Toggle (My Leads vs All Leads) -->
-        <div class="flex items-center bg-slate-100 dark:bg-slate-900/60 p-1 rounded-xl border border-slate-200/80 dark:border-slate-700">
+        <!-- Ownership Scope Toggle (Only for telecallers; hidden for MD/Managers who have access to all leads) -->
+        <div v-if="!isManagement" class="flex items-center bg-slate-100 dark:bg-slate-900/60 p-1 rounded-xl border border-slate-200/80 dark:border-slate-700">
           <button
             type="button"
             :class="[
@@ -93,6 +98,26 @@
             <span>👥</span>
             <span>All Branch Leads</span>
           </button>
+        </div>
+
+        <!-- Management View Overview Badge (For MD, Admins, and Managers) -->
+        <div v-else class="flex items-center gap-2">
+          <span class="px-3 py-1.5 rounded-xl bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-800/80 text-teal-800 dark:text-teal-200 text-xs font-semibold flex items-center gap-1.5 shadow-2xs">
+            <span>👥</span>
+            <span>All Leads (Management View)</span>
+          </span>
+          <span v-if="selectedStaffName" class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-700/60 text-slate-700 dark:text-slate-200 text-xs font-medium border border-slate-200 dark:border-slate-600 flex items-center gap-1.5">
+            <span>Filter:</span>
+            <strong class="text-teal-700 dark:text-teal-300 font-semibold">{{ selectedStaffName }}</strong>
+            <button
+              type="button"
+              @click="clearStaffFilter"
+              class="ml-1 text-slate-400 hover:text-rose-600 font-bold transition-colors"
+              title="Clear staff filter"
+            >
+              ✕
+            </button>
+          </span>
         </div>
 
         <!-- Saved Filter Views -->
@@ -140,9 +165,9 @@
       </div>
     </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
         <!-- Search Input -->
-        <div class="lg:col-span-2 relative">
+        <div class="sm:col-span-2 md:col-span-2 lg:col-span-2 xl:col-span-2 relative">
           <input
             v-model="filters.search"
             @input="handleSearch"
@@ -151,6 +176,28 @@
             placeholder="Search by name, phone, or concern..."
           />
           <span class="absolute left-3.5 top-3 text-slate-400">🔍</span>
+        </div>
+
+        <!-- Employee / Telecaller Filter (Visible to Admin, MD, Center Head, and Managers) -->
+        <div v-if="canViewAllLeads" class="sm:col-span-1 md:col-span-1 lg:col-span-1 xl:col-span-1">
+          <select
+            v-model="filters.ownerId"
+            @change="onEmployeeFilterChange"
+            class="w-full h-11 px-3 rounded-xl border border-teal-200 dark:border-teal-700/70 bg-teal-50/50 dark:bg-teal-950/30 text-teal-950 dark:text-teal-200 text-xs font-semibold focus:ring-2 focus:ring-teal-500"
+            title="Filter by assigned staff or telecaller"
+          >
+            <option value="">👥 All Employees</option>
+            <option value="unassigned">⚠️ Unassigned Leads</option>
+            <optgroup label="Telecallers & Staff">
+              <option
+                v-for="emp in staffMembers"
+                :key="emp.id"
+                :value="emp.id.toString()"
+              >
+                👤 {{ emp.name }} ({{ emp.role?.name || emp.role?.code }})
+              </option>
+            </optgroup>
+          </select>
         </div>
 
         <!-- Status Filter -->
@@ -434,7 +481,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, computed, watch, onMounted } from 'vue';
 import TestimonialChip from '~/components/testimonials/TestimonialChip.vue';
 import { useAuthStore } from '~/stores/auth';
 
@@ -497,6 +544,7 @@ const filters = reactive({
   priority: '',
   language: '',
   testimonials: '',
+  ownerId: '',
 });
 
 let searchDebounce: any = null;
@@ -514,12 +562,69 @@ const applySavedView = (view: 'all' | 'not_sent' | 'sent') => {
   fetchLeads();
 };
 
-const activeScope = ref<'my' | 'all'>('my');
-
 const userRoleCode = computed(() => {
   const u = authStore.user;
   if (!u) return '';
   return (u.role?.code || (u as any).roleCode || (typeof u.role === 'string' ? u.role : '')).toLowerCase();
+});
+
+const isManagement = computed(() => {
+  const role = userRoleCode.value;
+  return ['owner', 'admin', 'super_admin', 'center_head', 'telecaller_manager', 'product_manager'].includes(role);
+});
+
+const canViewAllLeads = computed(() => {
+  const role = userRoleCode.value;
+  return role === 'owner' || role === 'admin' || role === 'center_head' || role === 'telecaller_manager' || role === 'product_manager';
+});
+
+const activeScope = ref<'my' | 'all'>('all');
+
+watch(isManagement, (val) => {
+  if (val) {
+    activeScope.value = 'all';
+    fetchStaffMembers();
+  } else {
+    activeScope.value = 'my';
+  }
+}, { immediate: true });
+
+const staffMembers = ref<any[]>([]);
+
+const fetchStaffMembers = async () => {
+  try {
+    const headers: Record<string, string> = {};
+    if (authStore.token) headers['authorization'] = `Bearer ${authStore.token}`;
+
+    const res = await fetch(`${apiBase}/users/staff`, {
+      headers,
+      credentials: 'include',
+    });
+    if (res.ok) {
+      const data = await res.json();
+      staffMembers.value = data.items || [];
+    }
+  } catch (err) {
+    console.error('Failed to load staff list for filter', err);
+  }
+};
+
+const onEmployeeFilterChange = () => {
+  pagination.page = 1;
+  fetchLeads();
+};
+
+const clearStaffFilter = () => {
+  filters.ownerId = '';
+  pagination.page = 1;
+  fetchLeads();
+};
+
+const selectedStaffName = computed(() => {
+  if (!filters.ownerId) return '';
+  if (filters.ownerId === 'unassigned') return 'Unassigned Leads';
+  const found = staffMembers.value.find((s) => s.id.toString() === filters.ownerId.toString());
+  return found ? `${found.name} (${found.role?.name || found.role?.code})` : `Staff #${filters.ownerId}`;
 });
 
 const isProductStaff = computed(() => {
@@ -543,11 +648,6 @@ const setLeadType = (type: 'treatment' | 'product') => {
   fetchLeads();
 };
 
-const canViewAllLeads = computed(() => {
-  const role = userRoleCode.value;
-  return role === 'owner' || role === 'admin' || role === 'center_head' || role === 'telecaller_manager' || role === 'product_manager';
-});
-
 const setScope = (scope: 'my' | 'all') => {
   activeScope.value = scope;
   pagination.page = 1;
@@ -563,8 +663,14 @@ const fetchLeads = async () => {
       leadType: activeLeadType.value,
     });
 
-    if (activeScope.value === 'my' && authStore.user?.id) {
+    if (!isManagement.value && activeScope.value === 'my' && authStore.user?.id) {
       params.append('ownerId', authStore.user.id.toString());
+    } else if (filters.ownerId) {
+      if (filters.ownerId === 'unassigned') {
+        params.append('unassigned', 'true');
+      } else {
+        params.append('ownerId', filters.ownerId);
+      }
     }
 
     if (filters.search) params.append('search', filters.search.trim());
@@ -602,6 +708,14 @@ const fetchLeads = async () => {
 onMounted(async () => {
   if (!authStore.token && !authStore.user) {
     await authStore.fetchMe();
+  }
+  if (isManagement.value) {
+    activeScope.value = 'all';
+  } else {
+    activeScope.value = 'my';
+  }
+  if (canViewAllLeads.value) {
+    fetchStaffMembers();
   }
   if (isProductStaff.value && !['owner', 'admin', 'center_head', 'telecaller_manager'].includes(userRoleCode.value)) {
     activeLeadType.value = 'product';

@@ -84,6 +84,43 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
     }
   );
 
+  // List Staff / Assignees (Accessible to staff with lead/product/case view or user manage permissions)
+  fastify.get(
+    '/users/staff',
+    { preHandler: [requirePermission([Permissions.LEAD_VIEW, Permissions.PRODUCT_LEAD_VIEW, Permissions.CASE_VIEW, Permissions.USER_MANAGE])] },
+    async (request, reply) => {
+      const query = request.query as any;
+      const where: any = { status: 'active', archivedAt: null };
+
+      if (query.roleCode) {
+        where.role = { code: query.roleCode };
+      }
+
+      const users = await prisma.user.findMany({
+        where,
+        orderBy: [{ role: { code: 'asc' } }, { name: 'asc' }],
+        include: {
+          role: { select: { id: true, code: true, name: true } },
+          userBranches: { include: { branch: true } },
+          userTeams: { include: { team: true } },
+        },
+      });
+
+      const sanitized = users.map((u) => ({
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        mobile: u.mobile,
+        status: u.status,
+        role: u.role,
+        teams: u.userTeams.map((ut) => ut.team),
+        branches: u.userBranches.map((ub) => ub.branch),
+      }));
+
+      return reply.send({ items: sanitized });
+    }
+  );
+
   // Create User
   fastify.post(
     '/users',

@@ -99,6 +99,7 @@ export const leadFilterSchema = z.object({
   department_id: z.coerce.number().int().positive().optional(),
   ownerId: z.coerce.number().int().positive().optional(),
   owner_id: z.coerce.number().int().positive().optional(),
+  unassigned: z.coerce.boolean().optional(),
   leadType: z.enum(['treatment', 'product']).optional(),
   lead_type: z.enum(['treatment', 'product']).optional(),
   campaignId: z.coerce.number().int().positive().optional(),

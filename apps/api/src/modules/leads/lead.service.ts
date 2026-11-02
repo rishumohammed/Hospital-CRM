@@ -42,6 +42,7 @@ export interface ListLeadsParams {
   departmentId?: number;
   branchId?: number;
   ownerId?: number;
+  unassigned?: boolean;
   priority?: string;
   language?: string;
   search?: string;
@@ -557,7 +558,9 @@ export async function listLeads(
   if (params.branchId) {
     where.branchId = params.branchId;
   }
-  if (params.ownerId) {
+  if (params.unassigned) {
+    where.ownerId = null;
+  } else if (params.ownerId) {
     where.ownerId = params.ownerId;
   }
   if (params.priority) {
