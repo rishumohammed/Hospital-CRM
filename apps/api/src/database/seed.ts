@@ -137,6 +137,7 @@ export async function seedDatabase() {
         { permission: Permissions.CHECKIN_CREATE, scope: Scopes.BRANCH },
         { permission: Permissions.FOLLOWUP_REPORT, scope: Scopes.BRANCH },
         { permission: Permissions.PRODUCT_VIEW, scope: Scopes.ALL },
+        { permission: Permissions.SETTINGS_MANAGE, scope: Scopes.BRANCH },
         { permission: Permissions.PRODUCT_CAMPAIGN_MANAGE, scope: Scopes.BRANCH },
         { permission: Permissions.PRODUCT_LEAD_VIEW, scope: Scopes.BRANCH },
         { permission: Permissions.PRODUCT_LEAD_CREATE, scope: Scopes.BRANCH },
@@ -149,6 +150,7 @@ export async function seedDatabase() {
     {
       roleCode: Roles.TELECALLER_MANAGER,
       permissions: [
+        { permission: Permissions.SETTINGS_MANAGE, scope: Scopes.BRANCH },
         { permission: Permissions.LEAD_VIEW, scope: Scopes.BRANCH },
         { permission: Permissions.LEAD_CREATE, scope: Scopes.BRANCH },
         { permission: Permissions.LEAD_EDIT, scope: Scopes.BRANCH },

@@ -453,9 +453,19 @@ const productNavItems = computed(() => {
   return items;
 });
 
-const managementNavItems = computed(() => [
-  { to: '/reports', label: t('nav.reports'), icon: 'i-heroicons-chart-bar' },
-]);
+const managementNavItems = computed(() => {
+  const items = [
+    { to: '/reports', label: t('nav.reports'), icon: 'i-heroicons-chart-bar' },
+  ];
+  const role = authStore.user?.role;
+  const canAccessAdmin =
+    ['owner', 'admin', 'center_head', 'telecaller_manager', 'product_manager'].includes(role) ||
+    authStore.hasPermission('settings.manage');
+  if (canAccessAdmin) {
+    items.push({ to: '/admin', label: 'Admin & Picklists', icon: 'i-heroicons-cog-6-tooth' });
+  }
+  return items;
+});
 
 // Active route helper
 const isActive = (path: string) => {

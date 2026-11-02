@@ -14,14 +14,21 @@
       <!-- Quick Action Buttons -->
       <div class="flex items-center space-x-2">
         <button
-          v-if="activeTab === 'users'"
+          v-if="activeTab === 'users' && canManageUsers"
           @click="showCreateUserModal = true"
           class="inline-flex items-center justify-center min-h-[44px] px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm shadow-sm transition-all shadow-teal-600/20 active:scale-95"
         >
           + Add New User
         </button>
         <button
-          v-if="activeTab === 'settings'"
+          v-if="activeTab === 'picklists' && canManagePicklists"
+          @click="openCreatePicklistModal"
+          class="inline-flex items-center justify-center min-h-[44px] px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm shadow-sm transition-all shadow-teal-600/20 active:scale-95"
+        >
+          + Add Option
+        </button>
+        <button
+          v-if="activeTab === 'settings' && canManageSettings"
           @click="saveSettings"
           :disabled="savingSettings"
           class="inline-flex items-center justify-center min-h-[44px] px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm shadow-sm transition-all shadow-emerald-600/20 active:scale-95 disabled:opacity-50"
@@ -49,7 +56,7 @@
     </div>
 
     <!-- TAB 1: USERS DIRECTORY -->
-    <div v-if="activeTab === 'users'" class="space-y-4">
+    <div v-if="activeTab === 'users' && canManageUsers" class="space-y-4">
       <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
         <div class="p-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
           <input
@@ -130,7 +137,8 @@
 
     <!-- TAB 2: MASTER PICKLISTS -->
     <div v-if="activeTab === 'picklists'" class="space-y-4">
-      <div class="flex items-center space-x-2 overflow-x-auto pb-2">
+      <!-- Picklist Type Selector Tabs -->
+      <div class="flex items-center space-x-2 overflow-x-auto pb-1">
         <button
           v-for="pt in picklistTypes"
           :key="pt.id"
@@ -138,57 +146,156 @@
           :class="[
             'px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all min-h-[38px] whitespace-nowrap',
             selectedPicklistType === pt.id
-              ? 'bg-teal-600 text-white shadow-sm'
-              : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50'
+              ? 'bg-teal-600 text-white shadow-sm shadow-teal-600/30'
+              : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/60'
           ]"
         >
           {{ pt.label }}
         </button>
       </div>
 
+      <!-- Picklist Items Card -->
       <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
-        <div class="p-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+        <!-- Card Header with Search, Filter & Add Button -->
+        <div class="p-4 border-b border-slate-100 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">
-              {{ picklistTypes.find((p) => p.id === selectedPicklistType)?.label }}
+              {{ currentPicklistMeta?.label }}
             </h2>
             <p class="text-xs text-slate-500">Configured options for system-wide picklists</p>
           </div>
-          <span class="text-xs text-slate-500 font-medium">{{ currentPicklistItems.length }} options</span>
+
+          <div class="flex flex-wrap items-center gap-2.5">
+            <!-- Search Filter -->
+            <div class="relative">
+              <input
+                v-model="picklistSearch"
+                type="text"
+                placeholder="Search code or label..."
+                class="min-h-[38px] pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs text-slate-800 dark:text-slate-200 w-44 sm:w-56 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              />
+              <UIcon name="i-heroicons-magnifying-glass" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-3" />
+            </div>
+
+            <!-- Status Filter -->
+            <select
+              v-model="picklistStatusFilter"
+              class="min-h-[38px] px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-teal-500"
+            >
+              <option value="all">All Status</option>
+              <option value="active">Active Only</option>
+              <option value="inactive">Inactive Only</option>
+            </select>
+
+            <!-- Add Option Button -->
+            <button
+              v-if="canManagePicklists"
+              @click="openCreatePicklistModal"
+              class="inline-flex items-center gap-1 min-h-[38px] px-3.5 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-xs shadow-xs transition-colors active:scale-95"
+            >
+              <UIcon name="i-heroicons-plus" class="w-3.5 h-3.5" />
+              <span>Add Option</span>
+            </button>
+
+            <span class="text-xs text-slate-400 font-mono hidden md:inline">{{ filteredPicklistItems.length }} options</span>
+          </div>
         </div>
 
-        <div class="overflow-x-auto">
+        <!-- Table Loading State -->
+        <div v-if="picklistLoading" class="py-12 flex justify-center items-center">
+          <UIcon name="i-heroicons-arrow-path" class="w-7 h-7 text-teal-600 animate-spin" />
+        </div>
+
+        <!-- Empty State -->
+        <div v-else-if="filteredPicklistItems.length === 0" class="p-12 text-center text-slate-400">
+          <div class="w-10 h-10 mx-auto mb-2 rounded-full bg-slate-100 dark:bg-slate-700/60 flex items-center justify-center text-slate-400">
+            📋
+          </div>
+          <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">No picklist options found</p>
+          <p class="text-xs text-slate-400 mt-1">Try adjusting search criteria or add a new option above</p>
+        </div>
+
+        <!-- Data Table -->
+        <div v-else class="overflow-x-auto">
           <table class="w-full text-left border-collapse text-sm">
             <thead>
-              <tr class="bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 text-xs uppercase tracking-wider font-semibold">
+              <tr class="bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 text-xs uppercase tracking-wider font-semibold border-b border-slate-100 dark:border-slate-700">
                 <th class="py-3 px-4">Code</th>
-                <th class="py-3 px-4">Label</th>
+                <th class="py-3 px-4">Label (English)</th>
+                <th class="py-3 px-4">Label (Malayalam)</th>
+                <th v-if="selectedPicklistType === 'call-outcomes'" class="py-3 px-4">Scope</th>
                 <th class="py-3 px-4">Sort</th>
                 <th class="py-3 px-4">Status</th>
+                <th v-if="canManagePicklists" class="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
-              <tr v-for="item in currentPicklistItems" :key="item.id" class="hover:bg-slate-50/60 dark:hover:bg-slate-700/40">
-                <td class="py-3 px-4 font-mono text-xs font-semibold text-slate-700 dark:text-slate-300">
+              <tr
+                v-for="item in filteredPicklistItems"
+                :key="item.id"
+                class="hover:bg-slate-50/60 dark:hover:bg-slate-700/40 transition-colors"
+              >
+                <td class="py-3 px-4 font-mono text-xs font-semibold text-slate-800 dark:text-slate-200">
                   {{ item.code }}
                 </td>
                 <td class="py-3 px-4 font-semibold text-slate-900 dark:text-slate-100">
                   {{ item.labelEn }}
                 </td>
+                <td class="py-3 px-4 text-xs text-slate-500 dark:text-slate-400">
+                  {{ item.labelMl || '—' }}
+                </td>
+                <td v-if="selectedPicklistType === 'call-outcomes'" class="py-3 px-4">
+                  <span
+                    :class="[
+                      'inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold',
+                      item.scope === 'treatment'
+                        ? 'bg-teal-50 text-teal-700 dark:bg-teal-950 dark:text-teal-300'
+                        : item.scope === 'product'
+                        ? 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
+                        : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300'
+                    ]"
+                  >
+                    {{ item.scope === 'treatment' ? 'Treatment Only' : item.scope === 'product' ? 'Product Only' : 'Both (All Leads)' }}
+                  </span>
+                </td>
                 <td class="py-3 px-4 text-xs text-slate-500 font-mono">
                   {{ item.sort || 0 }}
                 </td>
                 <td class="py-3 px-4">
-                  <span
+                  <button
+                    type="button"
+                    @click="togglePicklistActive(item)"
+                    :disabled="!canManagePicklists || togglingId === item.id"
                     :class="[
-                      'inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold',
+                      'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all',
+                      canManagePicklists ? 'cursor-pointer hover:shadow-xs active:scale-95' : 'cursor-default',
                       item.active
-                        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
-                        : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400'
+                        ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-400 border border-slate-200 dark:border-slate-600'
                     ]"
+                    :title="canManagePicklists ? 'Click to toggle status' : undefined"
                   >
-                    ● {{ item.active ? 'Active' : 'Inactive' }}
-                  </span>
+                    <span class="w-1.5 h-1.5 rounded-full" :class="item.active ? 'bg-emerald-500' : 'bg-slate-400'" />
+                    <span>{{ togglingId === item.id ? 'Saving...' : (item.active ? 'Active' : 'Inactive') }}</span>
+                  </button>
+                </td>
+                <td v-if="canManagePicklists" class="py-3 px-4 text-right">
+                  <div class="flex items-center justify-end space-x-1.5">
+                    <button
+                      type="button"
+                      @click="openEditPicklistModal(item)"
+                      class="px-2.5 py-1 rounded-lg text-xs font-semibold text-teal-600 hover:text-teal-700 hover:bg-teal-50 dark:text-teal-400 dark:hover:bg-teal-950/40 transition-colors"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      @click="confirmDeletePicklistItem(item)"
+                      class="px-2.5 py-1 rounded-lg text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40 transition-colors"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </td>
               </tr>
             </tbody>
@@ -197,8 +304,8 @@
       </div>
     </div>
 
-    <!-- TAB 5: SYSTEM SETTINGS -->
-    <div v-if="activeTab === 'settings'" class="space-y-6">
+    <!-- TAB 3: SYSTEM SETTINGS -->
+    <div v-if="activeTab === 'settings' && canManageSettings" class="space-y-6">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <!-- Calling Hours Card -->
         <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm space-y-4">
@@ -362,8 +469,8 @@
       </div>
     </div>
 
-    <!-- TAB 6: AUDIT LOGS -->
-    <div v-if="activeTab === 'audit'" class="space-y-4">
+    <!-- TAB 4: AUDIT LOGS -->
+    <div v-if="activeTab === 'audit' && canViewAudit" class="space-y-4">
       <!-- Filter and Search Bar -->
       <div class="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm flex flex-wrap items-center gap-3">
         <!-- Quick Search -->
@@ -397,6 +504,9 @@
             <option value="user">User</option>
             <option value="auth">Auth</option>
             <option value="settings">Settings</option>
+            <option value="departments">Department</option>
+            <option value="sources">Source</option>
+            <option value="call-outcomes">Call Outcome</option>
           </select>
         </div>
 
@@ -417,10 +527,13 @@
             <option value="CASE_STAGE_ADVANCED">CASE_STAGE_ADVANCED</option>
             <option value="TREATMENT_COMPLETED">TREATMENT_COMPLETED</option>
             <option value="CASE_CLOSED">CASE_CLOSED</option>
+            <option value="PICKLIST_ITEM_CREATED">PICKLIST_ITEM_CREATED</option>
+            <option value="PICKLIST_ITEM_UPDATED">PICKLIST_ITEM_UPDATED</option>
+            <option value="PICKLIST_ITEM_DEACTIVATED">PICKLIST_ITEM_DEACTIVATED</option>
+            <option value="PICKLIST_ITEM_DELETED">PICKLIST_ITEM_DELETED</option>
             <option value="SCOPE_DENIED">SCOPE_DENIED</option>
             <option value="PERMISSION_GRANTED">PERMISSION_GRANTED</option>
             <option value="EXPORT_REQUESTED">EXPORT_REQUESTED</option>
-            <option value="EXPORT_DOWNLOADED">EXPORT_DOWNLOADED</option>
           </select>
         </div>
 
@@ -575,10 +688,226 @@
       </div>
     </div>
 
-    <!-- MODAL: DEACTIVATE & REASSIGN WIZARD -->
+    <!-- MODAL: ADD / EDIT PICKLIST OPTION -->
+    <div
+      v-if="showPicklistModal"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs"
+    >
+      <div class="bg-white dark:bg-slate-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-slate-200 dark:border-slate-700 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700">
+          <div>
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
+              {{ isEditingPicklist ? 'Edit Picklist Option' : 'Add New Picklist Option' }}
+            </h3>
+            <p class="text-xs text-slate-500">{{ currentPicklistMeta?.label }}</p>
+          </div>
+          <button
+            @click="showPicklistModal = false"
+            class="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+          >
+            <UIcon name="i-heroicons-x-mark" class="w-5 h-5" />
+          </button>
+        </div>
+
+        <form @submit.prevent="savePicklistItem" class="space-y-4">
+          <!-- Code -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              Code <span class="text-rose-500">*</span>
+            </label>
+            <input
+              v-model="picklistForm.code"
+              type="text"
+              :disabled="isEditingPicklist"
+              required
+              placeholder="e.g. WHATSAPP_LEAD"
+              class="w-full min-h-[44px] px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm font-mono text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-teal-500 disabled:opacity-60 disabled:bg-slate-100 dark:disabled:bg-slate-800"
+            />
+            <p class="text-[11px] text-slate-400 mt-1">Unique alphanumeric uppercase key used in system logic</p>
+          </div>
+
+          <!-- Label English -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              Label (English) <span class="text-rose-500">*</span>
+            </label>
+            <input
+              v-model="picklistForm.labelEn"
+              type="text"
+              required
+              placeholder="e.g. WhatsApp Inbound"
+              class="w-full min-h-[44px] px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-teal-500"
+            />
+          </div>
+
+          <!-- Label Malayalam -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              Label (Malayalam) <span class="text-xs text-slate-400 font-normal">(Optional)</span>
+            </label>
+            <input
+              v-model="picklistForm.labelMl"
+              type="text"
+              placeholder="e.g. വാട്ട്‌സ്ആപ്പ്"
+              class="w-full min-h-[44px] px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-teal-500"
+            />
+          </div>
+
+          <!-- Scope (Call Outcomes only) -->
+          <div v-if="selectedPicklistType === 'call-outcomes'">
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              Applicable Scope
+            </label>
+            <select
+              v-model="picklistForm.scope"
+              class="w-full min-h-[44px] px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm font-semibold text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-teal-500"
+            >
+              <option value="both">Both (Treatment & Product Leads)</option>
+              <option value="treatment">Treatment Leads Only</option>
+              <option value="product">Product Leads Only</option>
+            </select>
+          </div>
+
+          <!-- Sort Order & Active Flag -->
+          <div class="grid grid-cols-2 gap-4 items-center">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Sort Order
+              </label>
+              <input
+                v-model.number="picklistForm.sort"
+                type="number"
+                min="0"
+                class="w-full min-h-[44px] px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-teal-500 font-mono"
+              />
+            </div>
+
+            <div class="pt-5">
+              <label class="inline-flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  v-model="picklistForm.active"
+                  type="checkbox"
+                  class="w-4 h-4 rounded text-teal-600 focus:ring-teal-500 border-slate-300"
+                />
+                <span class="text-xs font-semibold text-slate-700 dark:text-slate-300">Active status</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Error Alert -->
+          <div v-if="picklistModalError" class="p-3 rounded-xl bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 text-xs border border-rose-200">
+            {{ picklistModalError }}
+          </div>
+
+          <!-- Actions -->
+          <div class="flex items-center justify-end space-x-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+            <button
+              type="button"
+              @click="showPicklistModal = false"
+              class="px-4 py-2 min-h-[44px] rounded-xl text-slate-600 dark:text-slate-400 font-semibold text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              :disabled="savingPicklist"
+              class="inline-flex items-center gap-1.5 px-5 py-2 min-h-[44px] rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm disabled:opacity-50 transition-colors shadow-sm shadow-teal-600/20"
+            >
+              <UIcon v-if="savingPicklist" name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin" />
+              <span>{{ savingPicklist ? 'Saving...' : (isEditingPicklist ? 'Update Option' : 'Create Option') }}</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL: DELETE / DEACTIVATE CONFIRMATION -->
+    <div
+      v-if="deletingPicklistItem"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs"
+    >
+      <div class="bg-white dark:bg-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-200 dark:border-slate-700 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+        <div class="flex items-center space-x-3 text-rose-600 dark:text-rose-400">
+          <div class="w-10 h-10 rounded-full bg-rose-50 dark:bg-rose-950/50 flex items-center justify-center flex-shrink-0">
+            <UIcon name="i-heroicons-exclamation-triangle" class="w-6 h-6" />
+          </div>
+          <div>
+            <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">
+              {{ picklistDeleteInUse ? 'Cannot Delete Referenced Option' : 'Delete Picklist Option' }}
+            </h3>
+            <p class="text-xs text-slate-500">{{ currentPicklistMeta?.label }}</p>
+          </div>
+        </div>
+
+        <!-- Normal confirmation state -->
+        <div v-if="!picklistDeleteInUse" class="space-y-2 text-xs text-slate-600 dark:text-slate-300">
+          <p>
+            Are you sure you want to delete <strong class="text-slate-900 dark:text-slate-100 font-semibold">{{ deletingPicklistItem.labelEn }}</strong> (<span class="font-mono text-slate-500">{{ deletingPicklistItem.code }}</span>)?
+          </p>
+          <p class="text-slate-400">
+            If this option is already referenced by existing leads or cases, the system will prevent data loss and offer to deactivate it instead.
+          </p>
+        </div>
+
+        <!-- In-Use conflict state -->
+        <div v-else class="space-y-3">
+          <div class="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-200 space-y-1">
+            <div class="font-semibold">Option In Use ({{ picklistInUseCount }} records)</div>
+            <p>
+              This option is referenced by historical records. Permanently deleting it would break database relationships.
+            </p>
+          </div>
+          <p class="text-xs text-slate-500 dark:text-slate-400">
+            Would you like to <strong>deactivate</strong> this option instead? Inactive options remain safely linked to existing records but won't appear in new dropdowns.
+          </p>
+        </div>
+
+        <!-- Error display if any -->
+        <div v-if="picklistDeleteError" class="p-3 rounded-xl bg-rose-50 text-rose-700 text-xs border border-rose-200">
+          {{ picklistDeleteError }}
+        </div>
+
+        <!-- Modal Actions -->
+        <div class="flex items-center justify-end space-x-2 pt-2">
+          <button
+            type="button"
+            @click="deletingPicklistItem = null; picklistDeleteInUse = false; picklistDeleteError = null"
+            class="px-4 py-2 min-h-[44px] rounded-xl text-slate-600 dark:text-slate-400 font-semibold text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+          >
+            Cancel
+          </button>
+          
+          <!-- If in use, offer Deactivate button -->
+          <button
+            v-if="picklistDeleteInUse"
+            type="button"
+            @click="executeDeletePicklistItem(true)"
+            :disabled="deletingPicklistLoading"
+            class="inline-flex items-center gap-1.5 px-4 py-2 min-h-[44px] rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold text-sm disabled:opacity-50 transition-colors shadow-sm"
+          >
+            <UIcon v-if="deletingPicklistLoading" name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin" />
+            <span>{{ deletingPicklistLoading ? 'Deactivating...' : 'Deactivate Option' }}</span>
+          </button>
+
+          <!-- Normal delete button -->
+          <button
+            v-else
+            type="button"
+            @click="executeDeletePicklistItem(false)"
+            :disabled="deletingPicklistLoading"
+            class="inline-flex items-center gap-1.5 px-4 py-2 min-h-[44px] rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold text-sm disabled:opacity-50 transition-colors shadow-sm"
+          >
+            <UIcon v-if="deletingPicklistLoading" name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin" />
+            <span>{{ deletingPicklistLoading ? 'Deleting...' : 'Delete Permanently' }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: DEACTIVATE & REASSIGN WIZARD FOR USERS -->
     <div
       v-if="deactivatingUser"
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs"
     >
       <div class="bg-white dark:bg-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-200 dark:border-slate-700 space-y-4">
         <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
@@ -652,11 +981,54 @@ const apiBase = config.public.apiBase;
 const route = useRoute();
 const router = useRouter();
 
+const userRoleCode = computed(() => {
+  if (!authStore.user) return '';
+  if (typeof authStore.user.role === 'object' && authStore.user.role?.code) {
+    return authStore.user.role.code;
+  }
+  return String(authStore.user.role || '');
+});
+
+const canManagePicklists = computed(() => {
+  const role = userRoleCode.value;
+  return (
+    ['owner', 'admin', 'center_head', 'telecaller_manager', 'product_manager'].includes(role) ||
+    authStore.hasPermission('settings.manage')
+  );
+});
+
+const canManageUsers = computed(() => {
+  const role = userRoleCode.value;
+  return ['owner', 'admin'].includes(role) || authStore.hasPermission('user.manage');
+});
+
+const canManageSettings = computed(() => {
+  const role = userRoleCode.value;
+  return ['owner', 'admin'].includes(role) || authStore.hasPermission('settings.manage');
+});
+
+const canViewAudit = computed(() => {
+  const role = userRoleCode.value;
+  return ['owner', 'admin', 'center_head'].includes(role) || authStore.hasPermission('audit.view');
+});
+
 const validTabs = ['users', 'picklists', 'settings', 'audit'] as const;
 type TabType = typeof validTabs[number];
 
-const initialTab = (route.query.tab as string) || 'users';
-const activeTab = ref<TabType>(validTabs.includes(initialTab as any) ? (initialTab as TabType) : 'users');
+const tabList = computed(() => {
+  const list: { id: TabType; label: string }[] = [];
+  if (canManageUsers.value) list.push({ id: 'users', label: 'Users Directory' });
+  if (canManagePicklists.value) list.push({ id: 'picklists', label: 'Master Picklists' });
+  if (canManageSettings.value) list.push({ id: 'settings', label: 'System Settings' });
+  if (canViewAudit.value) list.push({ id: 'audit', label: 'Audit Logs' });
+  if (list.length === 0) list.push({ id: 'picklists', label: 'Master Picklists' });
+  return list;
+});
+
+const initialTab = (route.query.tab as string) || (canManageUsers.value ? 'users' : 'picklists');
+const activeTab = ref<TabType>(
+  validTabs.includes(initialTab as any) ? (initialTab as TabType) : (canManageUsers.value ? 'users' : 'picklists')
+);
 
 function switchTab(tabId: TabType) {
   activeTab.value = tabId;
@@ -680,24 +1052,67 @@ watch(
 
 const userSearch = ref('');
 
-const tabList = [
-  { id: 'users', label: 'Users Directory' },
-  { id: 'picklists', label: 'Master Picklists' },
-  { id: 'settings', label: 'System Settings' },
-  { id: 'audit', label: 'Audit Logs' },
-] as const;
-
 const picklistTypes = [
-  { id: 'departments', label: '15 Departments' },
-  { id: 'sources', label: 'Lead Sources' },
-  { id: 'call-outcomes', label: 'Call Outcomes' },
-  { id: 'lost-reasons', label: 'Lost Reasons' },
-  { id: 'decline-reasons', label: 'Decline Reasons' },
-  { id: 'closure-codes', label: 'Closure Codes' },
+  { id: 'departments', label: '15 Departments', singular: 'Department' },
+  { id: 'sources', label: 'Lead Sources', singular: 'Lead Source' },
+  { id: 'call-outcomes', label: 'Call Outcomes', singular: 'Call Outcome' },
+  { id: 'lost-reasons', label: 'Lost Reasons', singular: 'Lost Reason' },
+  { id: 'decline-reasons', label: 'Decline Reasons', singular: 'Decline Reason' },
+  { id: 'closure-codes', label: 'Closure Codes', singular: 'Closure Code' },
 ] as const;
 
 const selectedPicklistType = ref<string>('departments');
 const currentPicklistItems = ref<any[]>([]);
+const picklistSearch = ref('');
+const picklistStatusFilter = ref<'all' | 'active' | 'inactive'>('all');
+const picklistLoading = ref(false);
+const togglingId = ref<number | null>(null);
+
+const showPicklistModal = ref(false);
+const isEditingPicklist = ref(false);
+const savingPicklist = ref(false);
+const picklistModalError = ref<string | null>(null);
+
+const picklistForm = ref({
+  id: 0,
+  code: '',
+  labelEn: '',
+  labelMl: '',
+  scope: 'both' as 'treatment' | 'product' | 'both',
+  sort: 0,
+  active: true,
+});
+
+const deletingPicklistItem = ref<any | null>(null);
+const picklistDeleteInUse = ref(false);
+const picklistInUseCount = ref(0);
+const picklistDeleteError = ref<string | null>(null);
+const deletingPicklistLoading = ref(false);
+
+const currentPicklistMeta = computed(() => {
+  return picklistTypes.find((p) => p.id === selectedPicklistType.value) || picklistTypes[0];
+});
+
+const currentPicklistSingularName = computed(() => {
+  return (currentPicklistMeta.value as any)?.singular || 'Option';
+});
+
+const filteredPicklistItems = computed(() => {
+  let items = currentPicklistItems.value || [];
+  if (picklistStatusFilter.value === 'active') {
+    items = items.filter((i) => i.active);
+  } else if (picklistStatusFilter.value === 'inactive') {
+    items = items.filter((i) => !i.active);
+  }
+  if (!picklistSearch.value.trim()) return items;
+  const q = picklistSearch.value.toLowerCase().trim();
+  return items.filter(
+    (i) =>
+      (i.code && i.code.toLowerCase().includes(q)) ||
+      (i.labelEn && i.labelEn.toLowerCase().includes(q)) ||
+      (i.labelMl && i.labelMl.toLowerCase().includes(q))
+  );
+});
 
 const users = ref<any[]>([]);
 const roles = ref<any[]>([]);
@@ -787,10 +1202,10 @@ function getAuditBadgeClass(action: string) {
   if (action.includes('SUCCESS') || action.includes('CREATED') || action.includes('CONVERTED') || action.includes('COMPLETED')) {
     return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800';
   }
-  if (action.includes('FAILED') || action.includes('DENIED') || action.includes('CLOSED') || action.includes('DEACTIVATED')) {
+  if (action.includes('FAILED') || action.includes('DENIED') || action.includes('CLOSED') || action.includes('DEACTIVATED') || action.includes('DELETED')) {
     return 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-800';
   }
-  if (action.includes('CALL') || action.includes('ADVANCED') || action.includes('STAGE') || action.includes('GRANT')) {
+  if (action.includes('CALL') || action.includes('ADVANCED') || action.includes('STAGE') || action.includes('GRANT') || action.includes('UPDATED')) {
     return 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800';
   }
   return 'bg-teal-50 text-teal-700 dark:bg-teal-950/60 dark:text-teal-300 border border-teal-200 dark:border-teal-800';
@@ -843,11 +1258,171 @@ const eligibleTargets = computed(() => {
 
 async function selectPicklistType(type: string) {
   selectedPicklistType.value = type;
+  picklistSearch.value = '';
+  picklistLoading.value = true;
   try {
-    const res = await $fetch<any[]>(`${apiBase}/picklists/${type}`, { credentials: 'include' });
+    const headers: Record<string, string> = authStore.accessToken
+      ? { Authorization: `Bearer ${authStore.accessToken}` }
+      : {};
+    const res = await $fetch<any[]>(`${apiBase}/picklists/${type}/all`, {
+      headers,
+      credentials: 'include',
+    }).catch(async () => {
+      return await $fetch<any[]>(`${apiBase}/picklists/${type}`, { credentials: 'include' });
+    });
     currentPicklistItems.value = res || [];
-  } catch {
+  } catch (err) {
+    console.error('Failed to load picklist items:', err);
     currentPicklistItems.value = [];
+  } finally {
+    picklistLoading.value = false;
+  }
+}
+
+function openCreatePicklistModal() {
+  isEditingPicklist.value = false;
+  picklistModalError.value = null;
+  const maxSort = (currentPicklistItems.value || []).reduce((acc, curr) => Math.max(acc, curr.sort || 0), 0);
+  picklistForm.value = {
+    id: 0,
+    code: '',
+    labelEn: '',
+    labelMl: '',
+    scope: 'both',
+    sort: maxSort + 1,
+    active: true,
+  };
+  showPicklistModal.value = true;
+}
+
+function openEditPicklistModal(item: any) {
+  isEditingPicklist.value = true;
+  picklistModalError.value = null;
+  picklistForm.value = {
+    id: item.id,
+    code: item.code,
+    labelEn: item.labelEn,
+    labelMl: item.labelMl || '',
+    scope: item.scope || 'both',
+    sort: item.sort || 0,
+    active: item.active !== false,
+  };
+  showPicklistModal.value = true;
+}
+
+async function savePicklistItem() {
+  picklistModalError.value = null;
+  savingPicklist.value = true;
+  try {
+    const headers: Record<string, string> = authStore.accessToken
+      ? { Authorization: `Bearer ${authStore.accessToken}` }
+      : {};
+    const type = selectedPicklistType.value;
+
+    if (isEditingPicklist.value) {
+      const payload: any = {
+        labelEn: picklistForm.value.labelEn,
+        labelMl: picklistForm.value.labelMl,
+        sort: picklistForm.value.sort,
+        active: picklistForm.value.active,
+      };
+      if (type === 'call-outcomes') {
+        payload.scope = picklistForm.value.scope;
+      }
+      await $fetch(`${apiBase}/picklists/${type}/${picklistForm.value.id}`, {
+        method: 'PATCH',
+        headers,
+        credentials: 'include',
+        body: payload,
+      });
+    } else {
+      const payload: any = {
+        code: picklistForm.value.code,
+        labelEn: picklistForm.value.labelEn,
+        labelMl: picklistForm.value.labelMl,
+        sort: picklistForm.value.sort,
+        active: picklistForm.value.active,
+      };
+      if (type === 'call-outcomes') {
+        payload.scope = picklistForm.value.scope;
+      }
+      await $fetch(`${apiBase}/picklists/${type}`, {
+        method: 'POST',
+        headers,
+        credentials: 'include',
+        body: payload,
+      });
+    }
+
+    showPicklistModal.value = false;
+    await selectPicklistType(type);
+  } catch (err: any) {
+    picklistModalError.value =
+      err.data?.error?.message || err.message || 'Failed to save picklist option';
+  } finally {
+    savingPicklist.value = false;
+  }
+}
+
+async function togglePicklistActive(item: any) {
+  if (!canManagePicklists.value) return;
+  togglingId.value = item.id;
+  try {
+    const headers: Record<string, string> = authStore.accessToken
+      ? { Authorization: `Bearer ${authStore.accessToken}` }
+      : {};
+    const type = selectedPicklistType.value;
+    const nextActive = !item.active;
+    await $fetch(`${apiBase}/picklists/${type}/${item.id}`, {
+      method: 'PATCH',
+      headers,
+      credentials: 'include',
+      body: { active: nextActive },
+    });
+    item.active = nextActive;
+  } catch (err: any) {
+    alert(err.data?.error?.message || 'Failed to update status');
+  } finally {
+    togglingId.value = null;
+  }
+}
+
+function confirmDeletePicklistItem(item: any) {
+  deletingPicklistItem.value = item;
+  picklistDeleteInUse.value = false;
+  picklistInUseCount.value = 0;
+  picklistDeleteError.value = null;
+}
+
+async function executeDeletePicklistItem(forceDeactivate: boolean) {
+  if (!deletingPicklistItem.value) return;
+  deletingPicklistLoading.value = true;
+  picklistDeleteError.value = null;
+  try {
+    const headers: Record<string, string> = authStore.accessToken
+      ? { Authorization: `Bearer ${authStore.accessToken}` }
+      : {};
+    const type = selectedPicklistType.value;
+    const url = `${apiBase}/picklists/${type}/${deletingPicklistItem.value.id}${forceDeactivate ? '?deactivateIfInUse=true' : ''}`;
+
+    await $fetch<any>(url, {
+      method: 'DELETE',
+      headers,
+      credentials: 'include',
+    });
+
+    deletingPicklistItem.value = null;
+    picklistDeleteInUse.value = false;
+    await selectPicklistType(type);
+  } catch (err: any) {
+    if (err.data?.error?.code === 'ITEM_IN_USE') {
+      picklistDeleteInUse.value = true;
+      picklistInUseCount.value = err.data.error.usageCount || 1;
+    } else {
+      picklistDeleteError.value = err.data?.error?.message || err.message || 'Failed to delete option';
+    }
+  } finally {
+    deletingPicklistLoading.value = false;
   }
 }
 
@@ -857,19 +1432,17 @@ async function loadData() {
       ? { Authorization: `Bearer ${authStore.accessToken}` }
       : {};
 
-    const [uRes, rRes, aRes, setRes, deptRes] = await Promise.all([
-      $fetch<any>(`${apiBase}/users`, { headers, credentials: 'include' }).catch(() => ({ items: [] })),
+    const [uRes, rRes, aRes, setRes] = await Promise.all([
+      canManageUsers.value ? $fetch<any>(`${apiBase}/users`, { headers, credentials: 'include' }).catch(() => ({ items: [] })) : Promise.resolve({ items: [] }),
       $fetch<any>(`${apiBase}/roles`, { headers, credentials: 'include' }).catch(() => []),
-      $fetch<any>(`${apiBase}/audit-logs`, { headers, credentials: 'include' }).catch(() => ({ items: [] })),
-      $fetch<any>(`${apiBase}/settings`, { headers, credentials: 'include' }).catch(() => null),
-      $fetch<any>(`${apiBase}/picklists/departments`, { credentials: 'include' }).catch(() => []),
+      canViewAudit.value ? $fetch<any>(`${apiBase}/audit-logs`, { headers, credentials: 'include' }).catch(() => ({ items: [] })) : Promise.resolve({ items: [] }),
+      canManageSettings.value ? $fetch<any>(`${apiBase}/settings`, { headers, credentials: 'include' }).catch(() => null) : Promise.resolve(null),
     ]);
 
     users.value = uRes.items || [];
     roles.value = rRes || [];
     auditLogs.value = aRes.items || [];
     auditTotal.value = aRes.total ?? (aRes.items?.length || 0);
-    currentPicklistItems.value = deptRes || [];
 
     if (setRes) {
       if (setRes.calling_hours) settingsForm.value.calling_hours = { ...settingsForm.value.calling_hours, ...setRes.calling_hours };
@@ -878,6 +1451,8 @@ async function loadData() {
       if (setRes.retention_policies) settingsForm.value.retention_policies = { ...settingsForm.value.retention_policies, ...setRes.retention_policies };
       if (setRes.testimonial_followup_hours !== undefined) settingsForm.value.testimonial_followup_hours = Number(setRes.testimonial_followup_hours);
     }
+
+    await selectPicklistType(selectedPicklistType.value);
   } catch {
     // Handled silently
   }
