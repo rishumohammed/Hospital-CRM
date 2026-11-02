@@ -5,25 +5,16 @@
     <div class="absolute -bottom-40 -right-40 w-96 h-96 bg-teal-300/20 rounded-full blur-3xl pointer-events-none"></div>
 
     <div class="sm:mx-auto sm:w-full sm:max-w-md relative z-10 px-4">
-      <!-- Brand Logo & Header -->
-      <div class="text-center">
-        <div class="inline-flex items-center justify-center mb-3">
+      <!-- Login Card -->
+      <div class="bg-white/95 backdrop-blur-xl py-8 px-6 shadow-xl shadow-emerald-950/5 rounded-3xl border border-slate-200/90 sm:px-10">
+        <!-- Brand Logo Inside Card -->
+        <div class="flex justify-center mb-6">
           <img
             src="/logo.webp"
             alt="Samad's Elements - Traditional Treatment Centre"
-            class="h-16 sm:h-20 max-w-full object-contain drop-shadow-xs"
+            class="h-16 sm:h-18 max-w-full object-contain drop-shadow-xs"
           />
         </div>
-        <div>
-          <span class="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-semibold bg-emerald-100/80 text-emerald-800 border border-emerald-200 shadow-2xs">
-            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span>Hospital CRM &bull; Telecalling Portal</span>
-          </span>
-        </div>
-      </div>
-
-      <!-- Login Card -->
-      <div class="mt-7 bg-white/95 backdrop-blur-xl py-8 px-6 shadow-xl shadow-emerald-950/5 rounded-3xl border border-slate-200/90 sm:px-10">
         <!-- Error Alert -->
         <div
           v-if="errorMessage"
