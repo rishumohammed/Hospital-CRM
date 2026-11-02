@@ -1376,6 +1376,9 @@
             <span>{{ executingDelete ? 'Deleting...' : 'Confirm Soft Delete' }}</span>
           </button>
         </div>
+      </div>
+    </div>
+
     <!-- MODAL: ADD / EDIT BRANCH -->
     <div
       v-if="showBranchModal"
@@ -2293,6 +2296,8 @@ async function reactivateUser(user: any) {
   } catch (err: any) {
     alert(err.data?.error?.message || 'Failed to reactivate user');
   }
+}
+
 function openCreateBranchModal() {
   isEditingBranch.value = false;
   branchModalError.value = null;
