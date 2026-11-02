@@ -501,9 +501,8 @@
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- Analytics Graphs Section: Daily Leads & Conversion Ratio (Only for Executives/Managers) -->
+    <!-- Analytics Graphs Section: Daily Leads & Conversion Ratio (Only for Executives/Managers) -->
   <div v-if="isExecutive" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <!-- Graph 1: Daily Inquiries Trend (Last 14 Days) -->
       <div class="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-between">
@@ -610,7 +609,7 @@
               <!-- X-Axis Date Labels -->
               <g v-for="(pt, idx) in points" :key="'label-' + idx">
                 <text
-                  v-if="idx % 2 === 0 || idx === points.length - 1"
+                  v-if="Number(idx) % 2 === 0 || Number(idx) === points.length - 1"
                   :x="pt.x"
                   :y="chartHeight - 6"
                   text-anchor="middle"
@@ -1035,10 +1034,10 @@ const apiBase = rawApiBase.endsWith('/api/v1') ? rawApiBase : `${rawApiBase}/api
 
 const userRoleDisplay = computed(() => {
   if (!authStore.user) return 'Staff';
-  const role = authStore.user.role;
+  const role: any = authStore.user.role;
   if (typeof role === 'object' && role) return role.name || role.code || 'Staff';
   if (typeof role === 'string' && role) {
-    return role.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    return role.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
   }
   return 'Staff';
 });
