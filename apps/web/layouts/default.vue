@@ -318,7 +318,7 @@
                   {{ authStore.user.name }}
                 </span>
                 <span class="text-[10px] text-teal-600 dark:text-teal-400 font-semibold truncate uppercase leading-none">
-                  {{ authStore.user.role || 'Staff' }}
+                  {{ userRoleName }}
                 </span>
               </div>
               <UIcon name="i-heroicons-chevron-down" class="w-3.5 h-3.5 text-slate-400" />
@@ -339,7 +339,7 @@
                 </p>
                 <div class="mt-2 flex items-center gap-1.5 flex-wrap">
                   <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider bg-teal-100 dark:bg-teal-950 text-teal-800 dark:text-teal-300">
-                    {{ authStore.user.role || 'Staff' }}
+                    {{ userRoleName }}
                   </span>
                   <span v-if="authStore.user.center" class="px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 truncate">
                     {{ authStore.user.center.name || authStore.user.center.code }}
@@ -347,7 +347,7 @@
                 </div>
               </div>
 
-              <!-- Menu Link: Admin Settings -->
+              <!-- Menu Link: Settings -->
               <div class="p-1.5 space-y-0.5">
                 <NuxtLink
                   to="/admin"
@@ -355,7 +355,7 @@
                   @click="isProfileMenuOpen = false"
                 >
                   <UIcon name="i-heroicons-cog-6-tooth" class="w-4 h-4 text-slate-400 group-hover:text-teal-600 transition-colors" />
-                  <span>Admin Settings</span>
+                  <span>Settings</span>
                 </NuxtLink>
               </div>
 
@@ -469,6 +469,37 @@ const userInitials = computed(() => {
   const parts = name.trim().split(' ');
   if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
   return name.slice(0, 2).toUpperCase();
+});
+
+// User Role Display Name
+const userRoleName = computed(() => {
+  if (!authStore.user) return 'Staff';
+  const role = authStore.user.role;
+  if (typeof role === 'object' && role) return role.name || role.code || 'Staff';
+  if (typeof role === 'string' && role) return role;
+  if (authStore.user.roleName) return authStore.user.roleName;
+  if (authStore.user.roleCode) {
+    const code = authStore.user.roleCode;
+    const roleMap: Record<string, string> = {
+      owner: 'Managing Director',
+      admin: 'IT Administrator',
+      center_head: 'Branch Manager',
+      doctor: 'Treating Doctor',
+      telecaller: 'Telecaller',
+      telecaller_manager: 'Patient Experience Lead',
+      support_telecaller: 'Support Telecaller',
+      admission_specialist: 'Admission Specialist',
+      aftercare_executive: 'Aftercare Executive',
+      treatment_followup_executive: 'Treatment Follow-up Executive',
+      product_manager: 'Product Manager',
+      product_sales_executive: 'Product Sales Executive',
+      front_office: 'Front Office / Reception',
+      pharmacy_store: 'Pharmacy Store',
+      auditor: 'Auditor',
+    };
+    return roleMap[code] || code.replace(/_/g, ' ');
+  }
+  return 'Staff';
 });
 
 // Notifications

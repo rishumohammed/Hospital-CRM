@@ -106,6 +106,8 @@ export async function authenticate(request: FastifyRequest, reply: FastifyReply)
     email: user.email,
     roleId: user.roleId,
     roleCode: user.role.code,
+    roleName: user.role.name,
+    role: user.role.name || user.role.code,
     branchIds: user.userBranches.map((ub) => ub.branchId),
     teamCodes: user.userTeams.map((ut) => ut.team.code),
     maskPhone: user.role.maskPhone,

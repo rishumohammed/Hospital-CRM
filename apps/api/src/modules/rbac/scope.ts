@@ -6,6 +6,8 @@ export interface UserContext {
   email: string;
   roleId: number;
   roleCode: string;
+  roleName?: string;
+  role?: any;
   branchIds: number[];
   teamCodes: string[];
   maskPhone: boolean;
