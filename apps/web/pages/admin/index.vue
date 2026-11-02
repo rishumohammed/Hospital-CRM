@@ -21,6 +21,13 @@
           + Add New User
         </button>
         <button
+          v-if="activeTab === 'branches' && canManageSettings"
+          @click="openCreateBranchModal"
+          class="inline-flex items-center justify-center min-h-[44px] px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm shadow-sm transition-all shadow-teal-600/20 active:scale-95"
+        >
+          + Add New Branch
+        </button>
+        <button
           v-if="activeTab === 'settings' && canManageSettings"
           @click="saveSettings"
           :disabled="savingSettings"
@@ -152,6 +159,94 @@
                     >
                       <UIcon name="i-heroicons-trash" class="w-4 h-4" />
                     </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: HOSPITAL BRANCHES -->
+    <div v-if="activeTab === 'branches' && canManageSettings" class="space-y-4">
+      <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+        <div class="p-4 border-b border-slate-100 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div class="relative max-w-sm w-full">
+            <input
+              v-model="branchSearch"
+              type="text"
+              placeholder="Filter branches by name or code..."
+              class="w-full min-h-[40px] pl-9 pr-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            />
+            <UIcon name="i-heroicons-magnifying-glass" class="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+          </div>
+          <span class="text-xs text-slate-500 font-medium font-mono">{{ filteredBranches.length }} branches configured</span>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-sm">
+            <thead>
+              <tr class="bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 text-xs uppercase tracking-wider font-semibold border-b border-slate-100 dark:border-slate-700">
+                <th class="py-3.5 px-4">Campus &amp; Code</th>
+                <th class="py-3.5 px-4">Facility Type</th>
+                <th class="py-3.5 px-4">Timezone</th>
+                <th class="py-3.5 px-4">Business Hours</th>
+                <th class="py-3.5 px-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+              <tr v-for="b in filteredBranches" :key="b.id" class="hover:bg-slate-50/60 dark:hover:bg-slate-700/40 transition-colors">
+                <td class="py-3.5 px-4">
+                  <div class="flex items-center gap-2.5">
+                    <span class="w-8 h-8 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 flex items-center justify-center font-bold text-xs border border-teal-200 dark:border-teal-800">
+                      🏥
+                    </span>
+                    <div>
+                      <div class="font-semibold text-slate-900 dark:text-slate-100">{{ b.name }}</div>
+                      <div class="font-mono text-xs text-slate-400 font-semibold">{{ b.code }}</div>
+                    </div>
+                  </div>
+                </td>
+                <td class="py-3.5 px-4">
+                  <span
+                    :class="[
+                      'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold',
+                      b.type === 'own'
+                        ? 'bg-teal-50 text-teal-700 dark:bg-teal-950 dark:text-teal-300 border border-teal-200 dark:border-teal-800'
+                        : 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+                    ]"
+                  >
+                    {{ b.type === 'own' ? 'Own Campus / Centre' : 'Partner / Franchise' }}
+                  </span>
+                </td>
+                <td class="py-3.5 px-4 text-xs font-mono text-slate-600 dark:text-slate-400">
+                  {{ b.timezone || 'Asia/Kolkata' }}
+                </td>
+                <td class="py-3.5 px-4 text-xs text-slate-600 dark:text-slate-400">
+                  <span class="font-mono font-semibold">{{ b.businessHours?.open || '09:00' }} - {{ b.businessHours?.close || '20:00' }}</span>
+                  <span class="text-slate-400 text-[11px] block">Mon - Sat</span>
+                </td>
+                <td class="py-3.5 px-4 text-right">
+                  <div class="inline-flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      @click="openEditBranchModal(b)"
+                      class="p-1.5 rounded-lg text-slate-500 hover:text-teal-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                      title="Edit Branch"
+                    >
+                      <UIcon name="i-heroicons-pencil-square" class="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      v-if="b.code !== 'MAIN'"
+                      @click="archiveBranch(b)"
+                      class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                      title="Archive Branch"
+                    >
+                      <UIcon name="i-heroicons-trash" class="w-4 h-4" />
+                    </button>
+                    <span v-else class="text-[11px] font-semibold text-slate-400 italic px-2">Primary</span>
                   </div>
                 </td>
               </tr>
@@ -1281,6 +1376,130 @@
             <span>{{ executingDelete ? 'Deleting...' : 'Confirm Soft Delete' }}</span>
           </button>
         </div>
+    <!-- MODAL: ADD / EDIT BRANCH -->
+    <div
+      v-if="showBranchModal"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs"
+    >
+      <div class="bg-white dark:bg-slate-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-slate-200 dark:border-slate-700 space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700">
+          <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+            <UIcon :name="isEditingBranch ? 'i-heroicons-pencil-square' : 'i-heroicons-building-office-2'" class="w-5 h-5 text-teal-600" />
+            <span>{{ isEditingBranch ? `Edit Branch: ${branchForm.name}` : 'Add New Hospital Branch' }}</span>
+          </h3>
+          <button
+            type="button"
+            @click="showBranchModal = false"
+            class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
+          >
+            <UIcon name="i-heroicons-x-mark" class="w-5 h-5" />
+          </button>
+        </div>
+
+        <div v-if="branchModalError" class="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-medium">
+          {{ branchModalError }}
+        </div>
+
+        <form @submit.prevent="saveBranch" class="space-y-4">
+          <!-- Code & Name -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Branch Code *
+              </label>
+              <input
+                v-model="branchForm.code"
+                type="text"
+                required
+                :disabled="isEditingBranch"
+                placeholder="e.g. KOCHI"
+                class="w-full min-h-[40px] px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm font-mono uppercase focus:ring-2 focus:ring-teal-500 disabled:opacity-60 disabled:bg-slate-100 dark:disabled:bg-slate-800"
+              />
+              <span class="text-[10px] text-slate-400 mt-0.5 block">Unique ID (e.g. MAIN, KOCHI, CALICUT)</span>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Branch / Campus Name *
+              </label>
+              <input
+                v-model="branchForm.name"
+                type="text"
+                required
+                placeholder="e.g. Kochi Wellness Centre"
+                class="w-full min-h-[40px] px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-teal-500"
+              />
+            </div>
+          </div>
+
+          <!-- Type & Timezone -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Facility Type
+              </label>
+              <select
+                v-model="branchForm.type"
+                class="w-full min-h-[40px] px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-teal-500"
+              >
+                <option value="own">Own Campus / Treatment Center</option>
+                <option value="partner">Partner / Franchise Centre</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Timezone
+              </label>
+              <input
+                v-model="branchForm.timezone"
+                type="text"
+                placeholder="Asia/Kolkata"
+                class="w-full min-h-[40px] px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm font-mono focus:ring-2 focus:ring-teal-500"
+              />
+            </div>
+          </div>
+
+          <!-- Business Hours -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Opening Time
+              </label>
+              <input
+                v-model="branchForm.openTime"
+                type="time"
+                class="w-full min-h-[40px] px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-teal-500"
+              />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Closing Time
+              </label>
+              <input
+                v-model="branchForm.closeTime"
+                type="time"
+                class="w-full min-h-[40px] px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-teal-500"
+              />
+            </div>
+          </div>
+
+          <div class="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100 dark:border-slate-700">
+            <button
+              type="button"
+              @click="showBranchModal = false"
+              class="px-4 py-2 min-h-[42px] rounded-xl text-slate-600 dark:text-slate-400 font-semibold text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              :disabled="savingBranch"
+              class="inline-flex items-center gap-2 px-5 py-2 min-h-[42px] rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm disabled:opacity-50 transition-colors shadow-sm shadow-teal-600/20"
+            >
+              <UIcon v-if="savingBranch" name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin" />
+              <span>{{ savingBranch ? 'Saving...' : (isEditingBranch ? 'Update Branch' : 'Create Branch') }}</span>
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   </div>
@@ -1330,12 +1549,13 @@ const canViewAudit = computed(() => {
   return ['owner', 'admin', 'center_head'].includes(role) || authStore.hasPermission('audit.view');
 });
 
-const validTabs = ['users', 'picklists', 'settings', 'audit'] as const;
+const validTabs = ['users', 'branches', 'picklists', 'settings', 'audit'] as const;
 type TabType = typeof validTabs[number];
 
 const tabList = computed(() => {
   const list: { id: TabType; label: string }[] = [];
   if (canManageUsers.value) list.push({ id: 'users', label: 'Users Directory' });
+  if (canManageSettings.value) list.push({ id: 'branches', label: 'Hospital Branches' });
   if (canManagePicklists.value) list.push({ id: 'picklists', label: 'Master Picklists' });
   if (canManageSettings.value) list.push({ id: 'settings', label: 'System Settings' });
   if (canViewAudit.value) list.push({ id: 'audit', label: 'Audit Logs' });
@@ -1434,6 +1654,32 @@ const filteredPicklistItems = computed(() => {
 const users = ref<any[]>([]);
 const roles = ref<any[]>([]);
 const branches = ref<any[]>([]);
+const branchSearch = ref('');
+const showBranchModal = ref(false);
+const isEditingBranch = ref(false);
+const savingBranch = ref(false);
+const branchModalError = ref<string | null>(null);
+
+const branchForm = ref({
+  id: 0,
+  code: '',
+  name: '',
+  type: 'own' as 'own' | 'partner',
+  timezone: 'Asia/Kolkata',
+  openTime: '09:00',
+  closeTime: '20:00',
+});
+
+const filteredBranches = computed(() => {
+  if (!branchSearch.value) return branches.value;
+  const q = branchSearch.value.toLowerCase().trim();
+  return (branches.value || []).filter(
+    (b: any) =>
+      b.name.toLowerCase().includes(q) ||
+      b.code.toLowerCase().includes(q) ||
+      (b.type && b.type.toLowerCase().includes(q))
+  );
+});
 const teams = ref<any[]>([]);
 const auditLogs = ref<any[]>([]);
 const auditTotal = ref(0);
@@ -2046,6 +2292,102 @@ async function reactivateUser(user: any) {
     await loadData();
   } catch (err: any) {
     alert(err.data?.error?.message || 'Failed to reactivate user');
+  }
+function openCreateBranchModal() {
+  isEditingBranch.value = false;
+  branchModalError.value = null;
+  branchForm.value = {
+    id: 0,
+    code: '',
+    name: '',
+    type: 'own',
+    timezone: 'Asia/Kolkata',
+    openTime: '09:00',
+    closeTime: '20:00',
+  };
+  showBranchModal.value = true;
+}
+
+function openEditBranchModal(branch: any) {
+  isEditingBranch.value = true;
+  branchModalError.value = null;
+  branchForm.value = {
+    id: branch.id,
+    code: branch.code,
+    name: branch.name,
+    type: branch.type || 'own',
+    timezone: branch.timezone || 'Asia/Kolkata',
+    openTime: branch.businessHours?.open || '09:00',
+    closeTime: branch.businessHours?.close || '20:00',
+  };
+  showBranchModal.value = true;
+}
+
+async function saveBranch() {
+  branchModalError.value = null;
+  savingBranch.value = true;
+  try {
+    const headers: Record<string, string> = authStore.accessToken
+      ? { Authorization: `Bearer ${authStore.accessToken}` }
+      : {};
+
+    const payload: any = {
+      name: branchForm.value.name.trim(),
+      type: branchForm.value.type,
+      timezone: branchForm.value.timezone.trim() || 'Asia/Kolkata',
+      businessHours: {
+        open: branchForm.value.openTime || '09:00',
+        close: branchForm.value.closeTime || '20:00',
+        days: [1, 2, 3, 4, 5, 6],
+      },
+    };
+
+    if (isEditingBranch.value) {
+      await $fetch(`${apiBase}/branches/${branchForm.value.id}`, {
+        method: 'PATCH',
+        headers,
+        credentials: 'include',
+        body: payload,
+      });
+    } else {
+      payload.code = branchForm.value.code.trim().toUpperCase();
+      await $fetch(`${apiBase}/branches`, {
+        method: 'POST',
+        headers,
+        credentials: 'include',
+        body: payload,
+      });
+    }
+
+    showBranchModal.value = false;
+    await loadData();
+  } catch (err: any) {
+    branchModalError.value = err.data?.error?.message || err.message || 'Failed to save branch';
+  } finally {
+    savingBranch.value = false;
+  }
+}
+
+async function archiveBranch(branch: any) {
+  if (branch.code === 'MAIN') {
+    alert('Cannot archive the primary MAIN campus branch.');
+    return;
+  }
+  if (!confirm(`Are you sure you want to archive branch "${branch.name}" (${branch.code})?`)) return;
+  try {
+    const headers: Record<string, string> = authStore.accessToken
+      ? { Authorization: `Bearer ${authStore.accessToken}` }
+      : {};
+
+    await $fetch(`${apiBase}/branches/${branch.id}`, {
+      method: 'DELETE',
+      headers,
+      credentials: 'include',
+    });
+
+    await loadData();
+  } catch (err: any) {
+    alert(err.data?.error?.message || 'Failed to archive branch');
   }
 }
 
