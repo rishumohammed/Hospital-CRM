@@ -21,13 +21,6 @@
           + Add New User
         </button>
         <button
-          v-if="activeTab === 'picklists' && canManagePicklists"
-          @click="openCreatePicklistModal"
-          class="inline-flex items-center justify-center min-h-[44px] px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm shadow-sm transition-all shadow-teal-600/20 active:scale-95"
-        >
-          + Add Option
-        </button>
-        <button
           v-if="activeTab === 'settings' && canManageSettings"
           @click="saveSettings"
           :disabled="savingSettings"
