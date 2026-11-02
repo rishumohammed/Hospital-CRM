@@ -87,7 +87,7 @@
         </div>
 
         <!-- Group 2: Specialized Desks -->
-        <div>
+        <div v-if="deskNavItems.length > 0">
           <div
             v-if="!isCollapsed || isMobileMenuOpen"
             class="px-3 mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500"
@@ -155,7 +155,7 @@
         </div>
 
         <!-- Group 4: Analytics & Content -->
-        <div>
+        <div v-if="managementNavItems.length > 0">
           <div
             v-if="!isCollapsed || isMobileMenuOpen"
             class="px-3 mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500"
@@ -420,18 +420,58 @@ watch(
   }
 );
 
-// Navigation Groups
-const coreNavItems = computed(() => [
-  { to: '/', label: t('nav.my_work'), icon: 'i-heroicons-squares-2x2' },
-  { to: '/leads', label: t('nav.leads'), icon: 'i-heroicons-user-group' },
-  { to: '/cases', label: t('nav.cases'), icon: 'i-heroicons-briefcase' },
-]);
+// User Role Code Helper
+const userRoleCode = computed(() => {
+  if (!authStore.user) return '';
+  if (typeof authStore.user.role === 'object' && authStore.user.role?.code) {
+    return authStore.user.role.code;
+  }
+  return (authStore.user as any).roleCode || String(authStore.user.role || '');
+});
 
-const deskNavItems = computed(() => [
-  { to: '/admission', label: t('nav.admission_desk'), icon: 'i-heroicons-building-office-2' },
-  { to: '/aftercare', label: t('nav.aftercare_desk'), icon: 'i-heroicons-heart' },
-  { to: '/doctor', label: t('nav.doctor_view'), icon: 'i-heroicons-academic-cap' },
-]);
+// Navigation Groups Filtered by Permissions and Roles
+const coreNavItems = computed(() => {
+  const items: { to: string; label: string; icon: string }[] = [
+    { to: '/', label: t('nav.my_work'), icon: 'i-heroicons-squares-2x2' },
+  ];
+  if (authStore.hasPermission('lead.view')) {
+    items.push({ to: '/leads', label: t('nav.leads'), icon: 'i-heroicons-user-group' });
+  }
+  if (authStore.hasPermission('case.view')) {
+    items.push({ to: '/cases', label: t('nav.cases'), icon: 'i-heroicons-briefcase' });
+  }
+  return items;
+});
+
+const deskNavItems = computed(() => {
+  const items: { to: string; label: string; icon: string }[] = [];
+  const role = userRoleCode.value;
+  const teams = authStore.user?.teamCodes || [];
+
+  // Admission Desk
+  const canSeeAdmission =
+    ['owner', 'admin', 'center_head', 'telecaller_manager', 'admission_specialist'].includes(role) ||
+    teams.includes('admission');
+  if (canSeeAdmission && authStore.hasPermission('case.view')) {
+    items.push({ to: '/admission', label: t('nav.admission_desk'), icon: 'i-heroicons-building-office-2' });
+  }
+
+  // Aftercare Desk
+  const canSeeAftercare =
+    ['owner', 'admin', 'center_head', 'telecaller_manager', 'aftercare_executive', 'treatment_followup_executive'].includes(role) ||
+    teams.includes('aftercare');
+  if (canSeeAftercare && authStore.hasPermission('case.view')) {
+    items.push({ to: '/aftercare', label: t('nav.aftercare_desk'), icon: 'i-heroicons-heart' });
+  }
+
+  // Doctor View: strictly for Doctors, Medical Center Heads, Admins, and Owners
+  const canSeeDoctor = ['owner', 'admin', 'center_head', 'doctor'].includes(role);
+  if (canSeeDoctor) {
+    items.push({ to: '/doctor', label: t('nav.doctor_view'), icon: 'i-heroicons-academic-cap' });
+  }
+
+  return items;
+});
 
 const productNavItems = computed(() => {
   const items: { to: string; label: string; icon: string }[] = [];
@@ -442,13 +482,21 @@ const productNavItems = computed(() => {
 });
 
 const managementNavItems = computed(() => {
-  const items = [
-    { to: '/reports', label: t('nav.reports'), icon: 'i-heroicons-chart-bar' },
-  ];
-  const role = authStore.user?.role;
+  const items: { to: string; label: string; icon: string }[] = [];
+  const role = userRoleCode.value;
+
+  const canSeeReports =
+    authStore.hasPermission('report.view') ||
+    authStore.hasPermission('product_report.view') ||
+    ['owner', 'admin', 'center_head', 'telecaller_manager', 'product_manager'].includes(role);
+  if (canSeeReports) {
+    items.push({ to: '/reports', label: t('nav.reports'), icon: 'i-heroicons-chart-bar' });
+  }
+
   const canAccessAdmin =
-    ['owner', 'admin', 'center_head', 'telecaller_manager', 'product_manager'].includes(role) ||
-    authStore.hasPermission('settings.manage');
+    authStore.hasPermission('settings.manage') ||
+    authStore.hasPermission('user.manage') ||
+    ['owner', 'admin', 'center_head', 'telecaller_manager', 'product_manager'].includes(role);
   if (canAccessAdmin) {
     items.push({ to: '/admin', label: t('nav.settings') || 'Settings', icon: 'i-heroicons-cog-6-tooth' });
   }

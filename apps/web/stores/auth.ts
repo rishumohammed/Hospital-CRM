@@ -126,7 +126,8 @@ export const useAuthStore = defineStore('auth', () => {
 
   function hasPermission(permission: string): boolean {
     if (!user.value) return false;
-    if (user.value.role?.code === 'owner') return true;
+    const roleCode = user.value.role?.code || (user.value as any).roleCode || (typeof user.value.role === 'string' ? user.value.role : '');
+    if (roleCode === 'owner') return true;
     if (user.value.permissions && user.value.permissions[permission]) {
       return user.value.permissions[permission] !== 'none';
     }
