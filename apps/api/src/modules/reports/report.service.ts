@@ -456,7 +456,7 @@ export async function getSupportReport(
     {
       stage: 'Total Inquiries',
       count: totalLeads,
-      percentage: 100,
+      percentage: totalLeads > 0 ? 100 : 0,
       color: 'teal',
     },
     {

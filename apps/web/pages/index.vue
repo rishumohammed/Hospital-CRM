@@ -561,7 +561,7 @@
                 <div
                   class="h-full rounded-full transition-all duration-700 shadow-xs"
                   :class="stg.barClass"
-                  :style="{ width: `${Math.max(stg.percentage, 4)}%` }"
+                  :style="{ width: `${stg.percentage > 0 ? Math.max(stg.percentage, 4) : 0}%` }"
                 ></div>
               </div>
             </div>
@@ -1022,7 +1022,7 @@ const funnelStages = computed(() => {
   const m = supportMetrics.value;
   if (!m) return [];
 
-  const total = m.totalLeads || 1;
+  const total = m.totalLeads || 0;
   const inPipeline = (m.inProgressLeads || 0) + (m.appointmentBookedLeads || 0) + (m.visitedLeads || 0) + (m.convertedLeads || 0);
   const bookedOrDone = (m.appointmentBookedLeads || 0) + (m.visitedLeads || 0) + (m.convertedLeads || 0);
   const converted = m.convertedLeads || 0;
@@ -1030,29 +1030,29 @@ const funnelStages = computed(() => {
   return [
     {
       stage: 'Total Leads Inquiries',
-      count: m.totalLeads || 0,
-      percentage: 100,
+      count: total,
+      percentage: total > 0 ? 100 : 0,
       dotClass: 'bg-teal-500',
       barClass: 'bg-gradient-to-r from-teal-500 to-teal-600',
     },
     {
       stage: 'Contacted & Qualified',
       count: inPipeline,
-      percentage: Math.min(100, Math.round((inPipeline / total) * 100)),
+      percentage: total > 0 ? Math.min(100, Math.round((inPipeline / total) * 100)) : 0,
       dotClass: 'bg-blue-500',
       barClass: 'bg-gradient-to-r from-blue-500 to-blue-600',
     },
     {
       stage: 'Consultations Booked',
       count: bookedOrDone,
-      percentage: Math.min(100, Math.round((bookedOrDone / total) * 100)),
+      percentage: total > 0 ? Math.min(100, Math.round((bookedOrDone / total) * 100)) : 0,
       dotClass: 'bg-amber-500',
       barClass: 'bg-gradient-to-r from-amber-500 to-amber-600',
     },
     {
       stage: 'Admitted / Converted',
       count: converted,
-      percentage: m.conversionRate || Math.min(100, Math.round((converted / total) * 100)),
+      percentage: total > 0 ? (m.conversionRate ?? Math.min(100, Math.round((converted / total) * 100))) : 0,
       dotClass: 'bg-emerald-500',
       barClass: 'bg-gradient-to-r from-emerald-500 to-emerald-600',
     },
