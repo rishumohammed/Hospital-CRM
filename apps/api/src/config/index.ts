@@ -26,6 +26,16 @@ const configSchema = z.object({
     .default('false'),
 });
 
+// If DATABASE_URL is not explicitly provided, or if DB_PASSWORD is provided, construct safely with encoded special characters
+if (!process.env.DATABASE_URL && process.env.DB_PASSWORD) {
+  const user = encodeURIComponent(process.env.DB_USER || 'crm_user');
+  const pass = encodeURIComponent(process.env.DB_PASSWORD);
+  const host = process.env.DB_HOST || 'mysql';
+  const port = process.env.DB_PORT || '3306';
+  const name = process.env.DB_NAME || 'hospital_crm';
+  process.env.DATABASE_URL = `mysql://${user}:${pass}@${host}:${port}/${name}?charset=utf8mb4`;
+}
+
 const parsed = configSchema.safeParse(process.env);
 
 if (!parsed.success) {

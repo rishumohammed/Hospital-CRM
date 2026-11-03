@@ -15,6 +15,13 @@ until nc -z -v -w30 "$DB_HOST" "$DB_PORT" > /dev/null 2>&1; do
 done
 echo "==> Database connection established!"
 
+# Ensure DATABASE_URL has properly URL-encoded credentials (handles special characters like @, %, etc.)
+if [ -n "$DB_PASSWORD" ]; then
+  ENCODED_PW=$(node -e "console.log(encodeURIComponent(process.env.DB_PASSWORD))")
+  ENCODED_USER=$(node -e "console.log(encodeURIComponent(process.env.DB_USER || 'crm_user'))")
+  export DATABASE_URL="mysql://${ENCODED_USER}:${ENCODED_PW}@${DB_HOST:-mysql}:${DB_PORT:-3306}/${DB_NAME:-hospital_crm}?charset=utf8mb4"
+fi
+
 echo "==> Synchronizing Prisma schema with MySQL database..."
 npx prisma db push --skip-generate
 

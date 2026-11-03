@@ -9,16 +9,17 @@ services:
       - --default-time-zone=+00:00
       - --explicit_defaults_for_timestamp=1
     environment:
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root_super_secure_password}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-5@mads3LewenT%%}
       MYSQL_DATABASE: ${DB_NAME:-hospital_crm}
       MYSQL_USER: ${DB_USER:-crm_user}
-      MYSQL_PASSWORD: ${DB_PASSWORD:-crm_secure_password}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-5@mads3LewenT%%}
     ports:
       - "127.0.0.1:3306:3306"
     volumes:
-      - mysql_data:/var/lib/mysql
+      # Isolated persistent database storage on the host filesystem
+      - ${DB_DATA_PATH:-/var/lib/hospital-crm-data/mysql}:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD:-root_super_secure_password}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD:-5@mads3LewenT%%}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -38,13 +39,17 @@ services:
       NODE_ENV: production
       PORT: 4000
       HOST: 0.0.0.0
-      DATABASE_URL: mysql://${DB_USER:-crm_user}:${DB_PASSWORD:-crm_secure_password}@mysql:3306/${DB_NAME:-hospital_crm}?charset=utf8mb4
+      DB_USER: ${DB_USER:-crm_user}
+      DB_PASSWORD: ${DB_PASSWORD:-5@mads3LewenT%%}
       DB_HOST: mysql
       DB_PORT: 3306
-      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-prod-jwt-access-secret-change-me-32-chars}
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-prod-jwt-refresh-secret-change-me-32-chars}
-      COOKIE_SECRET: ${COOKIE_SECRET:-prod-cookie-secret-change-me-32-chars}
-      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+      DB_NAME: ${DB_NAME:-hospital_crm}
+      # URL-encoded credentials for Prisma compatibility with special characters (@ and %)
+      DATABASE_URL: mysql://${DB_USER:-crm_user}:5%40mads3LewenT%25%25@mysql:3306/${DB_NAME:-hospital_crm}?charset=utf8mb4
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-prod-jwt-access-secret-32-chars-long-portal}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-prod-jwt-refresh-secret-32-chars-long-portal}
+      COOKIE_SECRET: ${COOKIE_SECRET:-prod-cookie-secret-32-chars-long-portal}
+      CORS_ORIGIN: ${CORS_ORIGIN:-https://portal.samadselements.com,http://portal.samadselements.com}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       SESSION_IDLE_TIMEOUT_MINUTES: ${SESSION_IDLE_TIMEOUT_MINUTES:-30}
       MFA_ENABLED_DEFAULT: ${MFA_ENABLED_DEFAULT:-false}
@@ -91,8 +96,6 @@ services:
       - hospital_network
 
 volumes:
-  mysql_data:
-    driver: local
   certbot_conf:
     driver: local
   certbot_www:
@@ -101,4 +104,3 @@ volumes:
 networks:
   hospital_network:
     driver: bridge
-
