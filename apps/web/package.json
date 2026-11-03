@@ -8,8 +8,8 @@
     "build": "node -r ../../scripts/patch-fs.cjs ./node_modules/nuxt/bin/nuxt.mjs build",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "postinstall": "nuxt prepare && node scripts/fix-nitro-paths.mjs",
-    "typecheck": "node scripts/fix-nitro-paths.mjs && vue-tsc --noEmit",
+    "postinstall": "node -e \"import('fs').then(fs => { if (fs.existsSync('./nuxt.config.ts')) { import('child_process').then(cp => { cp.execSync('npx nuxt prepare', { stdio: 'inherit' }); if (fs.existsSync('./scripts/fix-nitro-paths.mjs')) { import('./scripts/fix-nitro-paths.mjs'); } }); } })\"",
+    "typecheck": "node -e \"import('fs').then(fs => fs.existsSync('./scripts/fix-nitro-paths.mjs') && import('./scripts/fix-nitro-paths.mjs'))\" && vue-tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
