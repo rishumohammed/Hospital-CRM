@@ -27,14 +27,27 @@ if ! command -v docker &> /dev/null; then
   echo "✓ Docker installed successfully!"
 fi
 
-# 2. Setup Separate Database Storage Directory on Host
+# 2. Add 2GB Swap if on a low-memory VPS (< 3.5GB RAM) to prevent OOM build crashes
+TOTAL_MEM=$(free -m | awk '/^Mem:/{print $2}')
+SWAP_MEM=$(free -m | awk '/^Swap:/{print $2}')
+if [ "$SWAP_MEM" -eq 0 ] && [ "$TOTAL_MEM" -lt 3500 ]; then
+  echo "==> Server has ${TOTAL_MEM}MB RAM and 0MB swap. Adding 2GB swapfile for Docker build stability..."
+  sudo fallocate -l 2G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=2048
+  sudo chmod 600 /swapfile
+  sudo mkswap /swapfile
+  sudo swapon /swapfile
+  echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+  echo "✓ 2GB swapfile activated!"
+fi
+
+# 3. Setup Separate Database Storage Directory on Host
 DB_DATA_DIR="/var/lib/hospital-crm-data/mysql"
 echo "==> Creating separate database storage directory at $DB_DATA_DIR..."
 sudo mkdir -p "$DB_DATA_DIR"
 sudo chmod 777 "$DB_DATA_DIR"
 echo "✓ Isolated database volume prepared at $DB_DATA_DIR"
 
-# 3. Setup Environment Variables (.env)
+# 4. Setup Environment Variables (.env)
 if [ ! -f .env ]; then
   echo "==> Creating production .env file with pre-configured credentials..."
   cp .env.production.example .env
@@ -51,16 +64,16 @@ else
   echo "==> Existing .env file detected."
 fi
 
-# 4. Ensure scripts are executable
+# 5. Ensure scripts are executable
 chmod +x apps/api/docker-entrypoint.sh 2>/dev/null || true
 chmod +x setup-ssl.sh 2>/dev/null || true
 
-# 5. Build and Launch Containers
+# 6. Build and Launch Containers
 echo "==> Building and starting Docker containers..."
 sudo docker compose -f docker-compose.prod.yml down --remove-orphans || true
 sudo docker compose -f docker-compose.prod.yml up -d --build
 
-# 6. Show Status
+# 7. Show Status
 echo ""
 echo "=========================================================="
 echo "  Deployment Completed Successfully!"
