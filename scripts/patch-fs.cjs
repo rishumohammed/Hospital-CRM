@@ -1,9 +1,23 @@
 const fs = require('fs');
 const path = require('path');
 const Module = require('module');
+const cp = require('child_process');
+
+const repoRoot = path.resolve(__dirname, '..');
+
+// Automatically mount S: virtual drive to repo root on Windows if not already mounted
+if (process.platform === 'win32' && !fs.existsSync('S:\\')) {
+  try {
+    cp.execSync(`subst S: "${repoRoot}"`, { stdio: 'ignore' });
+  } catch (err) {
+    // Will be caught if sandboxed or restricted
+  }
+}
+
+const sDriveActive = fs.existsSync('S:\\');
 
 const sanitize = (p) => {
-  if (typeof p === 'string') {
+  if (typeof p === 'string' && sDriveActive) {
     return p
       .replace(/^[a-zA-Z]:[\\\/]Consulting[\\\/]Samad's Elements[\\\/]CRM/i, 'S:')
       .replace(/^D:[\\\/]node_modules/i, 'S:\\node_modules')

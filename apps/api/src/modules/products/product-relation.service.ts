@@ -202,7 +202,7 @@ export async function updateProductRelation(
     data.relationType = input.relationType ?? input.relation_type;
   }
   if (input.talkingPoint !== undefined || input.talking_point !== undefined) {
-    data.talkingPoint = (input.talkingPoint ?? input.talking_point).trim();
+    data.talkingPoint = (input.talkingPoint ?? input.talking_point)?.trim();
   }
   if (input.sort !== undefined) {
     data.sort = input.sort;

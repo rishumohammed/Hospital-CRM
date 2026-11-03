@@ -13,18 +13,26 @@ import { cancelOpenCadenceTasks, calculateStepDueAt } from '../cadences/cadence.
 
 export interface CreateLeadInput {
   leadType?: 'treatment' | 'product';
+  lead_type?: 'treatment' | 'product';
   name: string;
   mobile: string;
   altMobile?: string | null;
   language?: 'en' | 'ml';
   concern?: string;
   departmentId?: number;
-  sourceId: number;
-  branchId: number;
+  department_id?: number;
+  sourceId?: number;
+  source_id?: number;
+  branchId?: number;
+  branch_id?: number;
   campaignId?: number | null;
+  campaign_id?: number | null;
   campaignText?: string | null;
+  campaign_text?: string | null;
   referrerText?: string | null;
+  referrer_text?: string | null;
   productIds?: number[];
+  product_ids?: number[];
   note?: string | null;
   consentCalls?: boolean;
   consentWhatsapp?: boolean;
@@ -336,15 +344,28 @@ export async function quickCreateLead(
     throw error;
   }
 
-  // Fetch Source to determine SLA
-  const source = await prisma.source.findUnique({
-    where: { id: input.sourceId },
-  });
+  // Resolve sourceId
+  const resolvedSourceId = input.sourceId ?? input.source_id;
+  let source = resolvedSourceId
+    ? await prisma.source.findUnique({ where: { id: resolvedSourceId } })
+    : null;
+  if (!source) {
+    source = await prisma.source.findFirst({ where: { active: true } });
+  }
+  const sourceId = source?.id || 1;
   const sourceCode = source?.code || 'other';
+
+  // Resolve branchId
+  const resolvedBranchId = input.branchId ?? input.branch_id;
+  let branchId = resolvedBranchId;
+  if (!branchId) {
+    const mainBranch = await prisma.branch.findFirst({ where: { code: 'MAIN' } });
+    branchId = mainBranch?.id || 1;
+  }
 
   const firstResponseDueAt = await calculateFirstResponseDue(
     sourceCode,
-    input.branchId,
+    branchId,
     new Date(),
     isProduct ? 'product' : 'treatment'
   );
@@ -354,14 +375,14 @@ export async function quickCreateLead(
     if (user.roleCode === 'product_sales_executive') {
       assignedOwnerId = user.id;
     } else {
-      assignedOwnerId = await assignProductLeadRoundRobin(input.branchId);
+      assignedOwnerId = await assignProductLeadRoundRobin(branchId);
       if (!assignedOwnerId) assignedOwnerId = user.id;
     }
   } else {
     if (user.roleCode === 'support_telecaller') {
       assignedOwnerId = user.id;
     } else {
-      assignedOwnerId = await assignLeadRoundRobin(input.branchId);
+      assignedOwnerId = await assignLeadRoundRobin(branchId);
     }
   }
 
@@ -371,11 +392,16 @@ export async function quickCreateLead(
   const priority = isAd ? 'hot' : 'warm';
 
   // Fallback department for product leads
-  let departmentId = input.departmentId;
+  let departmentId = input.departmentId ?? input.department_id;
   if (!departmentId) {
     const defaultDept = await prisma.department.findFirst({ where: { active: true } });
     departmentId = defaultDept ? defaultDept.id : 1;
   }
+
+  const campaignId = input.campaignId ?? input.campaign_id ?? null;
+  const campaignText = input.campaignText ?? input.campaign_text ?? null;
+  const referrerText = input.referrerText ?? input.referrer_text ?? null;
+  const productIds = input.productIds ?? input.product_ids;
 
   const lead = await prisma.lead.create({
     data: {
@@ -388,11 +414,11 @@ export async function quickCreateLead(
       language: input.language ?? 'en',
       concern: input.concern ?? '',
       departmentId,
-      sourceId: input.sourceId,
-      branchId: input.branchId,
-      campaignId: input.campaignId ?? null,
-      campaignText: input.campaignText ?? null,
-      referrerText: input.referrerText ?? null,
+      sourceId,
+      branchId,
+      campaignId,
+      campaignText,
+      referrerText,
       consentCalls: input.consentCalls ?? true,
       consentWhatsapp: input.consentWhatsapp ?? false,
       consentSms: input.consentSms ?? false,
@@ -413,9 +439,9 @@ export async function quickCreateLead(
   });
 
   // Attach product interests if selected
-  if (isProduct && input.productIds && input.productIds.length > 0) {
+  if (isProduct && productIds && productIds.length > 0) {
     const products = await prisma.product.findMany({
-      where: { id: { in: input.productIds } },
+      where: { id: { in: productIds } },
     });
     for (const prod of products) {
       await prisma.leadProductInterest.create({
@@ -463,7 +489,7 @@ export async function quickCreateLead(
     });
   }
 
-  // Notify assigned owner
+  // Notify assigned owner and create initial calling task
   if (assignedOwnerId) {
     await prisma.notification.create({
       data: {
@@ -472,6 +498,18 @@ export async function quickCreateLead(
         title: isProduct ? 'New Product Lead Assigned' : 'New Lead Assigned',
         body: `You have been assigned new ${isProduct ? 'product ' : ''}lead: ${lead.name} (${source?.labelEn || 'Direct'}).`,
         link: `/leads/${lead.id}`,
+      },
+    });
+
+    await prisma.task.create({
+      data: {
+        title: `Inquiry Call: ${lead.name}${lead.department ? ` (${lead.department.labelEn})` : ''}`,
+        type: 'call',
+        dueAt: lead.firstResponseDueAt || new Date(),
+        priority: lead.priority || 'hot',
+        status: 'open',
+        ownerId: assignedOwnerId,
+        leadId: lead.id,
       },
     });
   }

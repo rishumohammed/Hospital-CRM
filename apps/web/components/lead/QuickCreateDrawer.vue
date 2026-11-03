@@ -272,6 +272,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'close'): void;
   (e: 'created', lead: any): void;
+  (e: 'lead-created', lead: any): void;
 }>();
 
 const authStore = useAuthStore();
@@ -450,7 +451,19 @@ const submitLead = async () => {
       return;
     }
 
+    // Reset form fields
+    form.name = '';
+    form.mobile = '';
+    form.concern = '';
+    form.campaignId = null;
+    form.productIds = [];
+    form.overrideDuplicate = false;
+    form.overrideReason = '';
+    duplicateLead.value = null;
+    errorMessage.value = '';
+
     emit('created', data);
+    emit('lead-created', data);
     close();
   } catch (err: any) {
     errorMessage.value = err.message || 'Network error occurred.';

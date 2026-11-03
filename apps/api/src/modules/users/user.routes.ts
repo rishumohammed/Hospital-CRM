@@ -274,7 +274,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      const data = parseResult.data;
+      const data: typeof parseResult.data & { status?: 'active' | 'inactive' } = parseResult.data;
       const updatePayload: any = {};
 
       if (data.name) updatePayload.name = data.name;

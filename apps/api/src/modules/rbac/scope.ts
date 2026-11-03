@@ -26,6 +26,7 @@ export type ResourceType =
   | 'product'
   | 'product_category'
   | 'product_campaign'
+  | 'product_relation'
   | 'case'
   | 'task'
   | 'interaction'

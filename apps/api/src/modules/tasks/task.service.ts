@@ -11,6 +11,8 @@ export interface TaskFilterOptions {
   ownerId?: number;
   leadId?: number;
   caseId?: number;
+  search?: string;
+  nextStepOnly?: boolean;
   page?: number;
   pageSize?: number;
 }
@@ -92,6 +94,49 @@ export async function listTasks(filter: TaskFilterOptions, user: UserContext) {
   if (filter.caseId) {
     where.AND.push({ caseId: filter.caseId });
   }
+  if (filter.search && filter.search.trim()) {
+    const s = filter.search.trim();
+    where.AND.push({
+      OR: [
+        { title: { contains: s } },
+        { lead: { name: { contains: s } } },
+        { lead: { mobile: { contains: s } } },
+        { case: { patient: { name: { contains: s } } } },
+        { case: { patient: { mobile: { contains: s } } } },
+      ],
+    });
+  }
+
+  // Single next step filter: restrict to earliest open task per lead or case
+  if (filter.nextStepOnly) {
+    const openTasks = await prisma.task.findMany({
+      where: { status: 'open' },
+      select: { id: true, leadId: true, caseId: true, dueAt: true },
+      orderBy: [{ dueAt: 'asc' }, { id: 'asc' }],
+    });
+
+    const nextStepTaskIds: number[] = [];
+    const seenLeads = new Set<number>();
+    const seenCases = new Set<number>();
+
+    for (const t of openTasks) {
+      if (t.leadId) {
+        if (!seenLeads.has(t.leadId)) {
+          seenLeads.add(t.leadId);
+          nextStepTaskIds.push(t.id);
+        }
+      } else if (t.caseId) {
+        if (!seenCases.has(t.caseId)) {
+          seenCases.add(t.caseId);
+          nextStepTaskIds.push(t.id);
+        }
+      } else {
+        nextStepTaskIds.push(t.id);
+      }
+    }
+
+    where.AND.push({ id: { in: nextStepTaskIds } });
+  }
 
   const page = filter.page && filter.page > 0 ? filter.page : 1;
   const pageSize = filter.pageSize && filter.pageSize > 0 ? Math.min(filter.pageSize, 100) : 50;
@@ -134,6 +179,18 @@ export async function listTasks(filter: TaskFilterOptions, user: UserContext) {
                 },
               },
             },
+            interactions: {
+              take: 1,
+              orderBy: { occurredAt: 'desc' },
+              select: {
+                id: true,
+                type: true,
+                note: true,
+                occurredAt: true,
+                outcome: { select: { id: true, code: true, labelEn: true, labelMl: true } },
+                user: { select: { id: true, name: true } },
+              },
+            },
           },
         },
         case: {
@@ -143,6 +200,18 @@ export async function listTasks(filter: TaskFilterOptions, user: UserContext) {
             careType: true,
             patient: { select: { id: true, patientCode: true, name: true, mobileNorm: true } },
             department: { select: { id: true, code: true, labelEn: true, labelMl: true } },
+            interactions: {
+              take: 1,
+              orderBy: { occurredAt: 'desc' },
+              select: {
+                id: true,
+                type: true,
+                note: true,
+                occurredAt: true,
+                outcome: { select: { id: true, code: true, labelEn: true, labelMl: true } },
+                user: { select: { id: true, name: true } },
+              },
+            },
           },
         },
       },

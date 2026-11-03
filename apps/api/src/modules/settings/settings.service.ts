@@ -127,3 +127,87 @@ export async function resetAllTestData() {
     message: 'All transactional data, marketing campaigns, products, and categories cleared successfully. Catalog is completely clean for fresh setup.',
   };
 }
+
+/**
+ * Clear all operational/demo data (leads, cases, tasks, visits, interactions, appointments, etc.)
+ * while keeping Users, Roles, Permissions, Departments, Sources, Settings, Products & Categories intact.
+ */
+export async function clearOperationalData() {
+  console.log('--- Clearing Operational / Demo Data ---');
+  // 1. Break circular / self references on leads and cases
+  await prisma.lead.updateMany({
+    data: {
+      referredFromLeadId: null,
+      convertedPatientId: null,
+      closedReasonId: null,
+      campaignId: null,
+      ownerId: null,
+    },
+  });
+
+  await prisma.case.updateMany({
+    data: {
+      leadId: null,
+      treatingDoctorId: null,
+      ownerId: null,
+      notStartedReasonId: null,
+      closureCodeId: null,
+    },
+  });
+
+  // 2. Clear transactional tables in foreign-key safe order
+  const productInterests = await prisma.leadProductInterest.deleteMany();
+  const waitlist = await prisma.productWaitlist.deleteMany();
+  const testimonialSendItems = await prisma.leadTestimonialSendItem.deleteMany();
+  const testimonialSends = await prisma.leadTestimonialSend.deleteMany();
+  const interactions = await prisma.interaction.deleteMany();
+  const tasks = await prisma.task.deleteMany();
+  const appointments = await prisma.appointment.deleteMany();
+  const treatmentCheckins = await prisma.treatmentCheckin.deleteMany();
+  const escalations = await prisma.escalation.deleteMany();
+  const scheduleExtensionRequests = await prisma.scheduleExtensionRequest.deleteMany();
+  const scheduledVisits = await prisma.scheduledVisit.deleteMany();
+  const visitSchedules = await prisma.visitSchedule.deleteMany();
+  const caseHandovers = await prisma.caseHandover.deleteMany();
+  const cases = await prisma.case.deleteMany();
+  const leads = await prisma.lead.deleteMany();
+  const patients = await prisma.patient.deleteMany();
+  const notifications = await prisma.notification.deleteMany();
+  const outboxEvents = await prisma.outboxEvent.deleteMany();
+  const exportsData = await prisma.export.deleteMany();
+
+  await prisma.auditLog.deleteMany({
+    where: {
+      entity: {
+        in: ['lead', 'case', 'patient', 'task', 'interaction', 'appointment', 'visit', 'treatment_checkin', 'escalation'],
+      },
+    },
+  });
+
+  const result = {
+    success: true,
+    message: 'All operational and demo data cleared successfully. System configuration, users, roles, and product catalog remain intact.',
+    clearedCounts: {
+      leads: leads.count,
+      patients: patients.count,
+      cases: cases.count,
+      tasks: tasks.count,
+      interactions: interactions.count,
+      appointments: appointments.count,
+      scheduledVisits: scheduledVisits.count,
+      visitSchedules: visitSchedules.count,
+      treatmentCheckins: treatmentCheckins.count,
+      escalations: escalations.count,
+      caseHandovers: caseHandovers.count,
+      productInterests: productInterests.count,
+      waitlist: waitlist.count,
+      testimonialSends: testimonialSends.count,
+      notifications: notifications.count,
+      outboxEvents: outboxEvents.count,
+      exports: exportsData.count,
+    },
+  };
+  console.log('✓ Operational Data Cleared:', JSON.stringify(result.clearedCounts, null, 2));
+  return result;
+}
+

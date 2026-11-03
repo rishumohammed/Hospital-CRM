@@ -325,6 +325,7 @@ export const snoozeTaskSchema = z.object({
 export const logCallInteractionSchema = z.object({
   leadId: z.number().int().positive().optional().nullable(),
   caseId: z.number().int().positive().optional().nullable(),
+  taskId: z.number().int().positive().optional().nullable(),
   outcomeId: z.number().int().positive(),
   durationSeconds: z.number().int().nonnegative().optional().nullable(),
   note: z.string().max(2000).optional().default(''),
@@ -1037,6 +1038,7 @@ export const updateProductRelationSchema = z.object({
   sort: z.coerce.number().int().optional(),
   active: z.boolean().optional(),
 });
+export type UpdateProductRelationInput = z.infer<typeof updateProductRelationSchema>;
 
 export const createProductCampaignSchema = z.object({
   name: z.string().trim().min(2, 'Name is required').max(150),
@@ -1108,5 +1110,38 @@ export const referToTreatmentSchema = z.object({
   departmentId: z.coerce.number().int().positive().optional(),
   department_id: z.coerce.number().int().positive().optional(),
 });
+
+// Doctor Schemas
+export const createDoctorSchema = z.object({
+  name: z.string().trim().min(2, 'Doctor name is required').max(100),
+  departmentId: z.coerce.number().int().positive('Valid department is required'),
+  qualification: z.string().trim().min(2, 'Qualification is required').max(100),
+  designation: z.string().trim().max(100).optional().default('Consultant'),
+  opdTiming: z.string().trim().max(100).optional().default('09:00 AM - 01:00 PM'),
+  roomNo: z.string().trim().max(50).optional().default(''),
+  consultationFee: z.coerce.number().min(0).optional().default(0),
+  phone: z.string().trim().max(20).optional().default(''),
+  email: z.string().trim().email().optional().or(z.literal('')).default(''),
+  active: z.boolean().optional().default(true),
+  sort: z.coerce.number().int().optional().default(0),
+});
+
+export const updateDoctorSchema = z.object({
+  name: z.string().trim().min(2).max(100).optional(),
+  departmentId: z.coerce.number().int().positive().optional(),
+  qualification: z.string().trim().min(2).max(100).optional(),
+  designation: z.string().trim().max(100).optional(),
+  opdTiming: z.string().trim().max(100).optional(),
+  roomNo: z.string().trim().max(50).optional(),
+  consultationFee: z.coerce.number().min(0).optional(),
+  phone: z.string().trim().max(20).optional(),
+  email: z.string().trim().email().optional().or(z.literal('')),
+  active: z.boolean().optional(),
+  sort: z.coerce.number().int().optional(),
+});
+
+export type CreateDoctorInput = z.infer<typeof createDoctorSchema>;
+export type UpdateDoctorInput = z.infer<typeof updateDoctorSchema>;
+
 
 

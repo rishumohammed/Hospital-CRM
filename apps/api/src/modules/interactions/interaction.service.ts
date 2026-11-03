@@ -95,6 +95,7 @@ function fromLocalZonedDate(zonedDate: Date, timezone: string): Date {
 export interface LogCallInput {
   leadId?: number | null;
   caseId?: number | null;
+  taskId?: number | null;
   outcomeId: number;
   durationSeconds?: number | null;
   note?: string;
@@ -179,7 +180,37 @@ export async function logCallInteraction(input: LogCallInput, user: UserContext)
       },
     });
 
-    // B. Handle Lead-specific updates
+    // B. Mark active/current task completed (if taskId provided or earliest open task on this resource)
+    if (input.taskId) {
+      await tx.task.updateMany({
+        where: { id: input.taskId, status: 'open' },
+        data: {
+          status: 'done',
+          completedAt: new Date(),
+          completedBy: user.id,
+        },
+      });
+    } else {
+      const activeTask = await tx.task.findFirst({
+        where: {
+          status: 'open',
+          ...(input.leadId ? { leadId: input.leadId } : input.caseId ? { caseId: input.caseId } : {}),
+        },
+        orderBy: { dueAt: 'asc' },
+      });
+      if (activeTask) {
+        await tx.task.update({
+          where: { id: activeTask.id },
+          data: {
+            status: 'done',
+            completedAt: new Date(),
+            completedBy: user.id,
+          },
+        });
+      }
+    }
+
+    // C. Handle Lead-specific updates
     if (input.leadId) {
       const lead = await tx.lead.findUnique({
         where: { id: input.leadId },
@@ -256,12 +287,21 @@ export async function logCallInteraction(input: LogCallInput, user: UserContext)
         });
       }
 
-      // Apply explicit next action if provided
-      if (input.nextAction && !input.closedReasonId) {
+      // Apply explicit next action if provided (ensure single next step, skip if auto-cadence was applied)
+      if (input.nextAction && !input.closedReasonId && !isAutoCadenceOutcome) {
+        // Cancel existing open cadence tasks on this lead so only the ONE new next action exists
+        await cancelOpenCadenceTasks(tx, 'lead', lead.id);
+
+        let taskTitle = input.nextAction.title?.trim();
+        const isGeneric = !taskTitle || taskTitle === 'Follow-up Call' || taskTitle.startsWith('Follow-up with');
+        if (isGeneric && input.note && input.note.trim()) {
+          taskTitle = `Follow-up: ${input.note.trim().slice(0, 150)}`;
+        }
+
         await tx.task.create({
           data: {
             type: input.nextAction.type,
-            title: input.nextAction.title,
+            title: taskTitle || input.nextAction.title || 'Follow-up Call',
             dueAt: new Date(input.nextAction.dueAt),
             priority: input.nextAction.priority || 'warm',
             ownerId: input.nextAction.ownerId || lead.ownerId || user.id,
@@ -275,6 +315,31 @@ export async function logCallInteraction(input: LogCallInput, user: UserContext)
         await tx.lead.update({
           where: { id: lead.id },
           data: updates,
+        });
+      }
+    }
+
+    // D. Handle Case-specific updates
+    if (input.caseId && !input.leadId) {
+      if (input.nextAction && !input.closedReasonId) {
+        await cancelOpenCadenceTasks(tx, 'case', input.caseId);
+
+        let taskTitle = input.nextAction.title?.trim();
+        const isGeneric = !taskTitle || taskTitle === 'Follow-up Call' || taskTitle.startsWith('Follow-up with');
+        if (isGeneric && input.note && input.note.trim()) {
+          taskTitle = `Follow-up: ${input.note.trim().slice(0, 150)}`;
+        }
+
+        await tx.task.create({
+          data: {
+            type: input.nextAction.type,
+            title: taskTitle || input.nextAction.title || 'Follow-up Call',
+            dueAt: new Date(input.nextAction.dueAt),
+            priority: input.nextAction.priority || 'warm',
+            ownerId: input.nextAction.ownerId || user.id,
+            caseId: input.caseId,
+            status: 'open',
+          },
         });
       }
     }

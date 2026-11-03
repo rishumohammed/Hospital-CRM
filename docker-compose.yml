@@ -22,7 +22,59 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - hospital_network
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: hospital_crm_api
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 4000
+      HOST: 0.0.0.0
+      DATABASE_URL: mysql://${DB_USER:-crm_user}:${DB_PASSWORD:-crm_password}@mysql:3306/${DB_NAME:-hospital_crm}?charset=utf8mb4
+      DB_HOST: mysql
+      DB_PORT: 3306
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev-jwt-access-secret-minimum-32-characters-long}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-jwt-refresh-secret-minimum-32-characters-long}
+      COOKIE_SECRET: ${COOKIE_SECRET:-dev-cookie-secret-minimum-32-characters-long}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports:
+      - "4000:4000"
+    networks:
+      - hospital_network
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      args:
+        NUXT_PUBLIC_API_BASE: ${NUXT_PUBLIC_API_BASE:-http://localhost:4000/api/v1}
+    container_name: hospital_crm_web
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3000
+      HOST: 0.0.0.0
+      NUXT_PUBLIC_API_BASE: ${NUXT_PUBLIC_API_BASE:-http://localhost:4000/api/v1}
+    ports:
+      - "3000:3000"
+    networks:
+      - hospital_network
 
 volumes:
   mysql_data:
     driver: local
+
+networks:
+  hospital_network:
+    driver: bridge

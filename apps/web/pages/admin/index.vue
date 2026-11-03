@@ -21,6 +21,13 @@
           + Add New User
         </button>
         <button
+          v-if="activeTab === 'doctors' && canManageSettings"
+          @click="openCreateDoctorModal"
+          class="inline-flex items-center justify-center min-h-[44px] px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm shadow-sm transition-all shadow-teal-600/20 active:scale-95"
+        >
+          + Add New Doctor
+        </button>
+        <button
           v-if="activeTab === 'branches' && canManageSettings"
           @click="openCreateBranchModal"
           class="inline-flex items-center justify-center min-h-[44px] px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm shadow-sm transition-all shadow-teal-600/20 active:scale-95"
@@ -160,6 +167,150 @@
                       <UIcon name="i-heroicons-trash" class="w-4 h-4" />
                     </button>
                   </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: DOCTORS DIRECTORY (AGAINST DEPARTMENTS) -->
+    <div v-if="activeTab === 'doctors' && canManageSettings" class="space-y-4">
+      <!-- Search, Department Filter, and Metrics -->
+      <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4 space-y-4">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1">
+            <!-- Search -->
+            <div class="relative flex-1 max-w-sm">
+              <input
+                v-model="doctorSearch"
+                type="text"
+                placeholder="Search by doctor name, qualification, room..."
+                class="w-full min-h-[40px] pl-3 pr-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+              />
+            </div>
+
+            <!-- Department Filter -->
+            <select
+              v-model="doctorDeptFilter"
+              class="min-h-[40px] px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            >
+              <option :value="0">All Departments ({{ doctors.length }})</option>
+              <option v-for="dept in adminDepartments" :key="dept.id" :value="dept.id">
+                {{ dept.labelEn }}
+              </option>
+            </select>
+
+            <!-- Status Filter -->
+            <select
+              v-model="doctorStatusFilter"
+              class="min-h-[40px] px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            >
+              <option value="all">All Status</option>
+              <option value="active">Active Only</option>
+              <option value="inactive">Inactive Only</option>
+            </select>
+          </div>
+
+          <!-- Quick Stats Pill -->
+          <div class="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+            <span class="px-2.5 py-1 rounded-lg bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 font-semibold border border-teal-200/50">
+              {{ activeDoctorsCount }} Active
+            </span>
+            <span class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300">
+              {{ filteredDoctors.length }} Shown
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Doctors Table -->
+      <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-sm">
+            <thead>
+              <tr class="bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 text-xs uppercase tracking-wider font-semibold">
+                <th class="py-3.5 px-4">Doctor Details</th>
+                <th class="py-3.5 px-4">Assigned Department</th>
+                <th class="py-3.5 px-4">OPD Schedule & Room</th>
+                <th class="py-3.5 px-4">Consultation Fee</th>
+                <th class="py-3.5 px-4">Status</th>
+                <th class="py-3.5 px-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+              <tr
+                v-for="doc in filteredDoctors"
+                :key="doc.id"
+                class="hover:bg-slate-50/60 dark:hover:bg-slate-700/40 transition-colors"
+              >
+                <td class="py-3.5 px-4">
+                  <div class="font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                    <span>👨‍⚕️</span>
+                    <span>{{ doc.name }}</span>
+                  </div>
+                  <div class="text-xs text-slate-500 mt-0.5">
+                    {{ doc.qualification }}
+                    <span v-if="doc.designation" class="text-slate-400">&bull; {{ doc.designation }}</span>
+                  </div>
+                  <div v-if="doc.phone || doc.email" class="text-[11px] text-slate-400 mt-0.5">
+                    {{ [doc.phone, doc.email].filter(Boolean).join(' • ') }}
+                  </div>
+                </td>
+                <td class="py-3.5 px-4">
+                  <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-teal-50 text-teal-700 dark:bg-teal-950 dark:text-teal-300 border border-teal-200/50 dark:border-teal-900/50">
+                    {{ doc.departmentName || 'Department #' + doc.departmentId }}
+                  </span>
+                </td>
+                <td class="py-3.5 px-4">
+                  <div class="text-xs font-medium text-slate-800 dark:text-slate-200">
+                    🕒 {{ doc.opdTiming || '09:00 AM - 01:00 PM' }}
+                  </div>
+                  <div v-if="doc.roomNo" class="text-[11px] text-slate-500 mt-0.5">
+                    📍 {{ doc.roomNo }}
+                  </div>
+                </td>
+                <td class="py-3.5 px-4">
+                  <span class="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    {{ doc.consultationFee ? `₹${doc.consultationFee}` : 'Free' }}
+                  </span>
+                </td>
+                <td class="py-3.5 px-4">
+                  <button
+                    type="button"
+                    @click="toggleDoctorActive(doc)"
+                    :class="[
+                      'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold transition-colors',
+                      doc.active !== false
+                        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 hover:bg-emerald-100'
+                        : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 hover:bg-slate-200'
+                    ]"
+                  >
+                    <span class="w-1.5 h-1.5 rounded-full mr-1.5" :class="doc.active !== false ? 'bg-emerald-500' : 'bg-slate-400'"></span>
+                    {{ doc.active !== false ? 'Active' : 'Inactive' }}
+                  </button>
+                </td>
+                <td class="py-3.5 px-4 text-right">
+                  <div class="flex items-center justify-end space-x-2">
+                    <button
+                      @click="openEditDoctorModal(doc)"
+                      class="px-3 py-1 rounded-lg text-xs font-semibold text-teal-600 hover:bg-teal-50 dark:hover:bg-slate-700 transition-colors"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      @click="deleteDoctorConfirm(doc)"
+                      class="px-3 py-1 rounded-lg text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <tr v-if="filteredDoctors.length === 0">
+                <td colspan="6" class="py-12 text-center text-sm text-slate-400">
+                  No doctors found matching the selected filters.
                 </td>
               </tr>
             </tbody>
@@ -1506,6 +1657,203 @@
       </div>
     </div>
   </div>
+  <!-- DOCTOR CREATE / EDIT MODAL -->
+  <div
+    v-if="showDoctorModal"
+    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
+  >
+    <div class="relative w-full max-w-lg bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+      <div class="p-6 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between bg-teal-50/60 dark:bg-teal-950/20">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400 flex items-center justify-center text-lg font-semibold">
+            👨‍⚕️
+          </div>
+          <div>
+            <h3 class="font-semibold text-slate-900 dark:text-slate-100">
+              {{ isEditingDoctor ? 'Edit Doctor Details' : 'Add New Doctor' }}
+            </h3>
+            <p class="text-xs text-slate-500">
+              Assign doctor against hospital department with OPD timings
+            </p>
+          </div>
+        </div>
+        <button
+          @click="showDoctorModal = false"
+          class="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors"
+        >
+          &times;
+        </button>
+      </div>
+
+      <div v-if="doctorModalError" class="mx-6 mt-4 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-medium">
+        {{ doctorModalError }}
+      </div>
+
+      <form @submit.prevent="saveDoctor" class="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+        <!-- Doctor Name -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            Doctor Name <span class="text-rose-500">*</span>
+          </label>
+          <input
+            v-model="doctorForm.name"
+            type="text"
+            required
+            placeholder="e.g. Dr. Suresh Kumar"
+            class="w-full min-h-[40px] px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-teal-500"
+          />
+        </div>
+
+        <!-- Department -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            Department <span class="text-rose-500">*</span>
+          </label>
+          <select
+            v-model="doctorForm.departmentId"
+            required
+            class="w-full min-h-[40px] px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-teal-500"
+          >
+            <option :value="0" disabled>-- Select Department --</option>
+            <option v-for="dept in adminDepartments" :key="dept.id" :value="dept.id">
+              {{ dept.labelEn }} {{ dept.labelMl ? `(${dept.labelMl})` : '' }}
+            </option>
+          </select>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <!-- Qualification -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              Qualification <span class="text-rose-500">*</span>
+            </label>
+            <input
+              v-model="doctorForm.qualification"
+              type="text"
+              required
+              placeholder="e.g. BAMS, MD (Ayurveda)"
+              class="w-full min-h-[40px] px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-teal-500"
+            />
+          </div>
+
+          <!-- Designation -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              Designation
+            </label>
+            <input
+              v-model="doctorForm.designation"
+              type="text"
+              placeholder="e.g. Chief Ayurvedic Physician"
+              class="w-full min-h-[40px] px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-teal-500"
+            />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <!-- OPD Timings -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              OPD Schedule / Timings
+            </label>
+            <input
+              v-model="doctorForm.opdTiming"
+              type="text"
+              placeholder="e.g. 09:00 AM - 01:00 PM (Mon-Sat)"
+              class="w-full min-h-[40px] px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-teal-500"
+            />
+          </div>
+
+          <!-- Room / Clinic No -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              Room / Wing
+            </label>
+            <input
+              v-model="doctorForm.roomNo"
+              type="text"
+              placeholder="e.g. Room 101"
+              class="w-full min-h-[40px] px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-teal-500"
+            />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <!-- Consultation Fee -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              OPD Fee (₹)
+            </label>
+            <input
+              v-model.number="doctorForm.consultationFee"
+              type="number"
+              min="0"
+              placeholder="500"
+              class="w-full min-h-[40px] px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-teal-500"
+            />
+          </div>
+
+          <!-- Phone -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              Contact Mobile
+            </label>
+            <input
+              v-model="doctorForm.phone"
+              type="text"
+              placeholder="+91..."
+              class="w-full min-h-[40px] px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-teal-500"
+            />
+          </div>
+
+          <!-- Email -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              Email
+            </label>
+            <input
+              v-model="doctorForm.email"
+              type="email"
+              placeholder="doctor@hospitalcrm.com"
+              class="w-full min-h-[40px] px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-teal-500"
+            />
+          </div>
+        </div>
+
+        <!-- Active Status -->
+        <div class="flex items-center space-x-2 pt-2">
+          <input
+            id="doctor-active"
+            v-model="doctorForm.active"
+            type="checkbox"
+            class="w-4 h-4 rounded text-teal-600 focus:ring-teal-500 border-slate-300 dark:border-slate-600"
+          />
+          <label for="doctor-active" class="text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer">
+            Active (Available for appointment assignment)
+          </label>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex items-center justify-end space-x-2 pt-4 border-t border-slate-100 dark:border-slate-700">
+          <button
+            type="button"
+            @click="showDoctorModal = false"
+            class="px-4 py-2 min-h-[42px] rounded-xl text-slate-600 dark:text-slate-400 font-semibold text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            :disabled="savingDoctor"
+            class="inline-flex items-center gap-2 px-5 py-2 min-h-[42px] rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm disabled:opacity-50 transition-colors shadow-sm shadow-teal-600/20"
+          >
+            <UIcon v-if="savingDoctor" name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin" />
+            <span>{{ savingDoctor ? 'Saving...' : (isEditingDoctor ? 'Update Doctor' : 'Create Doctor') }}</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -1552,12 +1900,13 @@ const canViewAudit = computed(() => {
   return ['owner', 'admin', 'center_head'].includes(role) || authStore.hasPermission('audit.view');
 });
 
-const validTabs = ['users', 'branches', 'picklists', 'settings', 'audit'] as const;
+const validTabs = ['users', 'doctors', 'branches', 'picklists', 'settings', 'audit'] as const;
 type TabType = typeof validTabs[number];
 
 const tabList = computed(() => {
   const list: { id: TabType; label: string }[] = [];
   if (canManageUsers.value) list.push({ id: 'users', label: 'Users Directory' });
+  if (canManageSettings.value) list.push({ id: 'doctors', label: 'Doctors Directory' });
   if (canManageSettings.value) list.push({ id: 'branches', label: 'Hospital Branches' });
   if (canManagePicklists.value) list.push({ id: 'picklists', label: 'Master Picklists' });
   if (canManageSettings.value) list.push({ id: 'settings', label: 'System Settings' });
@@ -1576,6 +1925,8 @@ function switchTab(tabId: TabType) {
   router.replace({ query: { ...route.query, tab: tabId } });
   if (tabId === 'audit') {
     fetchAuditLogs();
+  } else if (tabId === 'doctors') {
+    fetchDoctors();
   }
 }
 
@@ -1592,6 +1943,60 @@ watch(
 );
 
 const userSearch = ref('');
+
+// Doctors Directory State
+const doctors = ref<any[]>([]);
+const adminDepartments = ref<any[]>([]);
+const doctorSearch = ref('');
+const doctorDeptFilter = ref<number>(0);
+const doctorStatusFilter = ref<'all' | 'active' | 'inactive'>('all');
+const showDoctorModal = ref(false);
+const isEditingDoctor = ref(false);
+const savingDoctor = ref(false);
+const doctorModalError = ref<string | null>(null);
+
+const doctorForm = ref({
+  id: 0,
+  name: '',
+  departmentId: 0,
+  qualification: '',
+  designation: 'Consultant',
+  opdTiming: '09:00 AM - 01:00 PM (Mon-Sat)',
+  roomNo: '',
+  consultationFee: 500,
+  phone: '',
+  email: '',
+  active: true,
+  sort: 0,
+});
+
+const activeDoctorsCount = computed(() => {
+  return doctors.value.filter((d) => d.active !== false).length;
+});
+
+const filteredDoctors = computed(() => {
+  let list = doctors.value || [];
+  if (doctorDeptFilter.value && doctorDeptFilter.value !== 0) {
+    list = list.filter((d) => Number(d.departmentId) === Number(doctorDeptFilter.value));
+  }
+  if (doctorStatusFilter.value === 'active') {
+    list = list.filter((d) => d.active !== false);
+  } else if (doctorStatusFilter.value === 'inactive') {
+    list = list.filter((d) => d.active === false);
+  }
+  if (doctorSearch.value.trim()) {
+    const q = doctorSearch.value.toLowerCase().trim();
+    list = list.filter(
+      (d) =>
+        (d.name && d.name.toLowerCase().includes(q)) ||
+        (d.qualification && d.qualification.toLowerCase().includes(q)) ||
+        (d.designation && d.designation.toLowerCase().includes(q)) ||
+        (d.roomNo && d.roomNo.toLowerCase().includes(q)) ||
+        (d.departmentName && d.departmentName.toLowerCase().includes(q))
+    );
+  }
+  return list;
+});
 
 const picklistTypes = [
   { id: 'departments', label: '15 Departments', singular: 'Department' },
@@ -2029,19 +2434,23 @@ async function loadData() {
       ? { Authorization: `Bearer ${authStore.accessToken}` }
       : {};
 
-    const [uRes, rRes, aRes, setRes, bRes, tRes] = await Promise.all([
+    const [uRes, rRes, aRes, setRes, bRes, tRes, docRes, deptRes] = await Promise.all([
       canManageUsers.value ? $fetch<any>(`${apiBase}/users`, { headers, credentials: 'include' }).catch(() => ({ items: [] })) : Promise.resolve({ items: [] }),
       $fetch<any>(`${apiBase}/roles`, { headers, credentials: 'include' }).catch(() => []),
       canViewAudit.value ? $fetch<any>(`${apiBase}/audit-logs`, { headers, credentials: 'include' }).catch(() => ({ items: [] })) : Promise.resolve({ items: [] }),
       canManageSettings.value ? $fetch<any>(`${apiBase}/settings`, { headers, credentials: 'include' }).catch(() => null) : Promise.resolve(null),
       $fetch<any>(`${apiBase}/branches`, { headers, credentials: 'include' }).catch(() => []),
       $fetch<any>(`${apiBase}/teams`, { headers, credentials: 'include' }).catch(() => []),
+      $fetch<any>(`${apiBase}/doctors?activeOnly=false`, { headers, credentials: 'include' }).catch(() => []),
+      $fetch<any>(`${apiBase}/picklists/departments`, { headers, credentials: 'include' }).catch(() => []),
     ]);
 
     users.value = uRes.items || [];
     roles.value = rRes || [];
     branches.value = bRes || [];
     teams.value = tRes || [];
+    doctors.value = Array.isArray(docRes) ? docRes : [];
+    adminDepartments.value = Array.isArray(deptRes) ? deptRes : [];
     auditLogs.value = aRes.items || [];
     auditTotal.value = aRes.total ?? (aRes.items?.length || 0);
 
@@ -2393,6 +2802,143 @@ async function archiveBranch(branch: any) {
     await loadData();
   } catch (err: any) {
     alert(err.data?.error?.message || 'Failed to archive branch');
+  }
+}
+
+// Doctor Operations
+function openCreateDoctorModal() {
+  isEditingDoctor.value = false;
+  doctorModalError.value = null;
+  doctorForm.value = {
+    id: 0,
+    name: '',
+    departmentId: adminDepartments.value[0]?.id || 0,
+    qualification: '',
+    designation: 'Consultant',
+    opdTiming: '09:00 AM - 01:00 PM (Mon-Sat)',
+    roomNo: '',
+    consultationFee: 500,
+    phone: '',
+    email: '',
+    active: true,
+    sort: doctors.value.length + 1,
+  };
+  showDoctorModal.value = true;
+}
+
+function openEditDoctorModal(doc: any) {
+  isEditingDoctor.value = true;
+  doctorModalError.value = null;
+  doctorForm.value = {
+    id: doc.id,
+    name: doc.name,
+    departmentId: doc.departmentId,
+    qualification: doc.qualification,
+    designation: doc.designation || '',
+    opdTiming: doc.opdTiming || '',
+    roomNo: doc.roomNo || '',
+    consultationFee: doc.consultationFee || 0,
+    phone: doc.phone || '',
+    email: doc.email || '',
+    active: doc.active !== false,
+    sort: doc.sort || 0,
+  };
+  showDoctorModal.value = true;
+}
+
+async function saveDoctor() {
+  doctorModalError.value = null;
+  savingDoctor.value = true;
+  try {
+    const headers: Record<string, string> = authStore.accessToken
+      ? { Authorization: `Bearer ${authStore.accessToken}` }
+      : {};
+
+    const payload = {
+      name: doctorForm.value.name.trim(),
+      departmentId: Number(doctorForm.value.departmentId),
+      qualification: doctorForm.value.qualification.trim(),
+      designation: doctorForm.value.designation.trim() || undefined,
+      opdTiming: doctorForm.value.opdTiming.trim() || undefined,
+      roomNo: doctorForm.value.roomNo.trim() || undefined,
+      consultationFee: Number(doctorForm.value.consultationFee) || 0,
+      phone: doctorForm.value.phone.trim() || undefined,
+      email: doctorForm.value.email.trim() || undefined,
+      active: doctorForm.value.active,
+      sort: Number(doctorForm.value.sort) || 0,
+    };
+
+    if (isEditingDoctor.value) {
+      await $fetch(`${apiBase}/doctors/${doctorForm.value.id}`, {
+        method: 'PUT',
+        headers,
+        credentials: 'include',
+        body: payload,
+      });
+    } else {
+      await $fetch(`${apiBase}/doctors`, {
+        method: 'POST',
+        headers,
+        credentials: 'include',
+        body: payload,
+      });
+    }
+
+    showDoctorModal.value = false;
+    await fetchDoctors();
+  } catch (err: any) {
+    doctorModalError.value = err.data?.error?.message || err.message || 'Failed to save doctor';
+  } finally {
+    savingDoctor.value = false;
+  }
+}
+
+async function toggleDoctorActive(doc: any) {
+  try {
+    const headers: Record<string, string> = authStore.accessToken
+      ? { Authorization: `Bearer ${authStore.accessToken}` }
+      : {};
+    await $fetch(`${apiBase}/doctors/${doc.id}`, {
+      method: 'PUT',
+      headers,
+      credentials: 'include',
+      body: { active: doc.active === false ? true : false },
+    });
+    await fetchDoctors();
+  } catch (err: any) {
+    alert(err.data?.error?.message || 'Failed to toggle doctor status');
+  }
+}
+
+async function deleteDoctorConfirm(doc: any) {
+  if (!confirm(`Are you sure you want to remove ${doc.name}?`)) return;
+  try {
+    const headers: Record<string, string> = authStore.accessToken
+      ? { Authorization: `Bearer ${authStore.accessToken}` }
+      : {};
+    await $fetch(`${apiBase}/doctors/${doc.id}`, {
+      method: 'DELETE',
+      headers,
+      credentials: 'include',
+    });
+    await fetchDoctors();
+  } catch (err: any) {
+    alert(err.data?.error?.message || 'Failed to delete doctor');
+  }
+}
+
+async function fetchDoctors() {
+  try {
+    const headers: Record<string, string> = authStore.accessToken
+      ? { Authorization: `Bearer ${authStore.accessToken}` }
+      : {};
+    const res = await $fetch<any>(`${apiBase}/doctors?activeOnly=false`, {
+      headers,
+      credentials: 'include',
+    });
+    doctors.value = Array.isArray(res) ? res : [];
+  } catch (err) {
+    console.error('Failed to load doctors:', err);
   }
 }
 

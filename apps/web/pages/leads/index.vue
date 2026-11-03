@@ -85,6 +85,19 @@
             <span>My Leads</span>
           </button>
           <button
+            type="button"
+            :class="[
+              'px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5',
+              activeScope === 'unassigned'
+                ? 'bg-white dark:bg-slate-800 text-teal-700 dark:text-teal-300 shadow-2xs'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            ]"
+            @click="setScope('unassigned')"
+          >
+            <span>📥</span>
+            <span>Unassigned Pool</span>
+          </button>
+          <button
             v-if="canViewAllLeads"
             type="button"
             :class="[
@@ -474,6 +487,7 @@
       :default-lead-type="activeLeadType"
       @close="showQuickCreate = false"
       @created="onLeadCreated"
+      @lead-created="onLeadCreated"
     />
 
 
@@ -598,7 +612,7 @@ const fetchStaffMembers = async () => {
   }
 };
 
-const activeScope = ref<'my' | 'all'>('all');
+const activeScope = ref<'my' | 'all' | 'unassigned'>('all');
 
 watch(isManagement, (val) => {
   if (val) {
@@ -650,7 +664,7 @@ const setLeadType = (type: 'treatment' | 'product') => {
   fetchLeads();
 };
 
-const setScope = (scope: 'my' | 'all') => {
+const setScope = (scope: 'my' | 'all' | 'unassigned') => {
   activeScope.value = scope;
   pagination.page = 1;
   fetchLeads();
@@ -665,8 +679,12 @@ const fetchLeads = async () => {
       leadType: activeLeadType.value,
     });
 
-    if (!isManagement.value && activeScope.value === 'my' && authStore.user?.id) {
-      params.append('ownerId', authStore.user.id.toString());
+    if (!isManagement.value) {
+      if (activeScope.value === 'my' && authStore.user?.id) {
+        params.append('ownerId', authStore.user.id.toString());
+      } else if (activeScope.value === 'unassigned') {
+        params.append('unassigned', 'true');
+      }
     } else if (filters.ownerId) {
       if (filters.ownerId === 'unassigned') {
         params.append('unassigned', 'true');
@@ -740,7 +758,35 @@ const changePage = (newPage: number) => {
   fetchLeads();
 };
 
-const onLeadCreated = () => {
+const onLeadCreated = (createdLead?: any) => {
+  // If the created lead specifies a type, ensure the active tab matches it
+  if (createdLead?.leadType && ['treatment', 'product'].includes(createdLead.leadType)) {
+    activeLeadType.value = createdLead.leadType;
+  }
+
+  // Clear filters that would otherwise hide the newly created lead
+  filters.search = '';
+  filters.status = '';
+  filters.priority = '';
+  pagination.page = 1;
+
+  // If a telecaller created it, it gets assigned to them; switch to 'my' so it's in view
+  if (!isManagement.value && activeScope.value === 'unassigned') {
+    activeScope.value = 'my';
+  } else if (isManagement.value && filters.ownerId) {
+    // If management was filtering by another staff member, reset employee filter
+    filters.ownerId = '';
+  }
+
+  // Optimistically insert if present and not already in list
+  if (createdLead && createdLead.id) {
+    const exists = leads.value.some((l) => l.id === createdLead.id);
+    if (!exists) {
+      leads.value = [createdLead, ...leads.value];
+      pagination.total += 1;
+    }
+  }
+
   fetchLeads();
 };
 

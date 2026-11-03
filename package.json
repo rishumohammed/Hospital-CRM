@@ -9,6 +9,7 @@
   ],
   "scripts": {
     "dev": "pnpm --parallel --filter \"./apps/*\" dev",
+    "setup:drive": "subst S: \"%CD%\"",
     "dev:api": "pnpm --filter @hospital-crm/api dev",
     "dev:web": "pnpm --filter @hospital-crm/web dev",
     "build": "pnpm --recursive run build",

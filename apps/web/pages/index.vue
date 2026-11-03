@@ -918,14 +918,55 @@
             </div>
           </div>
 
-          <!-- Task Title & Concern -->
-          <div class="mt-3 p-3 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-100 dark:border-slate-800/60">
-            <p class="text-xs font-semibold text-slate-800 dark:text-slate-200">
-              {{ task.title }}
-            </p>
-            <p v-if="task.lead?.concern || task.case?.planNote" class="text-xs text-slate-600 dark:text-slate-400 mt-1 line-clamp-2">
-              {{ task.lead?.concern || task.case?.planNote }}
-            </p>
+          <!-- Structured Follow-up Reason & Context Section -->
+          <div class="mt-3.5 p-3.5 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200/90 dark:border-slate-800 space-y-2.5">
+            <!-- 1. Follow-up Reason / Action -->
+            <div class="flex items-start gap-2">
+              <span class="text-teal-600 dark:text-teal-400 text-sm mt-0.5 flex-shrink-0">🎯</span>
+              <div class="flex-1 min-w-0">
+                <span class="text-[10px] uppercase font-bold tracking-wider text-teal-700 dark:text-teal-400 block">
+                  Follow-up Reason
+                </span>
+                <p class="text-xs font-semibold text-slate-800 dark:text-slate-100 break-words mt-0.5">
+                  {{ getFollowUpReason(task) }}
+                </p>
+              </div>
+            </div>
+
+            <!-- 2. Last Call Note / Discussion (if entered) -->
+            <div v-if="getLastNote(task)" class="pt-2 border-t border-slate-200/60 dark:border-slate-800 flex items-start gap-2 bg-amber-50/60 dark:bg-amber-950/20 -mx-1 px-2 py-1.5 rounded-lg border border-amber-200/50 dark:border-amber-900/40">
+              <span class="text-amber-500 text-xs mt-0.5 flex-shrink-0">💬</span>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between gap-1 flex-wrap">
+                  <span class="text-[10px] uppercase font-bold tracking-wider text-amber-800 dark:text-amber-300">
+                    Previous Call Note
+                  </span>
+                  <span v-if="getLastOutcome(task)" class="text-[10px] px-1.5 py-0.2 rounded font-semibold bg-amber-200/70 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200">
+                    {{ getLastOutcome(task) }}
+                  </span>
+                </div>
+                <p class="text-xs text-slate-700 dark:text-slate-300 italic break-words mt-1">
+                  "{{ getLastNote(task) }}"
+                </p>
+                <span v-if="getLastCallerInfo(task)" class="text-[10px] text-slate-400 block mt-1 font-medium">
+                  {{ getLastCallerInfo(task) }}
+                </span>
+              </div>
+            </div>
+
+            <!-- 3. Initial Concern / Inquiry Topic -->
+            <div v-if="task.lead?.concern || task.case?.planNote" class="pt-2 border-t border-slate-200/60 dark:border-slate-800 flex items-start gap-2">
+              <span class="text-indigo-500 text-xs mt-0.5 flex-shrink-0">🩺</span>
+              <div class="flex-1 min-w-0">
+                <span class="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">
+                  Inquiry Concern
+                </span>
+                <p class="text-xs text-slate-600 dark:text-slate-400 line-clamp-2 mt-0.5">
+                  {{ task.lead?.concern || task.case?.planNote }}
+                </p>
+              </div>
+            </div>
+
             <div v-if="task.lead?.productInterests?.length" class="mt-2 flex flex-wrap gap-1">
               <span
                 v-for="interest in task.lead.productInterests"
@@ -935,7 +976,9 @@
                 {{ interest.product?.name || 'Product' }} (x{{ interest.quantity }})
               </span>
             </div>
-            <div class="mt-2 flex items-center gap-2 text-[11px] text-slate-400">
+
+            <!-- 4. Tags: Department & Source -->
+            <div class="flex items-center gap-2 text-[11px] text-slate-400 pt-1 border-t border-slate-200/60 dark:border-slate-800">
               <span v-if="task.lead?.department || task.case?.department">
                 🏥 {{ task.lead?.department?.labelEn || task.case?.department?.labelEn }}
               </span>
@@ -998,6 +1041,7 @@
       :is-open="isQuickCreateOpen"
       :default-lead-type="isProductStaff ? 'product' : 'treatment'"
       @close="isQuickCreateOpen = false"
+      @created="onLeadCreated"
       @lead-created="onLeadCreated"
     />
 
@@ -1005,6 +1049,7 @@
       :is-open="isLogCallOpen"
       :lead="selectedTask?.lead"
       :case-id="selectedTask?.case?.id"
+      :task-id="selectedTask?.id"
       :recipient-name="selectedTask?.lead?.name || selectedTask?.case?.patient?.name"
       :recipient-phone="selectedTask?.lead?.mobile || selectedTask?.case?.patient?.mobileNorm"
       @close="isLogCallOpen = false"
@@ -1295,7 +1340,7 @@ const loadWorkQueue = async () => {
   isLoading.value = true;
   try {
     const res = await fetch(
-      `${apiBase}/tasks?team=${activeTeam.value}&due=${activeTiming.value}&status=open`,
+      `${apiBase}/tasks?team=${activeTeam.value}&due=${activeTiming.value}&status=open&nextStepOnly=true`,
       {
         headers: { Authorization: `Bearer ${authStore.token}` },
       }
@@ -1311,13 +1356,13 @@ const loadWorkQueue = async () => {
 
     // Load counts for tabs
     const [odRes, tdRes, upRes] = await Promise.all([
-      fetch(`${apiBase}/tasks?team=${activeTeam.value}&due=overdue&status=open&pageSize=1`, {
+      fetch(`${apiBase}/tasks?team=${activeTeam.value}&due=overdue&status=open&nextStepOnly=true&pageSize=1`, {
         headers: { Authorization: `Bearer ${authStore.token}` },
       }),
-      fetch(`${apiBase}/tasks?team=${activeTeam.value}&due=today&status=open&pageSize=1`, {
+      fetch(`${apiBase}/tasks?team=${activeTeam.value}&due=today&status=open&nextStepOnly=true&pageSize=1`, {
         headers: { Authorization: `Bearer ${authStore.token}` },
       }),
-      fetch(`${apiBase}/tasks?team=${activeTeam.value}&due=upcoming&status=open&pageSize=1`, {
+      fetch(`${apiBase}/tasks?team=${activeTeam.value}&due=upcoming&status=open&nextStepOnly=true&pageSize=1`, {
         headers: { Authorization: `Bearer ${authStore.token}` },
       }),
     ]);
@@ -1388,6 +1433,47 @@ const formatDueDate = (dateStr: string) => {
 
 const formatStage = (stage: string) => {
   return t(`cases.stages.${stage}`, stage);
+};
+
+const getLastInteraction = (task: any) => {
+  return task.lead?.interactions?.[0] || task.case?.interactions?.[0] || null;
+};
+
+const getLastNote = (task: any) => {
+  const inter = getLastInteraction(task);
+  return inter?.note?.trim() || '';
+};
+
+const getLastOutcome = (task: any) => {
+  const inter = getLastInteraction(task);
+  return inter?.outcome?.labelEn || inter?.outcome?.code || '';
+};
+
+const getLastCallerInfo = (task: any) => {
+  const inter = getLastInteraction(task);
+  if (!inter) return '';
+  const callerName = inter.user?.name || '';
+  const timeStr = inter.occurredAt
+    ? new Date(inter.occurredAt).toLocaleDateString([], {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : '';
+  if (callerName && timeStr) return `by ${callerName} • ${timeStr}`;
+  return callerName ? `by ${callerName}` : timeStr;
+};
+
+const getFollowUpReason = (task: any) => {
+  if (task.title) {
+    return task.title;
+  }
+  const lastNote = getLastNote(task);
+  if (lastNote) {
+    return `Follow-up: ${lastNote}`;
+  }
+  return 'Scheduled Follow-up';
 };
 
 const openLogCall = (task: any) => {

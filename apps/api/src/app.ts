@@ -29,6 +29,7 @@ import { productCategoryRoutes } from './modules/products/product-category.route
 import { productRoutes } from './modules/products/product.routes';
 import { productRelationRoutes } from './modules/products/product-relation.routes';
 import { productCampaignRoutes } from './modules/products/product-campaign.routes';
+import { doctorRoutes } from './modules/doctors/doctor.routes';
 
 export async function buildApp() {
   const isTest = process.env.NODE_ENV === 'test';
@@ -160,6 +161,7 @@ export async function buildApp() {
   await fastify.register(productRoutes, { prefix: '/api/v1' });
   await fastify.register(productRelationRoutes, { prefix: '/api/v1' });
   await fastify.register(productCampaignRoutes, { prefix: '/api/v1' });
+  await fastify.register(doctorRoutes, { prefix: '/api/v1' });
 
   return fastify;
 }

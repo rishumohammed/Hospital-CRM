@@ -1,0 +1,44 @@
+FROM node:20-slim
+
+WORKDIR /app
+
+# Install openssl for Prisma engines, netcat for health check, and ca-certificates
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    openssl \
+    ca-certificates \
+    netcat-traditional \
+    && rm -rf /var/lib/apt/lists/*
+
+# Enable and configure pnpm
+RUN corepack enable && corepack prepare pnpm@11.17.0 --activate
+
+# Copy monorepo manifests for efficient Docker caching
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY packages/shared/package.json ./packages/shared/
+COPY apps/api/package.json ./apps/api/
+
+# Install dependencies
+RUN pnpm install --frozen-lockfile
+
+# Copy source code
+COPY packages/shared/ ./packages/shared/
+COPY apps/api/ ./apps/api/
+
+# Build shared package
+RUN pnpm --filter @hospital-crm/shared build
+
+# Generate Prisma client
+WORKDIR /app/apps/api
+RUN npx prisma generate
+
+# Build API TypeScript to JavaScript
+RUN pnpm build
+
+# Ensure entrypoint script is executable
+RUN chmod +x docker-entrypoint.sh
+
+EXPOSE 4000
+
+ENTRYPOINT ["./docker-entrypoint.sh"]
+CMD ["node", "dist/index.js"]
+

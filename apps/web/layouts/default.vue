@@ -447,6 +447,9 @@ const coreNavItems = computed(() => {
     items.push({ to: '/leads', label: t('nav.leads'), icon: 'i-heroicons-user-group' });
   }
 
+  // Follow-up: directly below Leads
+  items.push({ to: '/follow-ups', label: t('nav.dues_followup') || 'Follow-up', icon: 'i-heroicons-clock' });
+
   // Cases: Strictly for Clinical, Inpatient, Aftercare staff, and Management
   const isCaseHandler = ['owner', 'admin', 'center_head', 'doctor', 'admission_specialist', 'ipd_manager', 'aftercare_executive', 'treatment_followup_executive', 'auditor'].includes(role);
   if (isCaseHandler && authStore.hasPermission('case.view')) {

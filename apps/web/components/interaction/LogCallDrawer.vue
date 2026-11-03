@@ -226,8 +226,19 @@
               </button>
             </div>
 
-            <!-- Option A: Mandatory Next Action -->
-            <div v-if="!isCloseMode" class="p-4 bg-slate-50/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3.5 shadow-sm">
+            <!-- Option A: Automated Follow-up Cadence -->
+            <div v-if="!isCloseMode && isAutoCadenceOutcome" class="p-4 bg-teal-50/80 dark:bg-teal-950/40 rounded-2xl border border-teal-200 dark:border-teal-800 space-y-2 shadow-sm">
+              <div class="flex items-center gap-2 text-teal-800 dark:text-teal-200 font-semibold text-xs">
+                <span>🔄</span>
+                <span>Automated Cadence Active</span>
+              </div>
+              <p class="text-xs text-teal-700 dark:text-teal-300">
+                Selecting <strong>{{ selectedOutcome?.labelEn }}</strong> automatically sets the single next follow-up step according to cadence policy. No duplicate task will be created.
+              </p>
+            </div>
+
+            <!-- Option B: Mandatory Next Action -->
+            <div v-else-if="!isCloseMode" class="p-4 bg-slate-50/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3.5 shadow-sm">
               <div class="flex items-center gap-2">
                 <span class="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></span>
                 <span class="text-xs font-semibold text-slate-900 dark:text-slate-100">{{ t('tasks.next_action') }}</span>
@@ -259,15 +270,39 @@
                 </div>
               </div>
 
-              <div class="space-y-1">
-                <label class="block text-[11px] font-medium text-slate-600 dark:text-slate-400">Task Title</label>
+              <div class="space-y-1.5">
+                <div class="flex items-center justify-between">
+                  <label class="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                    Follow-up Reason / Action Title <span class="text-rose-500">*</span>
+                  </label>
+                  <button
+                    v-if="note && note.trim()"
+                    type="button"
+                    @click="nextAction.title = note.trim().slice(0, 100)"
+                    class="text-[10px] text-teal-600 hover:text-teal-700 dark:text-teal-400 font-semibold"
+                  >
+                    Use Call Note
+                  </button>
+                </div>
                 <input
                   v-model="nextAction.title"
                   type="text"
                   required
                   class="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-slate-900 dark:text-slate-100 shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
-                  placeholder="e.g. Call back regarding Ayurveda package"
+                  placeholder="e.g. Call back regarding pricing discount / Patient asked to call at 4 PM"
                 />
+                <!-- Quick Reason Presets -->
+                <div class="flex flex-wrap gap-1 pt-0.5">
+                  <button
+                    v-for="preset in reasonPresets"
+                    :key="preset"
+                    type="button"
+                    @click="nextAction.title = preset"
+                    class="text-[10px] px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-teal-50 hover:text-teal-700 dark:hover:bg-teal-950 dark:hover:text-teal-300 border border-slate-200 dark:border-slate-700 transition-colors"
+                  >
+                    + {{ preset }}
+                  </button>
+                </div>
               </div>
 
               <div class="space-y-1">
@@ -368,7 +403,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useAuthStore } from '~/stores/auth';
 
@@ -376,6 +411,7 @@ const props = defineProps<{
   isOpen: boolean;
   lead?: any;
   caseId?: number;
+  taskId?: number;
   recipientName?: string;
   recipientPhone?: string;
 }>();
@@ -394,6 +430,20 @@ const apiBase = rawApi.endsWith('/api/v1') ? rawApi : `${rawApi}/api/v1`;
 const callOutcomes = ref<any[]>([]);
 const lostReasons = ref<any[]>([]);
 const outcomeId = ref<number | null>(null);
+
+const selectedOutcome = computed(() => callOutcomes.value.find((o) => o.id === outcomeId.value));
+const isAutoCadenceOutcome = computed(() => {
+  const code = selectedOutcome.value?.code || '';
+  return ['INTERESTED_NOT_READY', 'NO_ANSWER', 'SWITCHED_OFF_BUSY', 'INFORMATION_GIVEN'].includes(code);
+});
+
+const reasonPresets = [
+  'Callback requested by patient',
+  'Pricing / package discussion',
+  'Family / spouse consultation',
+  'Check report / doctor review',
+  'Confirm admission / visit date',
+];
 const direction = ref<'inbound' | 'outbound'>('outbound');
 const durationSeconds = ref<number>(60);
 const note = ref('');
@@ -541,7 +591,7 @@ const submitCall = async () => {
     return;
   }
 
-  if (!isCloseMode.value && (!nextAction.value.title || !nextAction.value.dueAt)) {
+  if (!isCloseMode.value && !isAutoCadenceOutcome.value && (!nextAction.value.title || !nextAction.value.dueAt)) {
     errorMessage.value = 'Next action title and due date/time are required';
     return;
   }
@@ -553,6 +603,7 @@ const submitCall = async () => {
     const payload: any = {
       leadId: props.lead?.id || undefined,
       caseId: props.caseId || props.lead?.caseId || undefined,
+      taskId: props.taskId || undefined,
       outcomeId: outcomeId.value,
       direction: direction.value,
       durationSeconds: durationSeconds.value,
@@ -562,7 +613,7 @@ const submitCall = async () => {
 
     if (isCloseMode.value) {
       payload.closedReasonId = closedReasonId.value;
-    } else {
+    } else if (!isAutoCadenceOutcome.value) {
       payload.nextAction = {
         type: nextAction.value.type,
         title: nextAction.value.title,

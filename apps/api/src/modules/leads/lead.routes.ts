@@ -44,6 +44,7 @@ import { prisma } from '../../database/client';
 import { recordAuditLog } from '../audit/audit.service';
 
 export const leadRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
+
   // Public Intake API (Webhook / Website Form / Lead Ads)
   fastify.post('/intake/:sourceKey', async (req, reply) => {
     const { sourceKey } = req.params as { sourceKey: string };
@@ -255,6 +256,18 @@ export const leadRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) =
           title: `New Intake Lead: ${lead.name}`,
           body: `Source: ${source.labelEn}. First response due in ${isAd ? '5' : '15'} minutes.`,
           link: `/leads/${lead.id}`,
+        },
+      });
+
+      await prisma.task.create({
+        data: {
+          title: `Intake Call: ${lead.name} (${department?.labelEn || source.labelEn})`,
+          type: 'call',
+          dueAt: lead.firstResponseDueAt || new Date(),
+          priority: lead.priority || 'hot',
+          status: 'open',
+          ownerId: assignedOwnerId,
+          leadId: lead.id,
         },
       });
     }

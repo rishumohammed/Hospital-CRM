@@ -98,24 +98,6 @@
             <span v-else>Verify Code</span>
           </button>
         </form>
-
-        <!-- Demo Accounts Quick-Select for Easy Testing -->
-        <div class="mt-8 pt-6 border-t border-slate-100">
-          <p class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2.5 text-center">
-            Demo Credentials (Tap to fill)
-          </p>
-          <div class="flex flex-wrap gap-1.5 justify-center">
-            <button
-              v-for="acc in demoAccounts"
-              :key="acc.email"
-              type="button"
-              @click="fillDemo(acc.email)"
-              class="px-2.5 py-1 text-[11px] font-medium rounded-lg bg-slate-100/90 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 text-slate-700 hover:text-emerald-800 transition-all shadow-2xs"
-            >
-              {{ acc.label }}
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   </div>
@@ -140,25 +122,6 @@ const mfaStep = ref(false);
 const tempToken = ref('');
 const errorMessage = ref('');
 const loading = ref(false);
-
-const demoAccounts = [
-  { label: 'Telecaller 1', email: 'telecaller1@hospital.test' },
-  { label: 'Telecaller 2', email: 'telecaller2@hospital.test' },
-  { label: 'Admission Specialist', email: 'admission1@hospital.test' },
-  { label: 'Aftercare / Nurse', email: 'aftercare1@hospital.test' },
-  { label: 'Treating Doctor', email: 'doctor1@hospital.test' },
-  { label: 'Manager', email: 'manager@hospital.test' },
-  { label: 'Product Caller', email: 'prod_caller@hospital.test' },
-  { label: 'Product Manager', email: 'prod_mgr@hospital.test' },
-  { label: 'IT Admin', email: 'admin@hospital.test' },
-  { label: 'Managing Director', email: 'owner@hospital.test' },
-];
-
-function fillDemo(email: string) {
-  identifier.value = email;
-  password.value = 'HospitalCRM@2026';
-  errorMessage.value = '';
-}
 
 import { getRoleHomeRoute } from '~/utils/role-routes';
 

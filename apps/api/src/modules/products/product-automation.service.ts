@@ -51,13 +51,12 @@ export async function triggerRestockAlerts(productId: number) {
       await prisma.task.create({
         data: {
           leadId: lead.id,
-          assignedToId: lead.ownerId,
+          ownerId: lead.ownerId,
           type: 'call',
           priority: 'hot',
           title: `${product.name} is back in stock`,
-          description: `Customer waitlisted this product. Call customer within 2h while stock is available.`,
           dueAt,
-          status: 'pending',
+          status: 'open',
         },
       });
 

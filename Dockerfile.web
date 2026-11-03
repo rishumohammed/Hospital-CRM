@@ -1,0 +1,51 @@
+# Stage 1: Build the Nuxt 3 application
+FROM node:20-slim AS builder
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    openssl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN corepack enable && corepack prepare pnpm@11.17.0 --activate
+
+# Copy monorepo workspace files for dependency caching
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY packages/shared/package.json ./packages/shared/
+COPY apps/web/package.json ./apps/web/
+
+RUN pnpm install --frozen-lockfile
+
+# Copy source files
+COPY packages/shared/ ./packages/shared/
+COPY apps/web/ ./apps/web/
+
+# Build shared package first
+RUN pnpm --filter @hospital-crm/shared build
+
+# Set API base url for client bundle (defaults to /api/v1 for reverse proxy)
+ARG NUXT_PUBLIC_API_BASE=/api/v1
+ENV NUXT_PUBLIC_API_BASE=${NUXT_PUBLIC_API_BASE}
+ENV NODE_ENV=production
+
+# Build standalone Nuxt output (.output/server and .output/public)
+WORKDIR /app/apps/web
+RUN npx nuxt build
+
+# Stage 2: Minimal Production Runtime
+FROM node:20-slim AS runner
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV HOST=0.0.0.0
+
+# Copy only the standalone compiled output
+COPY --from=builder /app/apps/web/.output /app/.output
+
+EXPOSE 3000
+
+CMD ["node", ".output/server/index.mjs"]
+
