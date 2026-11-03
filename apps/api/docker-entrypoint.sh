@@ -25,28 +25,8 @@ fi
 echo "==> Synchronizing Prisma schema with MySQL database..."
 npx prisma db push --skip-generate
 
-echo "==> Checking if initial seed data is required..."
-node -e "
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
-async function check() {
-  try {
-    const userCount = await prisma.user.count();
-    if (userCount === 0) {
-      console.log('==> No users found. Seeding initial demo users and hospital departments...');
-      require('child_process').execSync('npx tsx src/database/seed.ts', { stdio: 'inherit' });
-    } else {
-      console.log('==> Database already initialized (' + userCount + ' users present). Skipping seed.');
-    }
-  } catch (err) {
-    console.error('Seed verification error:', err.message);
-  } finally {
-    await prisma.\$disconnect();
-  }
-}
-check();
-"
+echo "==> Seeding initial demo users and hospital data..."
+pnpm seed || true
 
 echo "==> Starting production Fastify server..."
 exec "$@"
-

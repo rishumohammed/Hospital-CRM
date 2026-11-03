@@ -7,7 +7,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "start": "node dist/index.js",
+    "start": "tsx src/index.ts",
     "test": "vitest run",
     "test:unit": "vitest run unit.test.ts",
     "test:api": "vitest run api.test.ts --fileParallelism=false",

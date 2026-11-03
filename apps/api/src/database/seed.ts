@@ -371,6 +371,24 @@ export async function seedDatabase() {
 
   const demoUsers = [
     {
+      name: 'Managing Director',
+      email: 'md@hospital.local',
+      mobile: '+919800000099',
+      roleCode: Roles.OWNER,
+      teams: [Teams.SUPPORT, Teams.ADMISSION, Teams.AFTERCARE],
+      dutyNurse: false,
+      dutyDoctor: true,
+    },
+    {
+      name: 'Hospital Administrator',
+      email: 'admin@samadselements.com',
+      mobile: '+919800000098',
+      roleCode: Roles.ADMIN,
+      teams: [Teams.SUPPORT, Teams.ADMISSION, Teams.AFTERCARE],
+      dutyNurse: false,
+      dutyDoctor: false,
+    },
+    {
       name: 'Dr. Managing Director',
       email: 'owner@hospital.test',
       mobile: '+919800000001',
