@@ -39,9 +39,9 @@ export const settingsRoutes: FastifyPluginAsync = async (fastify) => {
       const { key } = request.params as { key: string };
       const { value } = request.body as { value: any };
 
-      if (!value || typeof value !== 'object') {
+      if (value === undefined || value === null) {
         return reply.status(400).send({
-          error: { code: 'INVALID_VALUE', message: 'Value must be a valid JSON object' },
+          error: { code: 'INVALID_VALUE', message: 'Value is required' },
         });
       }
 
