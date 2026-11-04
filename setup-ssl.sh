@@ -2,7 +2,18 @@
 set -e
 
 DOMAIN="portal.samadselements.com"
-EMAIL=${1:-"admin@samadselements.com"}
+EMAIL="samadselements100@gmail.com"
+
+# Automatically handle flexible arguments:
+# ./setup-ssl.sh portal.samadselements.com email@domain.com OR ./setup-ssl.sh email@domain.com
+if [ -n "$1" ]; then
+  if [[ "$1" == *"@"* ]]; then
+    EMAIL="$1"
+  elif [ -n "$2" ] && [[ "$2" == *"@"* ]]; then
+    DOMAIN="$1"
+    EMAIL="$2"
+  fi
+fi
 
 echo "=========================================================="
 echo "  Setting up Let's Encrypt SSL for $DOMAIN"
