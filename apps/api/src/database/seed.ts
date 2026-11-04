@@ -365,7 +365,13 @@ export async function seedDatabase() {
   }
   console.log('✓ Roles & Permissions Matrix successfully seeded');
 
-  // 4. Seed Demo Users
+  // 4. Seed Demo Users (Skipped if database already has users/production account)
+  const userCount = await prisma.user.count();
+  if (userCount > 0) {
+    console.log(`==> Users already exist in database (${userCount} user(s) present). Skipping demo users and synthetic leads.`);
+    return;
+  }
+
   const defaultPassword = 'HospitalCRM@2026';
   const passwordHash = await hashPassword(defaultPassword);
 
