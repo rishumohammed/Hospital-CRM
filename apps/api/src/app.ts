@@ -52,15 +52,34 @@ export async function buildApp() {
     contentSecurityPolicy: false, // Allows swagger UI in development
   });
 
-  // CORS allowlist
+  // CORS allowlist supporting comma-separated origins, IP access, and local development
+  const allowedOrigins = (config.CORS_ORIGIN || '')
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+
   await fastify.register(cors, {
     origin: (origin, cb) => {
-      // Allow requests with no origin (e.g. mobile apps, curl) or matched origin
-      if (!origin || origin === config.CORS_ORIGIN || origin.startsWith('http://localhost:')) {
+      // Allow requests with no origin (e.g. mobile apps, curl, server-to-server)
+      if (!origin) {
         cb(null, true);
         return;
       }
-      cb(new Error('Not allowed by CORS'), false);
+      const lower = origin.toLowerCase();
+      const isAllowed =
+        allowedOrigins.length === 0 ||
+        allowedOrigins.includes('*') ||
+        allowedOrigins.includes(lower) ||
+        lower.startsWith('http://localhost:') ||
+        lower.includes('samadselements.com') ||
+        // Allow IP address origins (e.g. http://134.209.154.171)
+        /^https?:\/\/\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?$/.test(lower);
+
+      if (isAllowed) {
+        cb(null, true);
+      } else {
+        cb(null, false);
+      }
     },
     credentials: true,
   });
