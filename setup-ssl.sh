@@ -12,6 +12,7 @@ echo "==> Step 1: Requesting SSL certificate from Let's Encrypt..."
 sudo docker run --rm --name certbot \
   --volumes-from hospital_crm_nginx \
   certbot/certbot certonly --webroot \
+  --non-interactive \
   -w /var/www/certbot \
   -d $DOMAIN \
   --email $EMAIL --agree-tos --no-eff-email
