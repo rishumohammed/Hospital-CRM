@@ -9,10 +9,14 @@ echo "  Setting up Let's Encrypt SSL for $DOMAIN"
 echo "=========================================================="
 
 echo "==> Step 1: Requesting SSL certificate from Let's Encrypt..."
-sudo docker run -it --rm --name certbot \
-  -v $(pwd)/nginx/default.conf:/etc/nginx/conf.d/default.conf \
-  -v hospital_crm_certbot_conf:/etc/letsencrypt \
-  -v hospital_crm_certbot_www:/var/www/certbot \
+CERT_CONF_VOL=$(sudo docker volume ls -q | grep -E 'certbot_conf' | head -n 1)
+CERT_WWW_VOL=$(sudo docker volume ls -q | grep -E 'certbot_www' | head -n 1)
+CERT_CONF_VOL=${CERT_CONF_VOL:-hospital-crm_certbot_conf}
+CERT_WWW_VOL=${CERT_WWW_VOL:-hospital-crm_certbot_www}
+
+sudo docker run --rm --name certbot \
+  -v "$CERT_CONF_VOL":/etc/letsencrypt \
+  -v "$CERT_WWW_VOL":/var/www/certbot \
   certbot/certbot certonly --webroot \
   -w /var/www/certbot \
   -d $DOMAIN \
