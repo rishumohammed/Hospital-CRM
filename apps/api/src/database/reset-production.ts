@@ -23,7 +23,7 @@ export async function resetProductionData() {
   await prisma.escalation.deleteMany({});
   await prisma.appointment.deleteMany({});
   await prisma.case.deleteMany({});
-  await prisma.leadStatusHistory.deleteMany({});
+  await prisma.productWaitlist.deleteMany({});
   await prisma.leadProductInterest.deleteMany({});
   await prisma.lead.deleteMany({});
   await prisma.patient.deleteMany({});
@@ -124,7 +124,7 @@ export async function resetProductionData() {
     where: {
       OR: [
         { userId: { not: mdUser.id } },
-        { grantedById: { not: mdUser.id } },
+        { grantedBy: { not: mdUser.id } },
       ],
     },
   });
@@ -167,3 +167,4 @@ resetProductionData()
   .finally(async () => {
     await prisma.$disconnect();
   });
+
