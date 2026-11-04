@@ -23,7 +23,18 @@ if [ -n "$DB_PASSWORD" ]; then
 fi
 
 echo "==> Synchronizing Prisma schema with MySQL database..."
-npx prisma db push --skip-generate
+MAX_RETRIES=20
+RETRY_COUNT=0
+until npx prisma db push --skip-generate; do
+  RETRY_COUNT=$((RETRY_COUNT + 1))
+  if [ "$RETRY_COUNT" -ge "$MAX_RETRIES" ]; then
+    echo "ERROR: Failed to connect to MySQL and push schema after $MAX_RETRIES attempts."
+    exit 1
+  fi
+  echo "    MySQL is initializing tables or user permissions - retrying in 3s ($RETRY_COUNT/$MAX_RETRIES)..."
+  sleep 3
+done
+echo "✓ Database schema synchronized successfully!"
 
 echo "==> Seeding initial demo users and hospital data..."
 pnpm seed || true
