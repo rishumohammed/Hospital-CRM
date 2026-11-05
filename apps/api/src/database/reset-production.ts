@@ -1,49 +1,92 @@
 import { prisma } from './client';
 import { hashPassword } from '../modules/auth/password';
-import { Roles, Teams } from '@hospital-crm/shared';
+import { Roles } from '@hospital-crm/shared';
 
 export async function resetProductionData() {
   console.log('========================================================');
   console.log('  Hospital CRM - Resetting Database for Clean Production');
   console.log('========================================================');
 
-  // 1. Delete all operational, activity, and transactional records
+  // 1. Break circular / self references on leads and cases
   console.log('==> Clearing transactional activity, logs, and interactions...');
-  await prisma.auditLog.deleteMany({});
-  await prisma.notification.deleteMany({});
-  await prisma.interaction.deleteMany({});
-  await prisma.task.deleteMany({});
-  await prisma.leadTestimonialSend.deleteMany({});
-  await prisma.testimonial.deleteMany({});
-  await prisma.treatmentCheckin.deleteMany({});
-  await prisma.scheduledVisit.deleteMany({});
-  await prisma.scheduleExtensionRequest.deleteMany({});
-  await prisma.visitSchedule.deleteMany({});
-  await prisma.caseHandover.deleteMany({});
-  await prisma.escalation.deleteMany({});
-  await prisma.appointment.deleteMany({});
-  await prisma.case.deleteMany({});
-  await prisma.productWaitlist.deleteMany({});
-  await prisma.leadProductInterest.deleteMany({});
-  await prisma.lead.deleteMany({});
-  await prisma.patient.deleteMany({});
-  await prisma.export.deleteMany({});
-  await prisma.import.deleteMany({});
+  try {
+    await prisma.lead.updateMany({
+      data: {
+        referredFromLeadId: null,
+        convertedPatientId: null,
+        closedReasonId: null,
+        campaignId: null,
+        ownerId: null,
+      },
+    });
+    await prisma.case.updateMany({
+      data: {
+        leadId: null,
+        treatingDoctorId: null,
+        ownerId: null,
+        notStartedReasonId: null,
+        closureCodeId: null,
+      },
+    });
+  } catch (e) {
+    // Ignore if tables are already empty
+  }
 
-  // 2. Delete product sales, history, and campaigns
-  console.log('==> Clearing test products and campaigns...');
-  await prisma.productStockHistory.deleteMany({});
-  await prisma.productPriceHistory.deleteMany({});
-  await prisma.productRelation.deleteMany({});
-  await prisma.productCampaign.deleteMany({});
-  await prisma.product.deleteMany({});
+  // 2. Clear all operational, activity, and transactional records with FOREIGN_KEY_CHECKS disabled
+  const tablesToClear = [
+    'audit_logs',
+    'notifications',
+    'outbox_events',
+    'exports',
+    'imports',
+    'lead_testimonial_send_items',
+    'lead_testimonial_sends',
+    'testimonials',
+    'treatment_checkins',
+    'scheduled_visits',
+    'schedule_extension_requests',
+    'visit_schedules',
+    'case_handovers',
+    'escalations',
+    'appointments',
+    'tasks',
+    'interactions',
+    'cases',
+    'lead_product_interests',
+    'product_waitlist',
+    'leads',
+    'patients',
+    'campaign_products',
+    'product_campaigns',
+    'product_relations',
+    'product_price_history',
+    'product_stock_history',
+    'products',
+    'product_categories',
+  ];
+
+  await prisma.$executeRawUnsafe('SET FOREIGN_KEY_CHECKS = 0;');
+  for (const tbl of tablesToClear) {
+    try {
+      await prisma.$executeRawUnsafe(`DELETE FROM \`${tbl}\`;`);
+    } catch (err: any) {
+      console.warn(`Warning clearing ${tbl}:`, err.message);
+    }
+  }
+  await prisma.$executeRawUnsafe('SET FOREIGN_KEY_CHECKS = 1;');
 
   // 3. Ensure OWNER role exists
-  const ownerRole = await prisma.role.findFirst({
+  let ownerRole = await prisma.role.findFirst({
     where: { code: Roles.OWNER },
   });
   if (!ownerRole) {
-    throw new Error('Owner (Managing Director) role not found in system.');
+    ownerRole = await prisma.role.create({
+      data: {
+        code: Roles.OWNER,
+        name: 'Managing Director',
+        maskPhone: false,
+      },
+    });
   }
 
   // 4. Ensure MAIN branch exists
@@ -64,11 +107,10 @@ export async function resetProductionData() {
   });
 
   // 5. Configure Managing Director Account with md@samadelements.com
-  console.log('==> Creating/Updating Managing Director account (md@samadelements.com)...');
+  console.log('==> Configuring Managing Director account (md@samadelements.com)...');
   const defaultPassword = 'HospitalCRM@2026';
   const passwordHash = await hashPassword(defaultPassword);
 
-  // Find any existing Managing Director user or create fresh
   const existingMd = await prisma.user.findFirst({
     where: {
       OR: [
@@ -88,7 +130,7 @@ export async function resetProductionData() {
         name: 'Managing Director',
         email: 'md@samadelements.com',
         mobile: '+919800000001',
-        passwordHash: existingMd.passwordHash || passwordHash,
+        passwordHash, // Reset password
         roleId: ownerRole.id,
         dutyDoctor: true,
         dutyNurse: false,
@@ -114,12 +156,7 @@ export async function resetProductionData() {
 
   // 6. Delete all other users except mdUser
   console.log(`==> Removing all test users except Managing Director (User ID: ${mdUser.id})...`);
-  await prisma.userBranch.deleteMany({
-    where: { userId: { not: mdUser.id } },
-  });
-  await prisma.userTeam.deleteMany({
-    where: { userId: { not: mdUser.id } },
-  });
+  await prisma.$executeRawUnsafe('SET FOREIGN_KEY_CHECKS = 0;');
   await prisma.permissionGrant.deleteMany({
     where: {
       OR: [
@@ -128,9 +165,16 @@ export async function resetProductionData() {
       ],
     },
   });
+  await prisma.userBranch.deleteMany({
+    where: { userId: { not: mdUser.id } },
+  });
+  await prisma.userTeam.deleteMany({
+    where: { userId: { not: mdUser.id } },
+  });
   await prisma.user.deleteMany({
     where: { id: { not: mdUser.id } },
   });
+  await prisma.$executeRawUnsafe('SET FOREIGN_KEY_CHECKS = 1;');
 
   // 7. Ensure MD is attached to MAIN branch and all departments/teams
   await prisma.userBranch.upsert({
