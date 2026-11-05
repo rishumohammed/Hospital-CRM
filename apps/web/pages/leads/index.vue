@@ -350,11 +350,6 @@
               <span v-if="lead.location" class="px-2 py-0.5 text-[10px] font-semibold rounded-md bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border border-teal-200/80 dark:border-teal-800">
                 📍 {{ lead.location }}
               </span>
-
-              <!-- Emergency Tag -->
-              <span v-if="lead.emergencyFlag" class="px-2 py-0.5 text-[10px] font-semibold uppercase rounded bg-rose-600 text-white animate-pulse">
-                🚨 Emergency
-              </span>
             </div>
 
             <!-- Medical Concern (Malayalam / English) -->

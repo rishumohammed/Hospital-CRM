@@ -92,7 +92,7 @@
       >
         <div class="flex items-center justify-between">
           <span class="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-            Upcoming Cadences
+            Upcoming Follow-ups
           </span>
           <span class="text-base">⏳</span>
         </div>

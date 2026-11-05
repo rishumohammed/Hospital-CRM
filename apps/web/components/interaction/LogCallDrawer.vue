@@ -226,14 +226,14 @@
               </button>
             </div>
 
-            <!-- Option A: Automated Follow-up Cadence -->
+            <!-- Option A: Automated Follow-up Plan -->
             <div v-if="!isCloseMode && isAutoCadenceOutcome" class="p-4 bg-teal-50/80 dark:bg-teal-950/40 rounded-2xl border border-teal-200 dark:border-teal-800 space-y-2 shadow-sm">
               <div class="flex items-center gap-2 text-teal-800 dark:text-teal-200 font-semibold text-xs">
                 <span>🔄</span>
-                <span>Automated Cadence Active</span>
+                <span>Automated Follow-up Plan Active</span>
               </div>
               <p class="text-xs text-teal-700 dark:text-teal-300">
-                Selecting <strong>{{ selectedOutcome?.labelEn }}</strong> automatically sets the single next follow-up step according to cadence policy. No duplicate task will be created.
+                Selecting <strong>{{ selectedOutcome?.labelEn }}</strong> automatically sets the single next follow-up task according to hospital policy. No duplicate task will be created.
               </p>
             </div>
 

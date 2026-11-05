@@ -77,11 +77,6 @@
                   />
                   <span>{{ (lead.testimonialsSentCount || 0) > 0 ? '✓ Testimonials Sent' : 'Testimonials Not Sent' }}</span>
                 </label>
-
-                <!-- Emergency Flag -->
-                <span v-if="lead.emergencyFlag" class="px-2.5 py-0.5 text-[11px] font-semibold uppercase rounded-lg bg-rose-600 text-white animate-pulse">
-                  🚨 Emergency
-                </span>
               </div>
 
               <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 flex-wrap">
@@ -161,17 +156,6 @@
             >
               <span>🏥</span>
               <span>Mark Visited</span>
-            </button>
-
-            <!-- Emergency Redirect -->
-            <button
-              type="button"
-              @click="showEmergencyModal = true"
-              class="min-h-[40px] px-3 py-2 rounded-xl border border-rose-200 dark:border-rose-900 bg-rose-50/70 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 font-semibold text-xs hover:bg-rose-100 transition-colors"
-              title="Clinical Emergency Redirect"
-            >
-              <span>🚨</span>
-              <span class="hidden sm:inline">Emergency</span>
             </button>
 
             <!-- Close Inquiry -->
@@ -366,12 +350,12 @@
           </div>
           </template>
 
-          <!-- Cadence Follow-up Tasks Section -->
+          <!-- Scheduled Follow-up Tasks Section -->
           <div class="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/90 dark:border-slate-700/80 p-6 shadow-xs space-y-4">
             <div class="flex items-center justify-between border-b pb-3 border-slate-100 dark:border-slate-700/70">
               <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                 <span>📋</span>
-                <span>Follow-up Cadence Tasks</span>
+                <span>Scheduled Follow-up Tasks</span>
               </h2>
               <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
                 {{ lead.tasks?.length || 0 }} scheduled
@@ -379,7 +363,7 @@
             </div>
 
             <div v-if="!lead.tasks || lead.tasks.length === 0" class="py-8 text-center text-xs text-slate-400">
-              No pending cadence tasks for this lead inquiry.
+              No pending follow-up tasks for this lead inquiry.
             </div>
             <div v-else class="space-y-2.5">
               <div
@@ -451,44 +435,6 @@
     </div>
 
     <!-- Modals & Drawers -->
-
-    <!-- Emergency Redirect Modal -->
-    <div v-if="showEmergencyModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" @click="showEmergencyModal = false" />
-      <div class="relative bg-white dark:bg-slate-800 rounded-3xl shadow-2xl max-w-md w-full p-6 space-y-4 border border-slate-200 dark:border-slate-700">
-        <h3 class="font-semibold text-base text-rose-600 dark:text-rose-400 flex items-center space-x-2">
-          <span>🚨</span>
-          <span>Emergency Clinical Redirect</span>
-        </h3>
-        <p class="text-xs text-slate-600 dark:text-slate-300">
-          This will immediately flag this patient inquiry as a medical emergency and notify all duty nurses in this branch.
-        </p>
-        <textarea
-          v-model="emergencyNote"
-          rows="3"
-          required
-          placeholder="State the acute clinical emergency reason..."
-          class="w-full text-xs p-3.5 rounded-2xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white"
-        />
-        <div class="flex items-center justify-end space-x-2.5 pt-2">
-          <button
-            type="button"
-            @click="showEmergencyModal = false"
-            class="min-h-[40px] px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-600 text-xs font-semibold"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            :disabled="!emergencyNote.trim() || isSubmittingEmergency"
-            @click="submitEmergency"
-            class="min-h-[40px] px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs disabled:opacity-50"
-          >
-            {{ isSubmittingEmergency ? 'Redirecting...' : 'Confirm Emergency' }}
-          </button>
-        </div>
-      </div>
-    </div>
 
     <!-- Close Inquiry Modal -->
     <div v-if="showCloseModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -581,7 +527,7 @@
         </div>
 
         <p class="text-xs text-slate-500 dark:text-slate-400">
-          Marking visited converts this inquiry into an active Patient Medical Record and Case File. All open cadence tasks will be archived.
+          Marking visited converts this inquiry into an active Patient Medical Record and Case File. All open follow-up tasks will be archived.
         </p>
 
         <div class="space-y-3">
@@ -655,10 +601,6 @@ const showBookApptModal = ref(false);
 const showConvertModal = ref(false);
 const convertNote = ref('');
 const isSubmittingConvert = ref(false);
-
-const showEmergencyModal = ref(false);
-const emergencyNote = ref('');
-const isSubmittingEmergency = ref(false);
 
 const showCloseModal = ref(false);
 const closeReasonId = ref<number | null>(null);
@@ -800,31 +742,6 @@ const openWhatsApp = () => {
   const cleanPhone = (lead.value.mobileNorm || lead.value.mobile).replace(/[^0-9]/g, '');
   const greeting = `Hello ${lead.value.name}, regarding your healthcare inquiry with Hospital CRM.`;
   window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(greeting)}`, '_blank');
-};
-
-const submitEmergency = async () => {
-  if (!lead.value || !emergencyNote.value.trim()) return;
-  isSubmittingEmergency.value = true;
-  try {
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (authStore.token) headers['authorization'] = `Bearer ${authStore.token}`;
-
-    const res = await fetch(`${apiBase}/leads/${lead.value.id}/emergency`, {
-      method: 'POST',
-      headers,
-      credentials: 'include',
-      body: JSON.stringify({ note: emergencyNote.value.trim() }),
-    });
-    if (res.ok) {
-      showEmergencyModal.value = false;
-      emergencyNote.value = '';
-      fetchLead();
-    }
-  } catch (err) {
-    console.error('Emergency redirect failed', err);
-  } finally {
-    isSubmittingEmergency.value = false;
-  }
 };
 
 const submitClose = async () => {
