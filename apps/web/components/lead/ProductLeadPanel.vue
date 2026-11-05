@@ -571,7 +571,21 @@ const emit = defineEmits<{
 
 const authStore = useAuthStore();
 const config = useRuntimeConfig();
-const apiBase = config.public.apiBase || 'http://localhost:4000/api/v1';
+const rawApi = config.public.apiBase || '/api/v1';
+const apiBase = rawApi.endsWith('/api/v1') ? rawApi : `${rawApi.replace(/\/+$/, '')}/api/v1`;
+
+const apiRequest = async (url: string, options: RequestInit = {}) => {
+  const headers: Record<string, string> = {
+    ...(options.headers as Record<string, string> || {}),
+  };
+  const token = authStore.token || authStore.accessToken;
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return fetch(url, {
+    ...options,
+    headers,
+    credentials: 'include',
+  });
+};
 
 const productLines = computed(() => props.lead?.productInterests || []);
 const catalog = ref<any[]>([]);
@@ -646,9 +660,7 @@ const formatRelationTier = (tier: string) => {
 
 const fetchCatalog = async () => {
   try {
-    const res = await fetch(`${apiBase}/products?pageSize=100`, {
-      headers: { Authorization: `Bearer ${authStore.token}` },
-    });
+    const res = await apiRequest(`${apiBase}/products?pageSize=100`);
     if (res.ok) {
       const data = await res.json();
       catalog.value = data.products || [];
@@ -662,12 +674,9 @@ const addProductLine = async (productId: number) => {
   showProductDropdown.value = false;
   productSearchQuery.value = '';
   try {
-    const res = await fetch(`${apiBase}/leads/${props.lead.id}/products`, {
+    const res = await apiRequest(`${apiBase}/leads/${props.lead.id}/products`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${authStore.token}`,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ productId, quantity: 1 }),
     });
     if (res.ok) {
@@ -680,12 +689,9 @@ const addProductLine = async (productId: number) => {
 
 const updateQuantity = async (line: any, qty: number) => {
   try {
-    const res = await fetch(`${apiBase}/leads/${props.lead.id}/products/${line.id}`, {
+    const res = await apiRequest(`${apiBase}/leads/${props.lead.id}/products/${line.id}`, {
       method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${authStore.token}`,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ quantity: qty }),
     });
     if (res.ok) {
@@ -698,12 +704,9 @@ const updateQuantity = async (line: any, qty: number) => {
 
 const updateLineStatus = async (line: any, status: string) => {
   try {
-    const res = await fetch(`${apiBase}/leads/${props.lead.id}/products/${line.id}`, {
+    const res = await apiRequest(`${apiBase}/leads/${props.lead.id}/products/${line.id}`, {
       method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${authStore.token}`,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status }),
     });
     if (res.ok) {
@@ -716,12 +719,9 @@ const updateLineStatus = async (line: any, status: string) => {
 
 const toggleRxVerified = async (line: any, isVerified: boolean) => {
   try {
-    const res = await fetch(`${apiBase}/leads/${props.lead.id}/products/${line.id}`, {
+    const res = await apiRequest(`${apiBase}/leads/${props.lead.id}/products/${line.id}`, {
       method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${authStore.token}`,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ prescriptionVerified: isVerified }),
     });
     if (res.ok) {
@@ -735,9 +735,8 @@ const toggleRxVerified = async (line: any, isVerified: boolean) => {
 const removeLine = async (line: any) => {
   if (!confirm(`Remove ${line.product?.name} from this lead?`)) return;
   try {
-    const res = await fetch(`${apiBase}/leads/${props.lead.id}/products/${line.id}`, {
+    const res = await apiRequest(`${apiBase}/leads/${props.lead.id}/products/${line.id}`, {
       method: 'DELETE',
-      headers: { Authorization: `Bearer ${authStore.token}` },
     });
     if (res.ok) {
       emit('updated');
@@ -749,12 +748,9 @@ const removeLine = async (line: any) => {
 
 const updateToCatalogPrice = async (line: any) => {
   try {
-    const res = await fetch(`${apiBase}/leads/${props.lead.id}/products/${line.id}`, {
+    const res = await apiRequest(`${apiBase}/leads/${props.lead.id}/products/${line.id}`, {
       method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${authStore.token}`,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ unitPriceAtTime: Number(line.product.price) }),
     });
     if (res.ok) {
@@ -767,12 +763,9 @@ const updateToCatalogPrice = async (line: any) => {
 
 const waitlistProduct = async (productId: number) => {
   try {
-    const res = await fetch(`${apiBase}/leads/${props.lead.id}/waitlist-product`, {
+    const res = await apiRequest(`${apiBase}/leads/${props.lead.id}/waitlist-product`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${authStore.token}`,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ productId }),
     });
     if (res.ok) {
@@ -789,9 +782,7 @@ const openSuggestions = async (productId?: number) => {
   showSuggestionsDrawer.value = true;
   isLoadingSuggestions.value = true;
   try {
-    const res = await fetch(`${apiBase}/products/${productId}/suggestions?lead_id=${props.lead.id}`, {
-      headers: { Authorization: `Bearer ${authStore.token}` },
-    });
+    const res = await apiRequest(`${apiBase}/products/${productId}/suggestions?lead_id=${props.lead.id}`);
     if (res.ok) {
       const data = await res.json();
       suggestionsList.value = data.suggestions || [];
@@ -820,12 +811,9 @@ const openConfirmSaleModal = () => {
 const submitSaleConfirmation = async () => {
   isSubmittingSale.value = true;
   try {
-    const res = await fetch(`${apiBase}/leads/${props.lead.id}/confirm-sale`, {
+    const res = await apiRequest(`${apiBase}/leads/${props.lead.id}/confirm-sale`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${authStore.token}`,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(saleForm.value),
     });
     if (res.ok) {
@@ -845,12 +833,9 @@ const submitSaleConfirmation = async () => {
 const submitReferral = async () => {
   isSubmittingReferral.value = true;
   try {
-    const res = await fetch(`${apiBase}/leads/${props.lead.id}/refer-to-treatment`, {
+    const res = await apiRequest(`${apiBase}/leads/${props.lead.id}/refer-to-treatment`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${authStore.token}`,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ concern: referralConcern.value.trim() }),
     });
     if (res.ok) {

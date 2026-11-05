@@ -17,7 +17,10 @@ export async function authenticate(request: FastifyRequest, reply: FastifyReply)
   if (request.headers.authorization) {
     const parts = request.headers.authorization.split(' ');
     if (parts.length === 2 && parts[0] === 'Bearer') {
-      token = parts[1];
+      const raw = parts[1]?.trim();
+      if (raw && raw !== 'undefined' && raw !== 'null') {
+        token = raw;
+      }
     }
   }
 
@@ -28,7 +31,7 @@ export async function authenticate(request: FastifyRequest, reply: FastifyReply)
 
   let payload: TokenPayload | null = token ? verifyAccessToken(token) : null;
 
-  // 3. Fallback: try refresh token if access token is expired or missing
+  // 3. Fallback: try refresh token if access token is expired, invalid, or missing
   if (!payload && request.cookies && request.cookies.refreshToken) {
     const refreshPayload = verifyRefreshToken(request.cookies.refreshToken);
     if (refreshPayload) {
@@ -42,6 +45,7 @@ export async function authenticate(request: FastifyRequest, reply: FastifyReply)
         sameSite: 'strict',
         maxAge: 15 * 60, // 15 mins
       });
+      reply.header('x-access-token', newAccessToken);
     }
   }
 

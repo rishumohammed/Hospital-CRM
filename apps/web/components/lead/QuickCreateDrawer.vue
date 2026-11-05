@@ -290,7 +290,8 @@ const emit = defineEmits<{
 
 const authStore = useAuthStore();
 const config = useRuntimeConfig();
-const apiBase = config.public.apiBase || 'http://localhost:4000/api/v1';
+const rawApiBase = config.public.apiBase || '/api/v1';
+const apiBase = rawApiBase.endsWith('/api/v1') ? rawApiBase : `${rawApiBase.replace(/\/+$/, '')}/api/v1`;
 
 const departments = ref<any[]>([]);
 const sources = ref<any[]>([]);
@@ -358,12 +359,15 @@ let debounceTimer: any = null;
 
 const fetchPicklists = async () => {
   try {
-    const headers = { Authorization: `Bearer ${authStore.token}` };
+    const headers: Record<string, string> = {};
+    const token = authStore.token || authStore.accessToken;
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
     const [deptRes, srcRes, campRes, prodRes] = await Promise.all([
-      fetch(`${apiBase}/picklists/departments`, { headers }),
-      fetch(`${apiBase}/picklists/sources`, { headers }),
-      fetch(`${apiBase}/product-campaigns`, { headers }),
-      fetch(`${apiBase}/products?pageSize=50`, { headers }),
+      fetch(`${apiBase}/picklists/departments`, { headers, credentials: 'include' }),
+      fetch(`${apiBase}/picklists/sources`, { headers, credentials: 'include' }),
+      fetch(`${apiBase}/product-campaigns`, { headers, credentials: 'include' }),
+      fetch(`${apiBase}/products?pageSize=50`, { headers, credentials: 'include' }),
     ]);
 
     if (deptRes.ok) {
@@ -400,9 +404,13 @@ const handlePhoneInput = () => {
   debounceTimer = setTimeout(async () => {
     isCheckingDuplicate.value = true;
     try {
+      const headers: Record<string, string> = {};
+      const token = authStore.token || authStore.accessToken;
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       const res = await fetch(
         `${apiBase}/leads/check-duplicate?mobile=${encodeURIComponent(form.mobile.trim())}`,
-        { headers: { Authorization: `Bearer ${authStore.token}` } }
+        { headers, credentials: 'include' }
       );
       if (res.ok) {
         const data = await res.json();
@@ -447,12 +455,16 @@ const submitLead = async () => {
       if (form.productIds.length > 0) payload.productIds = form.productIds;
     }
 
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    const token = authStore.token || authStore.accessToken;
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
     const res = await fetch(`${apiBase}/leads`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${authStore.token}`,
-      },
+      headers,
+      credentials: 'include',
       body: JSON.stringify(payload),
     });
 

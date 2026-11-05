@@ -417,8 +417,17 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
 
   // Current User Profile Endpoint
   fastify.get('/auth/me', { preHandler: [authenticate] }, async (request, reply) => {
+    const user = request.user!;
+    const freshAccessToken = generateAccessToken({
+      userId: user.id,
+      email: user.email,
+      roleCode: user.roleCode,
+      branchIds: user.branchIds,
+      teamCodes: user.teamCodes,
+    });
     return reply.send({
       user: request.user,
+      accessToken: freshAccessToken,
     });
   });
 };

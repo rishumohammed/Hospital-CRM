@@ -424,8 +424,8 @@ const emit = defineEmits<{
 const { t } = useI18n();
 const authStore = useAuthStore();
 const config = useRuntimeConfig();
-const rawApi = config.public.apiBase || 'http://localhost:4000/api/v1';
-const apiBase = rawApi.endsWith('/api/v1') ? rawApi : `${rawApi}/api/v1`;
+const rawApi = config.public.apiBase || '/api/v1';
+const apiBase = rawApi.endsWith('/api/v1') ? rawApi : `${rawApi.replace(/\/+$/, '')}/api/v1`;
 
 const callOutcomes = ref<any[]>([]);
 const lostReasons = ref<any[]>([]);
@@ -509,12 +509,18 @@ const loadPicklists = async () => {
       ? `${apiBase}/picklists/call-outcomes?scope=product`
       : (props.lead?.leadType === 'treatment' ? `${apiBase}/picklists/call-outcomes?scope=treatment` : `${apiBase}/picklists/call-outcomes`);
 
+    const headers: Record<string, string> = {};
+    const token = authStore.token || authStore.accessToken;
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
     const [coRes, lrRes] = await Promise.all([
       fetch(outcomeUrl, {
-        headers: { Authorization: `Bearer ${authStore.token}` },
+        headers,
+        credentials: 'include',
       }),
       fetch(`${apiBase}/picklists/lost-reasons`, {
-        headers: { Authorization: `Bearer ${authStore.token}` },
+        headers,
+        credentials: 'include',
       }),
     ]);
     if (coRes.ok) callOutcomes.value = await coRes.json();
@@ -532,8 +538,13 @@ const checkLimits = async () => {
 
   const query = targetLeadId ? `leadId=${targetLeadId}` : `caseId=${targetCaseId}`;
   try {
+    const headers: Record<string, string> = {};
+    const token = authStore.token || authStore.accessToken;
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
     const res = await fetch(`${apiBase}/interactions/check-limits?${query}`, {
-      headers: { Authorization: `Bearer ${authStore.token}` },
+      headers,
+      credentials: 'include',
     });
     if (res.ok) {
       const data = await res.json();
@@ -622,12 +633,16 @@ const submitCall = async () => {
       };
     }
 
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    const token = authStore.token || authStore.accessToken;
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
     const res = await fetch(`${apiBase}/interactions/call`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${authStore.token}`,
-      },
+      headers,
+      credentials: 'include',
       body: JSON.stringify(payload),
     });
 

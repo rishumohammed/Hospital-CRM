@@ -247,8 +247,8 @@ const { t } = useI18n();
 const authStore = useAuthStore();
 const config = useRuntimeConfig();
 
-const rawApi = config.public.apiBase || 'http://localhost:4000/api/v1';
-const apiBase = rawApi.endsWith('/api/v1') ? rawApi : `${rawApi}/api/v1`;
+const rawApi = config.public.apiBase || '/api/v1';
+const apiBase = rawApi.endsWith('/api/v1') ? rawApi : `${rawApi.replace(/\/+$/, '')}/api/v1`;
 
 const departments = ref<any[]>([]);
 const allDoctors = ref<any[]>([]);
@@ -304,14 +304,18 @@ const setAppointmentDayOffset = (days: number, hour: number) => {
 
 const fetchInitialData = async () => {
   try {
-    const headers = { Authorization: `Bearer ${authStore.token}` };
+    const headers: Record<string, string> = {};
+    const token = authStore.token || authStore.accessToken;
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
     const [deptRes, docRes] = await Promise.all([
-      fetch(`${apiBase}/picklists/departments`, { headers }),
-      fetch(`${apiBase}/doctors?activeOnly=true`, { headers }),
+      fetch(`${apiBase}/picklists/departments`, { headers, credentials: 'include' }),
+      fetch(`${apiBase}/doctors?activeOnly=true`, { headers, credentials: 'include' }),
     ]);
 
     if (deptRes.ok) {
-      departments.value = await deptRes.json();
+      const data = await deptRes.json();
+      departments.value = Array.isArray(data) ? data : (data.departments || []);
     }
     if (docRes.ok) {
       allDoctors.value = await docRes.json();
@@ -406,12 +410,16 @@ const submitAppointment = async () => {
   errorMessage.value = '';
 
   try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    const token = authStore.token || authStore.accessToken;
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
     const res = await fetch(`${apiBase}/leads/${props.lead.id}/book-appointment`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${authStore.token}`,
-      },
+      headers,
+      credentials: 'include',
       body: JSON.stringify({
         doctorName: docName,
         startsAt: new Date(startsAt.value).toISOString(),

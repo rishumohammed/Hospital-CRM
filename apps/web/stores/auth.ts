@@ -108,15 +108,24 @@ export const useAuthStore = defineStore('auth', () => {
     navigateTo('/login');
   }
 
+  const token = computed(() => accessToken.value || (typeof window !== 'undefined' ? localStorage.getItem('hospital_crm_token') : null));
+
   async function fetchMe() {
     try {
-      const headers: Record<string, string> = accessToken.value ? { Authorization: `Bearer ${accessToken.value}` } : {};
-      const res = await $fetch<{ user: any }>(`${apiBase}/auth/me`, {
+      const activeToken = accessToken.value || (typeof window !== 'undefined' ? localStorage.getItem('hospital_crm_token') : null);
+      const headers: Record<string, string> = activeToken ? { Authorization: `Bearer ${activeToken}` } : {};
+      const res = await $fetch<{ user: any; accessToken?: string }>(`${apiBase}/auth/me`, {
         credentials: 'include',
         headers,
       });
       if (res && res.user) {
         user.value = res.user;
+        if (res.accessToken) {
+          accessToken.value = res.accessToken;
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('hospital_crm_token', res.accessToken);
+          }
+        }
         if (typeof window !== 'undefined') {
           localStorage.setItem('hospital_crm_user', JSON.stringify(res.user));
         }
@@ -144,7 +153,7 @@ export const useAuthStore = defineStore('auth', () => {
   return {
     user,
     accessToken,
-    token: accessToken,
+    token,
     isAuthenticated,
     hasPermission,
     login,
