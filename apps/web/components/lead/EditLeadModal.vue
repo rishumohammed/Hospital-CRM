@@ -124,8 +124,9 @@
                 v-model.number="form.departmentId"
                 class="w-full h-10 px-3.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-normal focus:ring-2 focus:ring-teal-500"
               >
+                <option v-if="departments.length === 0" :value="form.departmentId">Loading departments...</option>
                 <option v-for="d in departments" :key="d.id" :value="d.id">
-                  {{ d.labelEn }}
+                  {{ d.labelEn || d.name || d.code }}
                 </option>
               </select>
             </div>
@@ -137,8 +138,9 @@
                 v-model.number="form.sourceId"
                 class="w-full h-10 px-3.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-normal focus:ring-2 focus:ring-teal-500"
               >
+                <option v-if="sources.length === 0" :value="form.sourceId">Loading sources...</option>
                 <option v-for="s in sources" :key="s.id" :value="s.id">
-                  {{ s.labelEn }}
+                  {{ s.labelEn || s.name || s.code }}
                 </option>
               </select>
             </div>
@@ -230,7 +232,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch } from 'vue';
+import { ref, reactive, watch, onMounted } from 'vue';
 import { useAuthStore } from '../../stores/auth';
 
 const props = defineProps<{
@@ -245,7 +247,8 @@ const emit = defineEmits<{
 
 const authStore = useAuthStore();
 const config = useRuntimeConfig();
-const apiBase = config.public.apiBase || 'http://localhost:4000/api/v1';
+const rawApiBase = config.public.apiBase || '/api/v1';
+const apiBase = rawApiBase.endsWith('/api/v1') ? rawApiBase : `${rawApiBase.replace(/\/+$/, '')}/api/v1`;
 
 const departments = ref<any[]>([]);
 const sources = ref<any[]>([]);
@@ -271,19 +274,25 @@ const populateForm = () => {
   form.altMobile = props.lead.altMobile || '';
   form.age = props.lead.age !== undefined && props.lead.age !== null ? props.lead.age : null;
   form.location = props.lead.location || '';
-  form.departmentId = props.lead.departmentId || props.lead.department?.id || 1;
-  form.sourceId = props.lead.sourceId || props.lead.source?.id || 1;
+  form.departmentId = props.lead.departmentId || props.lead.department?.id || (departments.value[0]?.id ?? 1);
+  form.sourceId = props.lead.sourceId || props.lead.source?.id || (sources.value[0]?.id ?? 1);
   form.priority = props.lead.priority || 'warm';
   form.concern = props.lead.concern || '';
   errorMessage.value = '';
 };
 
+onMounted(() => {
+  fetchPicklists();
+});
+
 watch(
   () => [props.isOpen, props.lead],
   ([open]) => {
     if (open) {
+      if (departments.value.length === 0 || sources.value.length === 0) {
+        fetchPicklists();
+      }
       populateForm();
-      fetchPicklists();
     }
   },
   { immediate: true }
@@ -291,19 +300,32 @@ watch(
 
 const fetchPicklists = async () => {
   try {
-    const headers = { Authorization: `Bearer ${authStore.token}` };
+    const headers: Record<string, string> = {};
+    const token = authStore.token || authStore.accessToken;
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
     const [deptRes, srcRes] = await Promise.all([
-      fetch(`${apiBase}/picklists/departments`, { headers }),
-      fetch(`${apiBase}/picklists/sources`, { headers }),
+      fetch(`${apiBase}/picklists/departments`, { headers, credentials: 'include' }),
+      fetch(`${apiBase}/picklists/sources`, { headers, credentials: 'include' }),
     ]);
 
     if (deptRes.ok) {
       const data = await deptRes.json();
-      departments.value = data.departments || [];
+      departments.value = Array.isArray(data) ? data : (data.departments || []);
+      if (props.lead?.departmentId || props.lead?.department?.id) {
+        form.departmentId = props.lead.departmentId || props.lead.department?.id;
+      } else if (departments.value.length > 0 && !form.departmentId) {
+        form.departmentId = departments.value[0].id;
+      }
     }
     if (srcRes.ok) {
       const data = await srcRes.json();
-      sources.value = data.sources || [];
+      sources.value = Array.isArray(data) ? data : (data.sources || []);
+      if (props.lead?.sourceId || props.lead?.source?.id) {
+        form.sourceId = props.lead.sourceId || props.lead.source?.id;
+      } else if (sources.value.length > 0 && !form.sourceId) {
+        form.sourceId = sources.value[0].id;
+      }
     }
   } catch (err) {
     console.error('Failed to load picklists', err);
@@ -332,12 +354,16 @@ const submitUpdate = async () => {
       concern: form.concern.trim(),
     };
 
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    const token = authStore.token || authStore.accessToken;
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
     const res = await fetch(`${apiBase}/leads/${props.lead.id}`, {
       method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${authStore.token}`,
-      },
+      headers,
+      credentials: 'include',
       body: JSON.stringify(payload),
     });
 
@@ -357,3 +383,4 @@ const submitUpdate = async () => {
   }
 };
 </script>
+
