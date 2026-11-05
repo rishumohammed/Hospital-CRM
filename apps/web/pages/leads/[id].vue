@@ -77,6 +77,17 @@
                   />
                   <span>{{ (lead.testimonialsSentCount || 0) > 0 ? '✓ Testimonials Sent' : 'Testimonials Not Sent' }}</span>
                 </label>
+
+                <!-- Edit Lead Button -->
+                <button
+                  type="button"
+                  @click="showEditModal = true"
+                  class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:text-teal-600 dark:hover:text-teal-400 hover:border-teal-500 text-[11px] font-semibold transition-colors shadow-2xs cursor-pointer"
+                  title="Edit Lead Details"
+                >
+                  <span>✏️</span>
+                  <span>Edit</span>
+                </button>
               </div>
 
               <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 flex-wrap">
@@ -97,16 +108,6 @@
 
           <!-- Action Toolbar (Categorized & Balanced) -->
           <div class="flex items-center flex-wrap gap-2.5">
-            <!-- Edit Lead -->
-            <button
-              type="button"
-              @click="showEditModal = true"
-              class="min-h-[40px] px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 dark:bg-slate-750 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs flex items-center gap-1.5 border border-slate-300 dark:border-slate-600 transition-colors shadow-2xs"
-            >
-              <span>✏️</span>
-              <span>Edit Lead</span>
-            </button>
-
             <!-- Direct Call -->
             <a
               :href="`tel:${lead.mobileNorm || lead.mobile}`"
