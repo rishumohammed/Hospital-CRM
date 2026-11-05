@@ -121,6 +121,33 @@ export async function getAdmissionReport(
   const contactRate = advised > 0 ? Math.round((contactedWithin24hCount / advised) * 100) : 0;
   const conversionRate = advised > 0 ? Math.round((admittedCount / advised) * 100) : 0;
 
+  const stageCounts = {
+    plan_given: cases.filter((c) => c.stage === CaseStages.PLAN_GIVEN).length,
+    counseling_estimate: cases.filter((c) => c.stage === CaseStages.COUNSELING_ESTIMATE).length,
+    plan_accepted: cases.filter((c) => c.stage === CaseStages.PLAN_ACCEPTED).length,
+    in_treatment: cases.filter((c) => c.stage === CaseStages.IN_TREATMENT).length,
+    not_started: cases.filter((c) => c.stage === CaseStages.NOT_STARTED).length,
+  };
+
+  const caseIds = cases.map((c) => c.id);
+  const admissionFollowUps = await prisma.task.findMany({
+    where: {
+      status: 'open',
+      caseId: { in: caseIds },
+    },
+    include: {
+      case: {
+        select: {
+          id: true,
+          patient: { select: { id: true, name: true, mobileNorm: true } },
+        },
+      },
+      owner: { select: { id: true, name: true } },
+    },
+    orderBy: { dueAt: 'asc' },
+    take: 10,
+  });
+
   return {
     advised,
     contactedWithin24h: contactedWithin24hCount,
@@ -132,6 +159,8 @@ export async function getAdmissionReport(
     declined: declinedCount,
     declinedReasons: Object.values(declinedReasonCounts),
     overdueFollowUps,
+    stageCounts,
+    admissionFollowUps,
   };
 }
 

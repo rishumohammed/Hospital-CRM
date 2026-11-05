@@ -1,6 +1,6 @@
 import { prisma } from '../../database/client';
 import { UserContext } from '../rbac/scope';
-import { applyCadence, cancelOpenCadenceTasks } from '../cadences/cadence.service';
+import { cancelOpenCadenceTasks } from '../cadences/cadence.service';
 import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 import { startOfDay, endOfDay, addHours } from 'date-fns';
 
@@ -137,24 +137,24 @@ export async function logCallInteraction(input: LogCallInput, user: UserContext)
 
   // 2. Soft contact rules & calling hours validation
   const limitsCheck = await checkCallLimits(resourceType, resourceId);
+  const effectiveOverrideReason = input.overrideReason || input.note || null;
   if (limitsCheck.requiresOverride) {
-    if (!input.overrideReason || input.overrideReason.trim().length === 0) {
+    if (!effectiveOverrideReason || effectiveOverrideReason.trim().length === 0) {
       throw {
         statusCode: 422,
         code: 'OVERRIDE_REASON_REQUIRED',
-        message: limitsCheck.warnings.join(' '),
+        message: 'Please enter notes/discussion summary for this call.',
         warnings: limitsCheck.warnings,
       };
     }
   }
 
-  // 3. Mandatory next action rule (Acceptance Test 4)
+  // 3. Mandatory next action rule
   // An open lead cannot be saved or have a call logged without a next action and due time,
   // unless closing with a reason or converting.
   const isClosing = Boolean(input.closedReasonId || input.closureCodeId || input.notStartedReasonId);
-  const isAutoCadenceOutcome = ['INTERESTED_NOT_READY', 'NO_ANSWER', 'SWITCHED_OFF_BUSY', 'INFORMATION_GIVEN'].includes(outcomeCode);
 
-  if (!isClosing && !input.nextAction && !isAutoCadenceOutcome) {
+  if (!isClosing && !input.nextAction) {
     throw {
       statusCode: 400,
       code: 'NEXT_ACTION_REQUIRED',
@@ -175,7 +175,7 @@ export async function logCallInteraction(input: LogCallInput, user: UserContext)
         outcomeId: input.outcomeId,
         durationSeconds: input.durationSeconds || null,
         note: input.note || null,
-        overrideReason: input.overrideReason || null,
+        overrideReason: effectiveOverrideReason,
         occurredAt: new Date(),
       },
     });
@@ -268,28 +268,9 @@ export async function logCallInteraction(input: LogCallInput, user: UserContext)
         }
       }
 
-      // Handle Cadence Triggers
-      if (outcomeCode === 'INTERESTED_NOT_READY') {
-        // Acceptance Test 5: Creates tasks at day 2, 7, 14, 30 (and monthly)
-        await applyCadence(tx, 'lead', lead.id, 'lead.interested_not_ready', new Date(), {
-          ownerId: lead.ownerId ?? user.id,
-          timezone: lead.branch?.timezone || 'Asia/Kolkata',
-        });
-      } else if (outcomeCode === 'NO_ANSWER' || outcomeCode === 'SWITCHED_OFF_BUSY') {
-        await applyCadence(tx, 'lead', lead.id, 'lead.no_answer', new Date(), {
-          ownerId: lead.ownerId ?? user.id,
-          timezone: lead.branch?.timezone || 'Asia/Kolkata',
-        });
-      } else if (outcomeCode === 'INFORMATION_GIVEN') {
-        await applyCadence(tx, 'lead', lead.id, 'lead.information_given', new Date(), {
-          ownerId: lead.ownerId ?? user.id,
-          timezone: lead.branch?.timezone || 'Asia/Kolkata',
-        });
-      }
-
-      // Apply explicit next action if provided (ensure single next step, skip if auto-cadence was applied)
-      if (input.nextAction && !input.closedReasonId && !isAutoCadenceOutcome) {
-        // Cancel existing open cadence tasks on this lead so only the ONE new next action exists
+      // Hospital Case-by-Case Follow-up: Staff manually sets the exact next follow-up and due date
+      if (input.nextAction && !input.closedReasonId) {
+        // Cancel existing open tasks on this lead so only the ONE new next follow-up action exists
         await cancelOpenCadenceTasks(tx, 'lead', lead.id);
 
         let taskTitle = input.nextAction.title?.trim();

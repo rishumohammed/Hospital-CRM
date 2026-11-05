@@ -232,10 +232,6 @@
               <span>Mobile: {{ c.patient?.mobileNorm }}</span>
               <span>•</span>
               <span>Dept: {{ c.department?.labelEn || 'Ayurveda' }}</span>
-              <span v-if="c.estimatedAmount">•</span>
-              <span v-if="c.estimatedAmount" class="font-semibold text-teal-600">
-                ₹{{ Number(c.estimatedAmount).toLocaleString('en-IN') }}
-              </span>
             </div>
           </div>
         </div>

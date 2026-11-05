@@ -1,6 +1,7 @@
 import { FastifyPluginAsync } from 'fastify';
 import { Permissions, logCallInteractionSchema, logAftercareCallSchema } from '@hospital-crm/shared';
 import { requirePermission } from '../auth/auth.middleware';
+import { prisma } from '../../database/client';
 import {
   checkCallLimits,
   logCallInteraction,
@@ -170,6 +171,42 @@ export const interactionRoutes: FastifyPluginAsync = async (fastify) => {
 
       const timeline = await getUnifiedTimeline(resourceType, resourceId);
       return reply.send({ timeline });
+    }
+  );
+
+  // Delete an interaction (for correcting mistaken logs)
+  fastify.delete(
+    '/:id',
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const numId = Number(id);
+      if (isNaN(numId)) {
+        return reply.status(400).send({ error: { code: 'INVALID_ID', message: 'Invalid interaction ID' } });
+      }
+
+      const user = request.user;
+      if (!user) {
+        return reply.status(401).send({ error: { code: 'UNAUTHORIZED', message: 'Unauthorized' } });
+      }
+
+      const existing = await prisma.interaction.findUnique({ where: { id: numId } });
+      if (!existing) {
+        return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Interaction not found' } });
+      }
+
+      // Allow owner, admin, center_head, or the creator to delete
+      const canDelete =
+        user.roleCode === 'owner' ||
+        user.roleCode === 'admin' ||
+        user.roleCode === 'center_head' ||
+        existing.userId === user.id;
+
+      if (!canDelete) {
+        return reply.status(403).send({ error: { code: 'FORBIDDEN', message: 'Permission denied to delete interaction' } });
+      }
+
+      await prisma.interaction.delete({ where: { id: numId } });
+      return reply.send({ success: true, message: 'Interaction deleted' });
     }
   );
 };

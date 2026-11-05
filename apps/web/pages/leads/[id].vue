@@ -295,115 +295,71 @@
             </div>
           </div>
 
-          <!-- Medical Concern & Symptoms Description Card -->
-          <div class="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/90 dark:border-slate-700/80 p-6 shadow-xs space-y-4">
-            <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2 border-b pb-3 border-slate-100 dark:border-slate-700/70">
-              <span>🩺</span>
-              <span>Medical Concern & Clinical Inquiry</span>
-            </h2>
-            <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/70 dark:border-slate-700/60 text-sm text-slate-800 dark:text-slate-200 whitespace-pre-wrap leading-relaxed">
-              {{ lead.concern || 'No specific symptoms or notes entered during inquiry capture.' }}
-            </div>
-          </div>
-
-          <!-- Testimonials Status Card -->
-          <div class="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/90 dark:border-slate-700/80 p-6 shadow-xs space-y-4">
-            <div class="flex items-center justify-between border-b pb-3 border-slate-100 dark:border-slate-700/70">
-              <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <span>💬</span>
-                <span>Testimonials Status</span>
-              </h2>
-              <span
-                :class="[
-                  'px-2.5 py-0.5 rounded-full text-xs font-semibold',
-                  (lead.testimonialsSentCount || 0) > 0
-                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                    : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
-                ]"
-              >
-                {{ (lead.testimonialsSentCount || 0) > 0 ? 'Sent' : 'Not Sent' }}
-              </span>
-            </div>
-
-            <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200/70 dark:border-slate-700/70 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <label class="inline-flex items-center gap-3 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  :checked="(lead.testimonialsSentCount || 0) > 0"
-                  :disabled="isUpdatingTestimonial"
-                  class="w-5 h-5 rounded text-teal-600 focus:ring-teal-500 border-slate-300 dark:border-slate-600 cursor-pointer"
-                  @change="toggleTestimonialsSent($event)"
-                />
-                <div>
-                  <span class="text-sm font-semibold text-slate-900 dark:text-slate-100 block">
-                    Testimonials sent to patient
-                  </span>
-                  <span class="text-xs text-slate-500 dark:text-slate-400">
-                    Manually shared with patient via WhatsApp, SMS, or phone call
-                  </span>
-                </div>
-              </label>
-
-              <div v-if="lead.testimonialsLastSentAt" class="text-xs text-slate-500 font-medium sm:text-right">
-                Marked sent: {{ formatDate(lead.testimonialsLastSentAt) }}
-              </div>
-            </div>
-          </div>
-          </template>
-
-          <!-- Scheduled Follow-up Tasks Section -->
-          <div class="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/90 dark:border-slate-700/80 p-6 shadow-xs space-y-4">
-            <div class="flex items-center justify-between border-b pb-3 border-slate-100 dark:border-slate-700/70">
-              <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <span>📋</span>
-                <span>Scheduled Follow-up Tasks</span>
-              </h2>
-              <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
-                {{ lead.tasks?.length || 0 }} scheduled
-              </span>
-            </div>
-
-            <div v-if="!lead.tasks || lead.tasks.length === 0" class="py-8 text-center text-xs text-slate-400">
-              No pending follow-up tasks for this lead inquiry.
-            </div>
-            <div v-else class="space-y-2.5">
-              <div
-                v-for="task in lead.tasks"
-                :key="task.id"
-                class="p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-700 flex items-center justify-between text-xs hover:bg-slate-50/60 dark:hover:bg-slate-750 transition-colors"
-              >
-                <div>
-                  <p class="font-semibold text-slate-900 dark:text-white">{{ task.title }}</p>
-                  <p class="text-slate-500 text-[11px] mt-0.5">
-                    Due: {{ formatDate(task.dueAt) }} • Assigned to {{ task.owner?.name }}
-                  </p>
-                </div>
-                <span class="px-2.5 py-0.5 rounded-lg text-[10px] font-semibold uppercase bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
-                  {{ task.status }}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Right Column: Timeline / History (4 cols) -->
-        <div class="lg:col-span-4 space-y-6">
-          <div class="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/90 dark:border-slate-700/80 p-6 shadow-xs space-y-4">
+          <!-- Activity & Follow-ups Card (Placed directly below Patient Information & Contact) -->
+          <div class="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/90 dark:border-slate-700/80 p-6 shadow-xs space-y-5">
             <div class="flex items-center justify-between border-b pb-3 border-slate-100 dark:border-slate-700/70">
               <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                 <span>⏱️</span>
-                <span>Activity Timeline</span>
+                <span>Activity & Follow-ups</span>
               </h2>
-              <button
-                type="button"
-                @click="showLogCallDrawer = true"
-                class="text-xs font-semibold text-teal-600 dark:text-teal-400 hover:underline"
-              >
-                + Log Note
-              </button>
             </div>
 
-            <div v-if="!lead.interactions || lead.interactions.length === 0" class="py-8 text-center text-xs text-slate-400">
+            <!-- Scheduled Follow-up Block -->
+            <div class="space-y-2.5">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <span>📌</span>
+                  <span>Scheduled Follow-up</span>
+                </span>
+                <span
+                  v-if="openTasks.length > 0"
+                  class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-teal-100 dark:bg-teal-900/60 text-teal-800 dark:text-teal-200"
+                >
+                  {{ openTasks.length }} Pending
+                </span>
+                <span
+                  v-else
+                  class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"
+                >
+                  None Pending
+                </span>
+              </div>
+
+              <!-- When there are open tasks -->
+              <div
+                v-for="task in openTasks"
+                :key="task.id"
+                class="p-3.5 rounded-2xl bg-teal-50/70 dark:bg-teal-950/40 border border-teal-200/80 dark:border-teal-800/60 text-xs space-y-1.5"
+              >
+                <div class="flex items-center justify-between">
+                  <p class="font-semibold text-teal-950 dark:text-teal-100">{{ task.title }}</p>
+                  <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase bg-teal-200/70 dark:bg-teal-900 text-teal-900 dark:text-teal-200">
+                    {{ task.status }}
+                  </span>
+                </div>
+                <p class="text-[11px] text-teal-700 dark:text-teal-300">
+                  Due: {{ formatDate(task.dueAt) }} • Assigned to {{ task.owner?.name || 'Staff' }}
+                </p>
+              </div>
+
+              <!-- When there are no pending tasks -->
+              <div
+                v-if="openTasks.length === 0"
+                class="p-3.5 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700 text-center text-xs text-slate-400"
+              >
+                No pending follow-ups. Schedule one anytime using <span class="font-medium text-teal-600 dark:text-teal-400">Log Interaction</span>.
+              </div>
+            </div>
+
+            <!-- Divider between Follow-ups and Activity History -->
+            <div class="border-t border-slate-100 dark:border-slate-700/60 pt-2">
+              <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-2">
+                Activity History
+              </span>
+            </div>
+
+            <!-- Activity History List -->
+            <div v-if="!lead.interactions || lead.interactions.length === 0" class="py-6 text-center text-xs text-slate-400">
               No interactions recorded yet. Use the action bar above to log calls or chats.
             </div>
 
@@ -431,6 +387,158 @@
               </div>
             </div>
           </div>
+          </template>
+        </div>
+
+        <!-- Right Column: Medical Concern & Testimonials (4 cols) -->
+        <div class="lg:col-span-4 space-y-6">
+          <template v-if="lead.leadType !== 'product'">
+            <!-- Medical Concern & Symptoms Description Card -->
+            <div class="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/90 dark:border-slate-700/80 p-6 shadow-xs space-y-4">
+              <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2 border-b pb-3 border-slate-100 dark:border-slate-700/70">
+                <span>🩺</span>
+                <span>Medical Concern & Symptoms</span>
+              </h2>
+              <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/70 dark:border-slate-700/60 text-xs text-slate-800 dark:text-slate-200 whitespace-pre-wrap leading-relaxed">
+                {{ lead.concern || 'No specific symptoms or notes entered during inquiry capture.' }}
+              </div>
+            </div>
+
+            <!-- Testimonials Status Card -->
+            <div class="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/90 dark:border-slate-700/80 p-6 shadow-xs space-y-4">
+              <div class="flex items-center justify-between border-b pb-3 border-slate-100 dark:border-slate-700/70">
+                <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                  <span>💬</span>
+                  <span>Testimonials Status</span>
+                </h2>
+                <span
+                  :class="[
+                    'px-2.5 py-0.5 rounded-full text-xs font-semibold',
+                    (lead.testimonialsSentCount || 0) > 0
+                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                      : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                  ]"
+                >
+                  {{ (lead.testimonialsSentCount || 0) > 0 ? 'Sent' : 'Not Sent' }}
+                </span>
+              </div>
+
+              <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200/70 dark:border-slate-700/70 flex flex-col gap-3">
+                <label class="inline-flex items-start gap-3 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    :checked="(lead.testimonialsSentCount || 0) > 0"
+                    :disabled="isUpdatingTestimonial"
+                    class="w-5 h-5 rounded text-teal-600 focus:ring-teal-500 border-slate-300 dark:border-slate-600 cursor-pointer mt-0.5"
+                    @change="toggleTestimonialsSent($event)"
+                  />
+                  <div>
+                    <span class="text-xs font-semibold text-slate-900 dark:text-slate-100 block">
+                      Testimonials sent to patient
+                    </span>
+                    <span class="text-[11px] text-slate-500 dark:text-slate-400">
+                      Manually shared with patient via WhatsApp, SMS, or phone call
+                    </span>
+                  </div>
+                </label>
+
+                <div v-if="lead.testimonialsLastSentAt" class="text-[11px] text-slate-500 font-medium pt-2 border-t border-slate-100 dark:border-slate-700/50">
+                  Marked sent: {{ formatDate(lead.testimonialsLastSentAt) }}
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <!-- If product lead, show Activity & Follow-ups on right column -->
+          <template v-else>
+            <div class="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/90 dark:border-slate-700/80 p-6 shadow-xs space-y-5">
+              <div class="flex items-center justify-between border-b pb-3 border-slate-100 dark:border-slate-700/70">
+                <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                  <span>⏱️</span>
+                  <span>Activity & Follow-ups</span>
+                </h2>
+              </div>
+
+              <!-- Scheduled Follow-up Block -->
+              <div class="space-y-2.5">
+                <div class="flex items-center justify-between">
+                  <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <span>📌</span>
+                    <span>Scheduled Follow-up</span>
+                  </span>
+                  <span
+                    v-if="openTasks.length > 0"
+                    class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-teal-100 dark:bg-teal-900/60 text-teal-800 dark:text-teal-200"
+                  >
+                    {{ openTasks.length }} Pending
+                  </span>
+                  <span
+                    v-else
+                    class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"
+                  >
+                    None Pending
+                  </span>
+                </div>
+
+                <!-- When there are open tasks -->
+                <div
+                  v-for="task in openTasks"
+                  :key="task.id"
+                  class="p-3.5 rounded-2xl bg-teal-50/70 dark:bg-teal-950/40 border border-teal-200/80 dark:border-teal-800/60 text-xs space-y-1.5"
+                >
+                  <div class="flex items-center justify-between">
+                    <p class="font-semibold text-teal-950 dark:text-teal-100">{{ task.title }}</p>
+                    <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase bg-teal-200/70 dark:bg-teal-900 text-teal-900 dark:text-teal-200">
+                      {{ task.status }}
+                    </span>
+                  </div>
+                  <p class="text-[11px] text-teal-700 dark:text-teal-300">
+                    Due: {{ formatDate(task.dueAt) }} • Assigned to {{ task.owner?.name || 'Staff' }}
+                  </p>
+                </div>
+
+                <!-- When there are no pending tasks -->
+                <div
+                  v-if="openTasks.length === 0"
+                  class="p-3.5 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700 text-center text-xs text-slate-400"
+                >
+                  No pending follow-ups. Schedule one anytime using <span class="font-medium text-teal-600 dark:text-teal-400">Log Interaction</span>.
+                </div>
+              </div>
+
+              <div class="border-t border-slate-100 dark:border-slate-700/60 pt-2">
+                <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-2">
+                  Activity History
+                </span>
+              </div>
+
+              <div v-if="!lead.interactions || lead.interactions.length === 0" class="py-6 text-center text-xs text-slate-400">
+                No interactions recorded yet.
+              </div>
+
+              <div v-else class="relative pl-6 space-y-5 border-l-2 border-teal-200 dark:border-teal-900 ml-2 pt-1">
+                <div
+                  v-for="act in lead.interactions"
+                  :key="act.id"
+                  class="relative"
+                >
+                  <div class="absolute -left-[31px] top-1 w-3.5 h-3.5 rounded-full bg-teal-600 border-2 border-white dark:border-slate-800 shadow-xs" />
+                  <div class="space-y-1">
+                    <div class="flex items-center justify-between text-xs">
+                      <span class="font-semibold text-slate-900 dark:text-white uppercase tracking-wider text-[11px]">
+                        {{ act.type }} • {{ act.outcome?.labelEn || act.direction }}
+                      </span>
+                      <span class="text-[10px] text-slate-400 font-mono">{{ formatDate(act.occurredAt) }}</span>
+                    </div>
+                    <p v-if="act.note" class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed bg-slate-50 dark:bg-slate-900/40 p-2.5 rounded-xl border border-slate-100 dark:border-slate-700/60">
+                      {{ act.note }}
+                    </p>
+                    <p class="text-[10px] text-slate-400">Recorded by {{ act.user?.name || 'Staff' }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </template>
         </div>
       </div>
     </div>
@@ -617,6 +725,13 @@ const patientInitials = computed(() => {
   const parts = lead.value.name.trim().split(' ');
   if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
   return lead.value.name.slice(0, 2).toUpperCase();
+});
+
+// Filter only open/pending follow-up tasks (exclude completed, cancelled, and automated generic cadences)
+const openTasks = computed(() => {
+  return (lead.value?.tasks || []).filter(
+    (t: any) => t.status === 'open' && (!t.cadenceKey || !t.cadenceKey.startsWith('lead.'))
+  );
 });
 
 const formatStatus = (status: string) => {

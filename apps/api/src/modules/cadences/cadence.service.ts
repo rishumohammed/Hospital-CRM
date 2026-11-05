@@ -153,23 +153,23 @@ export const DEFAULT_CADENCES: DefaultCadenceDefinition[] = [
       {
         stepNo: 2,
         offsetUnit: 'hours',
-        offsetValue: -2,
+        offsetValue: 0,
         taskType: 'reminder',
-        titleTemplate: 'Appointment Reminder (2h before)',
+        titleTemplate: 'Appointment Reminder (Morning 9 AM)',
         assigneeRule: 'owner',
       },
     ],
   },
   {
-    key: 'appointment.missed',
-    name: 'Appointment - Missed Recovery',
+    key: 'appointment.post_visit',
+    name: 'Appointment - Post Visit Follow-up',
     steps: [
       {
         stepNo: 1,
         offsetUnit: 'hours',
-        offsetValue: 1,
+        offsetValue: 5,
         taskType: 'call',
-        titleTemplate: 'Missed Appointment Recovery (+1h)',
+        titleTemplate: 'Post-Appointment Follow-up (+5h)',
         assigneeRule: 'owner',
       },
       {

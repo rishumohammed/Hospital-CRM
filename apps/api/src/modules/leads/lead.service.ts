@@ -10,6 +10,8 @@ import {
 import { recordAuditLog } from '../audit/audit.service';
 import { getSetting } from '../settings/settings.service';
 import { cancelOpenCadenceTasks, calculateStepDueAt } from '../cadences/cadence.service';
+import { addHours, addDays, setHours, setMinutes, setSeconds, setMilliseconds } from 'date-fns';
+import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 
 export interface CreateLeadInput {
   leadType?: 'treatment' | 'product';
@@ -1150,50 +1152,76 @@ export async function bookAppointmentForLead(
     // 3. Cancel open tasks from previous cadence (Acceptance Test 5 requirement!)
     await cancelOpenCadenceTasks(tx, 'lead', lead.id);
 
-    // 4. Create reminder tasks
-    // 24h before
-    const due24h = calculateStepDueAt(appointmentTime, 'hours', -24);
-    await tx.task.create({
-      data: {
-        type: 'reminder',
-        title: `Appointment Reminder (24h before): ${lead.name} with Dr. ${input.doctorName}`,
-        dueAt: due24h,
-        priority: 'hot',
-        ownerId: lead.ownerId ?? user.id,
-        leadId: lead.id,
-        cadenceKey: 'appointment.reminders',
-        cadenceStep: 1,
-        status: 'open',
-      },
-    });
+    // Clean doctor name to avoid duplicate prefix like "Dr. Dr. Suresh Kumar"
+    const cleanDoctorName = input.doctorName.replace(/^Dr\.?\s*/i, '');
+    const doctorDisplay = `Dr. ${cleanDoctorName}`;
+    const now = new Date();
 
-    // 2h before
-    const due2h = calculateStepDueAt(appointmentTime, 'hours', -2);
-    await tx.task.create({
-      data: {
-        type: 'reminder',
-        title: `Appointment Reminder (2h before): ${lead.name} with Dr. ${input.doctorName}`,
-        dueAt: due2h,
-        priority: 'hot',
-        ownerId: lead.ownerId ?? user.id,
-        leadId: lead.id,
-        cadenceKey: 'appointment.reminders',
-        cadenceStep: 2,
-        status: 'open',
-      },
-    });
+    const timezone = (lead as any).branch?.timezone || 'Asia/Kolkata';
 
-    // 5. Create missed-appointment recovery task (+1h after)
-    const dueMissed = calculateStepDueAt(appointmentTime, 'hours', 1);
+    // 4. Create the 3 Appointment Reminders/Follow-ups per Hospital Workflow:
+    // Reminder A: 24h before (only if there is more than 24 hours to the appointment)
+    const due24h = addHours(appointmentTime, -24);
+    if (due24h > now) {
+      await tx.task.create({
+        data: {
+          type: 'reminder',
+          title: `Appointment Reminder (24h before): ${lead.name} with ${doctorDisplay}`,
+          dueAt: due24h,
+          priority: 'hot',
+          ownerId: lead.ownerId ?? user.id,
+          leadId: lead.id,
+          cadenceKey: 'appointment.reminders',
+          cadenceStep: 1,
+          status: 'open',
+        },
+      });
+    }
+
+    // Reminder B: Appointment day morning at 9:00 AM (only if 9 AM on appointment day is in the future)
+    const zonedAppointment = toZonedTime(appointmentTime, timezone);
+    const zonedMorning9am = setMilliseconds(setSeconds(setMinutes(setHours(zonedAppointment, 9), 0), 0), 0);
+    const dueMorning9am = fromZonedTime(zonedMorning9am, timezone);
+    if (dueMorning9am > now) {
+      await tx.task.create({
+        data: {
+          type: 'reminder',
+          title: `Appointment Reminder (Morning 9 AM): ${lead.name} with ${doctorDisplay}`,
+          dueAt: dueMorning9am,
+          priority: 'hot',
+          ownerId: lead.ownerId ?? user.id,
+          leadId: lead.id,
+          cadenceKey: 'appointment.reminders',
+          cadenceStep: 2,
+          status: 'open',
+        },
+      });
+    }
+
+    // Reminder C: 5 hours after appointment. If after working hours (>= 20:00 / 8 PM) or before opening (< 09:00), move to next day morning at 9:00 AM
+    const rawPost5h = addHours(appointmentTime, 5);
+    const zonedPost5h = toZonedTime(rawPost5h, timezone);
+    const postHour = zonedPost5h.getHours();
+
+    let finalPostDue: Date;
+    if (postHour >= 20 || postHour < 9) {
+      // Move to next day (or same day if before 9am) at 09:00 AM
+      const targetDay = postHour >= 20 ? addDays(zonedPost5h, 1) : zonedPost5h;
+      const nextMorning9am = setMilliseconds(setSeconds(setMinutes(setHours(targetDay, 9), 0), 0), 0);
+      finalPostDue = fromZonedTime(nextMorning9am, timezone);
+    } else {
+      finalPostDue = rawPost5h;
+    }
+
     await tx.task.create({
       data: {
         type: 'call',
-        title: `Missed Appointment Recovery (+1h): Check attendance for ${lead.name}`,
-        dueAt: dueMissed,
+        title: `Post-Appointment Follow-up (+5h): Attendance & Consultation check for ${lead.name}`,
+        dueAt: finalPostDue,
         priority: 'hot',
         ownerId: lead.ownerId ?? user.id,
         leadId: lead.id,
-        cadenceKey: 'appointment.missed',
+        cadenceKey: 'appointment.post_visit',
         cadenceStep: 1,
         status: 'open',
       },
@@ -1206,7 +1234,7 @@ export async function bookAppointmentForLead(
         direction: 'outbound',
         userId: user.id,
         leadId: lead.id,
-        note: `Appointment booked with Dr. ${input.doctorName} at ${input.startsAt}. ${input.note ? 'Note: ' + input.note : ''}`,
+        note: `Appointment booked with ${doctorDisplay} at ${input.startsAt}. ${input.note ? 'Note: ' + input.note : ''}`,
         occurredAt: new Date(),
       },
     });

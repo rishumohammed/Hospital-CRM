@@ -150,6 +150,18 @@ export async function listCases(
         branch: { select: { id: true, code: true, name: true, timezone: true } },
         owner: { select: { id: true, name: true, email: true } },
         treatingDoctor: { select: { id: true, name: true, email: true } },
+        tasks: {
+          where: { status: 'open' },
+          orderBy: { dueAt: 'asc' },
+          take: 1,
+          select: {
+            id: true,
+            title: true,
+            type: true,
+            dueAt: true,
+            priority: true,
+          },
+        },
         _count: {
           select: {
             tasks: { where: { status: 'open' } },
@@ -443,34 +455,42 @@ export async function recordConsultationOutcome(
       },
     });
 
-    // 2. If advised admission, trigger 'case.admission_advised' cadence
-    let tasksCreated: any[] = [];
-    if (input.careType === CareTypes.IN_PATIENT) {
-      tasksCreated = await applyCadence(
-        tx,
-        'case',
-        caseId,
-        'case.admission_advised',
-        now,
-        {
-          ownerId: newOwnerId ?? undefined,
-          timezone: patientCase.branch.timezone,
-          priority: 'hot',
-        }
-      );
-    }
+    // 2. Tasks: follow-ups are case-driven via Next Follow-up, no rigid automated intervals
+    const tasksCreated: any[] = [];
 
-    // 3. Record interaction
-    await tx.interaction.create({
-      data: {
-        type: 'status_change',
-        direction: 'inbound',
-        userId: user.id,
+    // 3. Record or update interaction
+    const existingOutcomeInteraction = await tx.interaction.findFirst({
+      where: {
         caseId: caseId,
-        note: `Consultation outcome: ${input.careType.toUpperCase()}.${advisedAdmission ? ' Advised In-Patient Admission.' : ''} ${input.planNote ? 'Clinical notes: ' + input.planNote : ''}`,
-        occurredAt: now,
+        type: 'status_change',
+        note: { startsWith: 'Consultation outcome:' },
       },
+      orderBy: { occurredAt: 'desc' },
     });
+
+    const newNote = `Consultation outcome: ${input.careType.toUpperCase()}.${advisedAdmission ? ' Advised In-Patient Admission.' : ''} ${input.planNote ? 'Clinical notes: ' + input.planNote : ''}`;
+
+    if (existingOutcomeInteraction) {
+      await tx.interaction.update({
+        where: { id: existingOutcomeInteraction.id },
+        data: {
+          note: newNote,
+          occurredAt: now,
+          userId: user.id,
+        },
+      });
+    } else {
+      await tx.interaction.create({
+        data: {
+          type: 'status_change',
+          direction: 'inbound',
+          userId: user.id,
+          caseId: caseId,
+          note: newNote,
+          occurredAt: now,
+        },
+      });
+    }
 
     return { case: updated, tasksCreated };
   });
@@ -555,28 +575,6 @@ export async function advanceCaseStage(
     (err as any).statusCode = 404;
     (err as any).code = 'NOT_FOUND';
     throw err;
-  }
-
-  // --- Acceptance Test 8: Deposit Gate & Emergency Exception ---
-  if (input.stage === CaseStages.IN_TREATMENT) {
-    const isInPatient = patientCase.careType === CareTypes.IN_PATIENT || patientCase.advisedAdmission;
-    if (isInPatient) {
-      const effectiveDeposit =
-        input.depositReceived !== undefined ? input.depositReceived : patientCase.depositReceived;
-      const isEmergency =
-        input.emergencyAdmission !== undefined ? input.emergencyAdmission : patientCase.emergencyAdmission;
-      const emergencyReason =
-        input.emergencyReason !== undefined ? input.emergencyReason : patientCase.emergencyReason;
-
-      if (!effectiveDeposit && (!isEmergency || !emergencyReason || !emergencyReason.trim())) {
-        const err = new Error(
-          'In-patient admission requires deposit received or an emergency admission override with reason'
-        );
-        (err as any).statusCode = 400;
-        (err as any).code = 'DEPOSIT_REQUIRED';
-        throw err;
-      }
-    }
   }
 
   // If moving to not_started (declined), decline reason is required

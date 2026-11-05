@@ -228,12 +228,12 @@ describe('Milestone 4: Tasks, Interactions & Cadence Engine (Acceptance Tests 4,
     });
 
     const reminder24h = reminderTasks.find((t) => t.cadenceKey === 'appointment.reminders' && t.cadenceStep === 1);
-    const reminder2h = reminderTasks.find((t) => t.cadenceKey === 'appointment.reminders' && t.cadenceStep === 2);
-    const missedTask = reminderTasks.find((t) => t.cadenceKey === 'appointment.missed');
+    const reminderStep2 = reminderTasks.find((t) => t.cadenceKey === 'appointment.reminders' && t.cadenceStep === 2);
+    const postTask = reminderTasks.find((t) => t.cadenceKey === 'appointment.post_visit' || t.cadenceKey === 'appointment.missed');
 
     expect(reminder24h).toBeDefined();
-    expect(reminder2h).toBeDefined();
-    expect(missedTask).toBeDefined();
+    expect(reminderStep2).toBeDefined();
+    expect(postTask).toBeDefined();
   });
 
   // -------------------------------------------------------------

@@ -35,32 +35,18 @@
 
         <!-- Drawer Body -->
         <div class="p-6 overflow-y-auto flex-1 space-y-5">
-          <!-- Live Pre-check Contact Rules Warning Banner -->
+          <!-- Live Pre-check Contact Rules Notice -->
           <div
             v-if="limitWarnings.length > 0"
-            class="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/60 rounded-xl space-y-2 text-amber-900 dark:text-amber-200"
+            class="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/60 rounded-xl space-y-1 text-amber-900 dark:text-amber-200"
           >
             <div class="flex items-center gap-2 font-semibold text-xs">
               <span>⚠️</span>
-              <span>Contact Rule Notice / Special Justification Required</span>
+              <span>Calling Notice</span>
             </div>
-            <ul class="list-disc list-inside text-xs space-y-1">
+            <ul class="list-disc list-inside text-xs space-y-0.5">
               <li v-for="(warn, idx) in limitWarnings" :key="idx">{{ warn }}</li>
             </ul>
-          </div>
-
-          <!-- Override Reason Input (Required when warning is active) -->
-          <div v-if="requiresOverride || limitWarnings.length > 0" class="space-y-1.5">
-            <label class="block text-xs font-semibold text-amber-800 dark:text-amber-300">
-              {{ t('tasks.override_reason') }} <span class="text-rose-500">*</span>
-            </label>
-            <textarea
-              v-model="overrideReason"
-              rows="2"
-              required
-              class="w-full text-xs rounded-xl border border-amber-300 dark:border-amber-600 bg-white dark:bg-slate-800 p-3 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
-              placeholder="e.g. Patient requested an urgent callback on WhatsApp"
-            ></textarea>
           </div>
 
           <!-- Product Lead Interests Context Banner -->
@@ -226,19 +212,8 @@
               </button>
             </div>
 
-            <!-- Option A: Automated Follow-up Plan -->
-            <div v-if="!isCloseMode && isAutoCadenceOutcome" class="p-4 bg-teal-50/80 dark:bg-teal-950/40 rounded-2xl border border-teal-200 dark:border-teal-800 space-y-2 shadow-sm">
-              <div class="flex items-center gap-2 text-teal-800 dark:text-teal-200 font-semibold text-xs">
-                <span>🔄</span>
-                <span>Automated Follow-up Plan Active</span>
-              </div>
-              <p class="text-xs text-teal-700 dark:text-teal-300">
-                Selecting <strong>{{ selectedOutcome?.labelEn }}</strong> automatically sets the single next follow-up task according to hospital policy. No duplicate task will be created.
-              </p>
-            </div>
-
-            <!-- Option B: Mandatory Next Action -->
-            <div v-else-if="!isCloseMode" class="p-4 bg-slate-50/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3.5 shadow-sm">
+            <!-- Next Follow-up Action -->
+            <div v-if="!isCloseMode" class="p-4 bg-slate-50/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3.5 shadow-sm">
               <div class="flex items-center gap-2">
                 <span class="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></span>
                 <span class="text-xs font-semibold text-slate-900 dark:text-slate-100">{{ t('tasks.next_action') }}</span>
@@ -432,10 +407,6 @@ const lostReasons = ref<any[]>([]);
 const outcomeId = ref<number | null>(null);
 
 const selectedOutcome = computed(() => callOutcomes.value.find((o) => o.id === outcomeId.value));
-const isAutoCadenceOutcome = computed(() => {
-  const code = selectedOutcome.value?.code || '';
-  return ['INTERESTED_NOT_READY', 'NO_ANSWER', 'SWITCHED_OFF_BUSY', 'INFORMATION_GIVEN'].includes(code);
-});
 
 const reasonPresets = [
   'Callback requested by patient',
@@ -592,17 +563,12 @@ const submitCall = async () => {
     return;
   }
 
-  if (requiresOverride.value && !overrideReason.value.trim()) {
-    errorMessage.value = 'Contact rule override reason is required';
-    return;
-  }
-
   if (isCloseMode.value && !closedReasonId.value) {
     errorMessage.value = 'Please select a closure reason';
     return;
   }
 
-  if (!isCloseMode.value && !isAutoCadenceOutcome.value && (!nextAction.value.title || !nextAction.value.dueAt)) {
+  if (!isCloseMode.value && (!nextAction.value.title || !nextAction.value.dueAt)) {
     errorMessage.value = 'Next action title and due date/time are required';
     return;
   }
@@ -618,13 +584,13 @@ const submitCall = async () => {
       outcomeId: outcomeId.value,
       direction: direction.value,
       durationSeconds: durationSeconds.value,
-      note: note.value,
-      overrideReason: overrideReason.value || null,
+      note: note.value?.trim() || '',
+      overrideReason: note.value?.trim() || null,
     };
 
     if (isCloseMode.value) {
       payload.closedReasonId = closedReasonId.value;
-    } else if (!isAutoCadenceOutcome.value) {
+    } else {
       payload.nextAction = {
         type: nextAction.value.type,
         title: nextAction.value.title,

@@ -224,7 +224,7 @@
           </UButton>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800">
           <div>
             <p class="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold">
               {{ t('cases.care_type') }}
@@ -249,15 +249,6 @@
             </p>
             <p class="text-sm font-semibold mt-1" :class="caseData.advisedAdmission ? 'text-amber-600 dark:text-amber-400' : 'text-slate-600'">
               {{ caseData.advisedAdmission ? 'Yes (In-Patient)' : 'No' }}
-            </p>
-          </div>
-
-          <div>
-            <p class="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold">
-              {{ t('cases.estimated_amount') }}
-            </p>
-            <p class="text-sm font-semibold text-teal-600 dark:text-teal-400 mt-1">
-              {{ caseData.estimatedAmount ? `₹${Number(caseData.estimatedAmount).toLocaleString('en-IN')}` : 'Not shared' }}
             </p>
           </div>
         </div>
@@ -335,9 +326,20 @@
                     <span class="text-xs font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400">
                       {{ item.type }}
                     </span>
-                    <span class="text-xs text-slate-400">
-                      {{ new Date(item.occurredAt).toLocaleString() }}
-                    </span>
+                    <div class="flex items-center gap-1.5">
+                      <span class="text-xs text-slate-400">
+                        {{ new Date(item.occurredAt).toLocaleString() }}
+                      </span>
+                      <button
+                        v-if="canDeleteInteraction(item)"
+                        type="button"
+                        @click="deleteInteraction(item.id)"
+                        class="p-1 rounded text-slate-400 hover:text-rose-600 transition-colors"
+                        title="Delete log"
+                      >
+                        <UIcon name="i-heroicons-trash" class="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
 
                   <p class="text-sm text-slate-800 dark:text-slate-200 mt-1 font-medium">
@@ -398,20 +400,6 @@
             <p>
               Saving as <strong>In-Patient Admission</strong> will set <code>advised_admission = true</code>, move stage to <strong>Plan Given</strong>, route to Admission Desk, and schedule the first follow-up task within <strong>24 hours</strong>.
             </p>
-          </div>
-
-          <!-- Estimated Amount -->
-          <div>
-            <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">
-              {{ t('cases.estimated_amount') }}
-            </label>
-            <input
-              v-model.number="outcomeForm.estimatedAmount"
-              type="number"
-              min="0"
-              placeholder="e.g. 45000"
-              class="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm focus:ring-2 focus:ring-teal-500 min-h-[44px]"
-            />
           </div>
 
           <!-- Clinical / Plan Notes -->
@@ -475,53 +463,14 @@
               class="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm font-semibold focus:ring-2 focus:ring-teal-500 min-h-[44px]"
             >
               <option value="counseling_estimate">{{ t('cases.stages.counseling_estimate') }}</option>
-              <option value="plan_accepted">{{ t('cases.stages.plan_accepted') }} (Deposit Paid)</option>
-              <option value="in_treatment">{{ t('cases.stages.in_treatment') }} (Admitted)</option>
+              <option value="plan_accepted">{{ t('cases.stages.plan_accepted') }}</option>
+              <option value="in_treatment">{{ t('cases.stages.in_treatment') }}</option>
               <option value="not_started">{{ t('cases.stages.not_started') }} (Declined)</option>
             </select>
           </div>
 
-          <!-- Counseling / Estimate fields -->
-          <div v-if="advanceForm.stage === 'counseling_estimate'" class="space-y-3">
-            <div>
-              <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">
-                Estimated Treatment Amount (₹)
-              </label>
-              <input
-                v-model.number="advanceForm.estimatedAmount"
-                type="number"
-                min="0"
-                class="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm min-h-[44px]"
-              />
-            </div>
-          </div>
-
           <!-- Plan Accepted fields -->
           <div v-if="advanceForm.stage === 'plan_accepted'" class="space-y-3">
-            <div class="flex items-center space-x-2">
-              <input
-                id="depRecDetail"
-                v-model="advanceForm.depositReceived"
-                type="checkbox"
-                class="w-4 h-4 rounded text-teal-600 focus:ring-teal-500"
-              />
-              <label for="depRecDetail" class="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                Deposit Received (50% Advance)
-              </label>
-            </div>
-
-            <div>
-              <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">
-                Deposit Amount (₹)
-              </label>
-              <input
-                v-model.number="advanceForm.depositAmount"
-                type="number"
-                min="0"
-                class="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm min-h-[44px]"
-              />
-            </div>
-
             <div>
               <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">
                 Expected Admission Date
@@ -531,58 +480,6 @@
                 type="date"
                 class="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm min-h-[44px]"
               />
-            </div>
-          </div>
-
-          <!-- In-Treatment (Deposit Gate / Emergency Override) -->
-          <div v-if="advanceForm.stage === 'in_treatment'" class="space-y-3">
-            <div class="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-900/60 text-xs text-amber-900 dark:text-amber-200">
-              <p class="font-semibold flex items-center gap-1">
-                <UIcon name="i-heroicons-shield-check" class="w-4 h-4 text-amber-600" />
-                Admission Deposit Gate
-              </p>
-              <p class="mt-1">
-                In-patient admission requires advance deposit received or an emergency override with medical reason.
-              </p>
-            </div>
-
-            <div class="flex items-center space-x-2">
-              <input
-                id="admitDepDetail"
-                v-model="advanceForm.depositReceived"
-                type="checkbox"
-                class="w-4 h-4 rounded text-teal-600 focus:ring-teal-500"
-              />
-              <label for="admitDepDetail" class="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                Advance Deposit Confirmed Received
-              </label>
-            </div>
-
-            <div class="pt-2 border-t border-slate-200 dark:border-slate-700">
-              <div class="flex items-center space-x-2">
-                <input
-                  id="emgAdmDetail"
-                  v-model="advanceForm.emergencyAdmission"
-                  type="checkbox"
-                  class="w-4 h-4 rounded text-rose-600 focus:ring-rose-500"
-                />
-                <label for="emgAdmDetail" class="text-xs font-semibold text-rose-600 dark:text-rose-400">
-                  🚨 Emergency Admission Override (Waive Deposit Gate)
-                </label>
-              </div>
-
-              <div v-if="advanceForm.emergencyAdmission" class="mt-2">
-                <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">
-                  Emergency Justification Reason *
-                </label>
-                <textarea
-                  v-model="advanceForm.emergencyReason"
-                  rows="2"
-                  required
-                  placeholder="e.g. Acute trauma / MD approved waiver"
-                  class="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-rose-300 dark:border-rose-800 text-xs focus:ring-2 focus:ring-rose-500"
-                ></textarea>
-              </div>
             </div>
           </div>
 
@@ -1167,27 +1064,29 @@ const aftercareForm = ref({
 
 const advanceForm = ref({
   stage: 'counseling_estimate',
-  estimatedAmount: null as number | null,
-  depositReceived: false,
-  depositAmount: null as number | null,
   expectedAdmissionDate: '',
-  emergencyAdmission: false,
-  emergencyReason: '',
   notStartedReasonId: null as string | null,
   note: '',
 });
 
 const outcomeForm = ref({
   careType: 'consultation_only' as 'consultation_only' | 'opd_course' | 'in_patient' | 'procedure',
-  estimatedAmount: null as number | null,
   planNote: '',
 });
 
+const userRoleCode = computed(() => {
+  const u = authStore.user as any;
+  if (!u) return '';
+  if (typeof u.role === 'object' && u.role?.code) return u.role.code;
+  return u.roleCode || String(u.role || '');
+});
+
 const canRecordOutcome = computed(() => {
-  const role = authStore.user?.role?.code;
+  const role = userRoleCode.value;
   return (
     role === 'doctor' ||
     role === 'owner' ||
+    role === 'admin' ||
     role === 'telecaller_manager' ||
     role === 'center_head' ||
     role === 'admission_specialist'
@@ -1291,12 +1190,7 @@ function openAdvanceModal() {
 
   advanceForm.value = {
     stage: nextStage,
-    estimatedAmount: caseData.value.estimatedAmount ? Number(caseData.value.estimatedAmount) : null,
-    depositReceived: !!caseData.value.depositReceived,
-    depositAmount: caseData.value.depositAmount ? Number(caseData.value.depositAmount) : null,
     expectedAdmissionDate: caseData.value.expectedAdmissionDate ? new Date(caseData.value.expectedAdmissionDate).toISOString().split('T')[0] : '',
-    emergencyAdmission: !!caseData.value.emergencyAdmission,
-    emergencyReason: caseData.value.emergencyReason || '',
     notStartedReasonId: caseData.value.notStartedReasonId || null,
     note: '',
   };
@@ -1306,7 +1200,8 @@ function openAdvanceModal() {
 async function fetchDeclineReasons() {
   try {
     const res = await $fetch<any>(`${config.public.apiBase}/picklists/decline_reasons`, {
-      headers: { authorization: `Bearer ${authStore.token}` },
+      headers: authStore.token ? { authorization: `Bearer ${authStore.token}` } : {},
+      credentials: 'include',
     });
     declineReasons.value = res.data || res || [];
   } catch (err) {
@@ -1322,23 +1217,9 @@ async function submitAdvanceStage() {
       note: advanceForm.value.note || undefined,
     };
 
-    if (advanceForm.value.stage === 'counseling_estimate') {
-      if (advanceForm.value.estimatedAmount !== null) {
-        payload.estimatedAmount = advanceForm.value.estimatedAmount;
-      }
-    } else if (advanceForm.value.stage === 'plan_accepted') {
-      payload.depositReceived = advanceForm.value.depositReceived;
-      if (advanceForm.value.depositAmount !== null) {
-        payload.depositAmount = advanceForm.value.depositAmount;
-      }
+    if (advanceForm.value.stage === 'plan_accepted') {
       if (advanceForm.value.expectedAdmissionDate) {
         payload.expectedAdmissionDate = new Date(advanceForm.value.expectedAdmissionDate).toISOString();
-      }
-    } else if (advanceForm.value.stage === 'in_treatment') {
-      payload.depositReceived = advanceForm.value.depositReceived;
-      payload.emergencyAdmission = advanceForm.value.emergencyAdmission;
-      if (advanceForm.value.emergencyAdmission) {
-        payload.emergencyReason = advanceForm.value.emergencyReason;
       }
     } else if (advanceForm.value.stage === 'not_started') {
       payload.notStartedReasonId = advanceForm.value.notStartedReasonId;
@@ -1346,7 +1227,8 @@ async function submitAdvanceStage() {
 
     await $fetch(`${config.public.apiBase}/cases/${caseId}/advance-stage`, {
       method: 'POST',
-      headers: { authorization: `Bearer ${authStore.token}` },
+      headers: authStore.token ? { authorization: `Bearer ${authStore.token}` } : {},
+      credentials: 'include',
       body: payload,
     });
 
@@ -1363,17 +1245,38 @@ async function fetchCaseDetails() {
   loading.value = true;
   try {
     const res = await $fetch<any>(`${config.public.apiBase}/cases/${caseId}`, {
-      headers: { authorization: `Bearer ${authStore.token}` },
+      headers: authStore.token ? { authorization: `Bearer ${authStore.token}` } : {},
+      credentials: 'include',
     });
     caseData.value = res;
     if (res) {
       outcomeForm.value.careType = res.careType || 'consultation_only';
-      outcomeForm.value.estimatedAmount = res.estimatedAmount ? Number(res.estimatedAmount) : null;
     }
   } catch (err) {
     console.error('Failed to fetch case:', err);
   } finally {
     loading.value = false;
+  }
+}
+
+function canDeleteInteraction(item: any) {
+  const role = userRoleCode.value;
+  if (role === 'owner' || role === 'admin' || role === 'center_head') return true;
+  const currentUserId = (authStore.user as any)?.id;
+  return item.userId === currentUserId;
+}
+
+async function deleteInteraction(id: number) {
+  if (!confirm('Are you sure you want to remove this activity log entry?')) return;
+  try {
+    await $fetch(`${config.public.apiBase}/interactions/${id}`, {
+      method: 'DELETE',
+      headers: authStore.token ? { authorization: `Bearer ${authStore.token}` } : {},
+      credentials: 'include',
+    });
+    await fetchCaseDetails();
+  } catch (err: any) {
+    alert(err.data?.error?.message || 'Failed to delete activity entry');
   }
 }
 
@@ -1383,13 +1286,13 @@ async function submitOutcome() {
     const payload = {
       careType: outcomeForm.value.careType,
       departmentId: caseData.value.departmentId,
-      estimatedAmount: outcomeForm.value.estimatedAmount,
       planNote: outcomeForm.value.planNote,
     };
 
     await $fetch(`${config.public.apiBase}/cases/${caseId}/consultation-outcome`, {
       method: 'POST',
-      headers: { authorization: `Bearer ${authStore.token}` },
+      headers: authStore.token ? { authorization: `Bearer ${authStore.token}` } : {},
+      credentials: 'include',
       body: payload,
     });
 
@@ -1431,7 +1334,8 @@ async function submitTreatmentCompleted() {
 
     await $fetch(`${config.public.apiBase}/cases/${caseId}/treatment-completed`, {
       method: 'POST',
-      headers: { authorization: `Bearer ${authStore.token}` },
+      headers: authStore.token ? { authorization: `Bearer ${authStore.token}` } : {},
+      credentials: 'include',
       body: payload,
     });
 
@@ -1458,7 +1362,8 @@ async function submitCloseCase() {
   try {
     await $fetch(`${config.public.apiBase}/cases/${caseId}/close`, {
       method: 'POST',
-      headers: { authorization: `Bearer ${authStore.token}` },
+      headers: authStore.token ? { authorization: `Bearer ${authStore.token}` } : {},
+      credentials: 'include',
       body: {
         closureCodeId: closeForm.value.closureCodeId,
         note: closeForm.value.note || undefined,
@@ -1511,7 +1416,8 @@ async function submitAftercareCall() {
 
     await $fetch(`${config.public.apiBase}/interactions/aftercare-call`, {
       method: 'POST',
-      headers: { authorization: `Bearer ${authStore.token}` },
+      headers: authStore.token ? { authorization: `Bearer ${authStore.token}` } : {},
+      credentials: 'include',
       body: payload,
     });
 
@@ -1527,7 +1433,8 @@ async function submitAftercareCall() {
 async function fetchClosureCodes() {
   try {
     const res = await $fetch<any>(`${config.public.apiBase}/picklists/closure-codes`, {
-      headers: { authorization: `Bearer ${authStore.token}` },
+      headers: authStore.token ? { authorization: `Bearer ${authStore.token}` } : {},
+      credentials: 'include',
     });
     closureCodes.value = res.data || res || [];
   } catch (err) {

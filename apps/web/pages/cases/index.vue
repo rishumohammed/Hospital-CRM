@@ -170,10 +170,6 @@
                 <UIcon name="i-heroicons-user" class="w-3.5 h-3.5" />
                 Dr. {{ c.treatingDoctor.name }}
               </span>
-              <span v-if="c.estimatedAmount">•</span>
-              <span v-if="c.estimatedAmount" class="font-semibold text-teal-600 dark:text-teal-400">
-                ₹{{ Number(c.estimatedAmount).toLocaleString('en-IN') }}
-              </span>
             </div>
           </div>
         </div>
@@ -202,7 +198,14 @@ const { t, locale } = useI18n();
 const authStore = useAuthStore();
 const config = useRuntimeConfig();
 
-const isDoctor = computed(() => authStore.user?.role?.code === 'doctor');
+const userRoleCode = computed(() => {
+  const u = authStore.user as any;
+  if (!u) return '';
+  if (typeof u.role === 'object' && u.role?.code) return u.role.code;
+  return u.roleCode || String(u.role || '');
+});
+
+const isDoctor = computed(() => userRoleCode.value === 'doctor');
 
 const cases = ref<any[]>([]);
 const loading = ref(false);
@@ -257,7 +260,8 @@ async function fetchCases() {
     const res = await $fetch<{ cases: any[]; total: number }>(
       `${config.public.apiBase}/cases?${params.toString()}`,
       {
-        headers: { authorization: `Bearer ${authStore.token}` },
+        headers: authStore.token ? { authorization: `Bearer ${authStore.token}` } : {},
+        credentials: 'include',
       }
     );
     cases.value = res.cases || [];

@@ -57,7 +57,7 @@
             >
               <option :value="0">All Departments</option>
               <option v-for="dept in departments" :key="dept.id" :value="dept.id">
-                {{ dept.labelEn }} {{ dept.labelMl ? `(${dept.labelMl})` : '' }}
+                {{ dept.labelEn }}
               </option>
             </select>
           </div>
@@ -104,12 +104,6 @@
                       ({{ selectedDoctor.designation }})
                     </span>
                   </div>
-                  <span
-                    v-if="selectedDoctor.consultationFee"
-                    class="font-semibold px-2 py-0.5 rounded-md bg-teal-100 text-teal-800 dark:bg-teal-900/60 dark:text-teal-300 text-[11px]"
-                  >
-                    ₹{{ selectedDoctor.consultationFee }} OPD Fee
-                  </span>
                 </div>
                 <div class="text-slate-600 dark:text-slate-300 text-[11px] flex flex-wrap gap-x-3 gap-y-1">
                   <span>🎓 {{ selectedDoctor.qualification }}</span>
@@ -318,7 +312,8 @@ const fetchInitialData = async () => {
       departments.value = Array.isArray(data) ? data : (data.departments || []);
     }
     if (docRes.ok) {
-      allDoctors.value = await docRes.json();
+      const docData = await docRes.json();
+      allDoctors.value = Array.isArray(docData) ? docData : (docData.doctors || []);
     }
   } catch (err) {
     console.error('Error fetching departments or doctors:', err);

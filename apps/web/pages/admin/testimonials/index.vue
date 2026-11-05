@@ -65,7 +65,6 @@
         >
           <option value="">All Languages</option>
           <option value="en">English (EN)</option>
-          <option value="ml">Malayalam (ML)</option>
         </select>
       </div>
 
@@ -257,7 +256,6 @@
                   class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-teal-500"
                 >
                   <option value="en">English (EN)</option>
-                  <option value="ml">Malayalam (ML)</option>
                   <option value="other">Other</option>
                 </select>
               </div>

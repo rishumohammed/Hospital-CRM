@@ -58,7 +58,7 @@
 
       <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
         <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-          Deposit Paid
+          Plan Accepted
         </p>
         <p class="text-2xl font-semibold text-teal-600 dark:text-teal-400 mt-1">
           {{ report?.accepted || 0 }}
@@ -81,6 +81,52 @@
         <p class="text-2xl font-semibold text-rose-600 dark:text-rose-400 mt-1">
           {{ report?.declined || 0 }}
         </p>
+      </div>
+    </div>
+
+    <!-- Scheduled Admission Follow-ups Banner -->
+    <div
+      v-if="report?.admissionFollowUps && report.admissionFollowUps.length > 0"
+      class="p-4 rounded-2xl bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-900/60 text-teal-900 dark:text-teal-200 space-y-2 shadow-sm"
+    >
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2 font-semibold text-sm">
+          <UIcon name="i-heroicons-calendar-days" class="w-5 h-5 text-teal-600" />
+          <span>Scheduled Admission Follow-ups (Callbacks Due): {{ report.admissionFollowUps.length }}</span>
+        </div>
+        <NuxtLink to="/follow-ups" class="text-xs font-semibold text-teal-700 dark:text-teal-300 hover:underline flex items-center gap-1">
+          <span>View All Follow-ups</span>
+          <UIcon name="i-heroicons-arrow-right" class="w-3.5 h-3.5" />
+        </NuxtLink>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-1">
+        <div
+          v-for="task in report.admissionFollowUps"
+          :key="task.id"
+          class="p-3 rounded-xl bg-white dark:bg-slate-900 border border-teal-200/80 dark:border-teal-800 text-xs flex items-center justify-between gap-2 shadow-sm"
+        >
+          <div class="min-w-0">
+            <NuxtLink :to="`/cases/${task.case?.id}`" class="font-semibold text-slate-900 dark:text-slate-100 hover:text-teal-600 truncate block">
+              {{ task.case?.patient?.name }}
+            </NuxtLink>
+            <p class="text-[11px] text-teal-700 dark:text-teal-400 font-medium truncate mt-0.5">
+              📌 {{ task.title }}
+            </p>
+            <p class="text-[10px] text-slate-500 mt-0.5">
+              Due: {{ new Date(task.dueAt).toLocaleString() }}
+            </p>
+          </div>
+          <div class="flex items-center gap-1.5 flex-shrink-0">
+            <a
+              v-if="task.case?.patient?.mobileNorm"
+              :href="`tel:${task.case.patient.mobileNorm}`"
+              class="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg text-xs flex items-center gap-1"
+            >
+              <UIcon name="i-heroicons-phone" class="w-3.5 h-3.5" />
+              <span>Call</span>
+            </a>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -116,20 +162,31 @@
     </div>
 
     <!-- Stage Pipeline Tabs -->
-    <div class="flex items-center space-x-1 overflow-x-auto pb-2 scrollbar-thin">
+    <div class="flex items-center space-x-1.5 overflow-x-auto pb-2 scrollbar-thin">
       <button
         v-for="stg in pipelineTabs"
         :key="stg.key"
         type="button"
         @click="selectedStage = stg.key; fetchCases()"
         :class="[
-          'px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-all min-h-[44px]',
+          'px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-all min-h-[44px] flex items-center gap-2',
           selectedStage === stg.key
             ? 'bg-teal-600 text-white shadow-md shadow-teal-600/30 font-semibold'
             : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700'
         ]"
       >
-        {{ stg.label }}
+        <span>{{ stg.label }}</span>
+        <span
+          v-if="report?.stageCounts && report.stageCounts[stg.key] !== undefined"
+          :class="[
+            'text-xs px-2 py-0.5 rounded-full font-bold',
+            selectedStage === stg.key
+              ? 'bg-white/25 text-white'
+              : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+          ]"
+        >
+          {{ report.stageCounts[stg.key] }}
+        </span>
       </button>
     </div>
 
@@ -189,20 +246,6 @@
               </span>
 
               <span
-                v-if="c.depositReceived"
-                class="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 flex items-center gap-1"
-              >
-                <UIcon name="i-heroicons-check-circle" class="w-3.5 h-3.5" />
-                Deposit Received
-              </span>
-              <span
-                v-else-if="c.stage !== 'not_started' && c.stage !== 'completed'"
-                class="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400"
-              >
-                Deposit Pending
-              </span>
-
-              <span
                 v-if="c.emergencyAdmission"
                 class="text-xs font-semibold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 animate-pulse"
               >
@@ -220,13 +263,23 @@
               <span>Specialist: {{ c.owner?.name || 'Unassigned' }}</span>
               <span v-if="c.treatingDoctor">•</span>
               <span v-if="c.treatingDoctor">Doctor: Dr. {{ c.treatingDoctor.name }}</span>
-              <span v-if="c.estimatedAmount">•</span>
-              <span v-if="c.estimatedAmount" class="font-semibold text-teal-600 dark:text-teal-400">
-                Estimate: ₹{{ Number(c.estimatedAmount).toLocaleString('en-IN') }}
-              </span>
               <span v-if="c.expectedAdmissionDate">•</span>
               <span v-if="c.expectedAdmissionDate" class="text-slate-700 dark:text-slate-300 font-semibold">
                 Expected: {{ new Date(c.expectedAdmissionDate).toLocaleDateString() }}
+              </span>
+            </div>
+
+            <!-- Scheduled Next Follow-up -->
+            <div
+              v-if="c.tasks && c.tasks.length > 0"
+              class="mt-2.5 p-2 rounded-xl bg-teal-50/80 dark:bg-teal-950/40 border border-teal-200/60 dark:border-teal-800 text-xs text-teal-900 dark:text-teal-200 flex items-center justify-between gap-2"
+            >
+              <span class="flex items-center gap-1.5 font-medium truncate">
+                <UIcon name="i-heroicons-clock" class="w-4 h-4 text-teal-600 flex-shrink-0" />
+                <span>Next Follow-up: <strong>{{ c.tasks[0].title }}</strong></span>
+              </span>
+              <span class="font-semibold text-teal-700 dark:text-teal-300 flex-shrink-0 text-[11px]">
+                Due: {{ new Date(c.tasks[0].dueAt).toLocaleString() }}
               </span>
             </div>
           </div>
@@ -241,6 +294,16 @@
             <UIcon name="i-heroicons-phone" class="w-4 h-4" />
             <span>Call</span>
           </a>
+
+          <UButton
+            @click="openLogCall(c)"
+            color="teal"
+            variant="soft"
+            class="min-h-[44px]"
+            icon="i-heroicons-clipboard-document-list"
+          >
+            Log Call / Follow-up
+          </UButton>
 
           <UButton
             @click="openAdvanceModal(c)"
@@ -286,115 +349,23 @@
               class="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm font-semibold focus:ring-2 focus:ring-teal-500 min-h-[44px]"
             >
               <option value="counseling_estimate">{{ t('cases.stages.counseling_estimate') }}</option>
-              <option value="plan_accepted">{{ t('cases.stages.plan_accepted') }} (Deposit Paid)</option>
-              <option value="in_treatment">{{ t('cases.stages.in_treatment') }} (Admitted)</option>
+              <option value="plan_accepted">{{ t('cases.stages.plan_accepted') }}</option>
+              <option value="in_treatment">{{ t('cases.stages.in_treatment') }}</option>
               <option value="not_started">{{ t('cases.stages.not_started') }} (Declined)</option>
             </select>
           </div>
 
-          <!-- Fields for Counseling / Estimate -->
-          <div v-if="advanceForm.stage === 'counseling_estimate'" class="space-y-3">
-            <div>
-              <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">
-                Estimated Treatment Amount (₹)
-              </label>
-              <input
-                v-model.number="advanceForm.estimatedAmount"
-                type="number"
-                min="0"
-                class="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm min-h-[44px]"
-              />
-            </div>
-          </div>
-
-          <!-- Fields for Plan Accepted (Deposit & Expected Date) -->
+          <!-- Fields for Plan Accepted (Expected Date) -->
           <div v-if="advanceForm.stage === 'plan_accepted'" class="space-y-3">
-            <div class="flex items-center space-x-2">
-              <input
-                id="depRec"
-                v-model="advanceForm.depositReceived"
-                type="checkbox"
-                class="w-4 h-4 rounded text-teal-600 focus:ring-teal-500"
-              />
-              <label for="depRec" class="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                Deposit Received (50% Advance)
-              </label>
-            </div>
-
-            <div>
-              <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">
-                Deposit Amount (₹)
-              </label>
-              <input
-                v-model.number="advanceForm.depositAmount"
-                type="number"
-                min="0"
-                class="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm min-h-[44px]"
-              />
-            </div>
-
             <div>
               <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">
                 Expected Admission Date
               </label>
               <input
-                v-model.number="advanceForm.expectedAdmissionDate"
+                v-model="advanceForm.expectedAdmissionDate"
                 type="date"
                 class="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm min-h-[44px]"
               />
-            </div>
-          </div>
-
-          <!-- Fields for Admitted (In-Treatment) & Deposit Gate -->
-          <div v-if="advanceForm.stage === 'in_treatment'" class="space-y-3">
-            <div class="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-900/60 text-xs text-amber-900 dark:text-amber-200">
-              <p class="font-semibold flex items-center gap-1">
-                <UIcon name="i-heroicons-shield-check" class="w-4 h-4 text-amber-600" />
-                Admission Deposit Gate
-              </p>
-              <p class="mt-1">
-                In-patient admission requires advance deposit received or an emergency override with medical reason.
-              </p>
-            </div>
-
-            <div class="flex items-center space-x-2">
-              <input
-                id="admitDep"
-                v-model="advanceForm.depositReceived"
-                type="checkbox"
-                class="w-4 h-4 rounded text-teal-600 focus:ring-teal-500"
-              />
-              <label for="admitDep" class="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                Advance Deposit Confirmed Received
-              </label>
-            </div>
-
-            <!-- Emergency Admission Override -->
-            <div class="pt-2 border-t border-slate-200 dark:border-slate-700">
-              <div class="flex items-center space-x-2">
-                <input
-                  id="emgAdm"
-                  v-model="advanceForm.emergencyAdmission"
-                  type="checkbox"
-                  class="w-4 h-4 rounded text-rose-600 focus:ring-rose-500"
-                />
-                <label for="emgAdm" class="text-xs font-semibold text-rose-600 dark:text-rose-400">
-                  🚨 Emergency Admission Override (Waive Deposit Gate)
-                </label>
-              </div>
-
-              <div v-if="advanceForm.emergencyAdmission" class="mt-2">
-                <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">
-                  Emergency Justification Reason *
-                </label>
-                <textarea
-                  v-model="advanceForm.emergencyReason"
-                  rows="2"
-                  required
-                  placeholder="e.g. Acute life-threatening trauma / MD approved waiver"
-                  class="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-rose-300 dark:border-rose-800 text-xs focus:ring-2 focus:ring-rose-500"
-                ></textarea>
-              </div>
             </div>
           </div>
 
@@ -452,6 +423,16 @@
         </form>
       </div>
     </UModal>
+
+    <!-- Log Call Slide-over Drawer -->
+    <InteractionLogCallDrawer
+      :is-open="showLogCall"
+      :case-id="callCase?.id"
+      :recipient-name="callCase?.patient?.name"
+      :recipient-phone="callCase?.patient?.mobileNorm"
+      @close="showLogCall = false"
+      @call-logged="handleCallLogged"
+    />
   </div>
 </template>
 
@@ -463,6 +444,20 @@ import { useAuthStore } from '~/stores/auth';
 const { t } = useI18n();
 const authStore = useAuthStore();
 const config = useRuntimeConfig();
+
+const showLogCall = ref(false);
+const callCase = ref<any>(null);
+
+function openLogCall(c: any) {
+  callCase.value = c;
+  showLogCall.value = true;
+}
+
+function handleCallLogged() {
+  showLogCall.value = false;
+  fetchCases();
+  fetchReport();
+}
 
 const report = ref<any>(null);
 const cases = ref<any[]>([]);
@@ -476,21 +471,16 @@ const submittingAdvance = ref(false);
 
 const advanceForm = ref({
   stage: 'counseling_estimate',
-  estimatedAmount: null as number | null,
-  depositReceived: false,
-  depositAmount: null as number | null,
   expectedAdmissionDate: '',
-  emergencyAdmission: false,
-  emergencyReason: '',
   notStartedReasonId: null as number | null,
   note: '',
 });
 
 const pipelineTabs = [
-  { key: 'plan_given', label: 'Advised In-Patient' },
-  { key: 'counseling_estimate', label: 'Counseling & Estimate' },
-  { key: 'plan_accepted', label: 'Plan Accepted / Deposit Paid' },
-  { key: 'in_treatment', label: 'Admitted (In Treatment)' },
+  { key: 'plan_given', label: 'Advised (New)' },
+  { key: 'counseling_estimate', label: 'In Counseling' },
+  { key: 'plan_accepted', label: 'Plan Accepted' },
+  { key: 'in_treatment', label: 'Admitted' },
   { key: 'not_started', label: 'Declined' },
 ];
 
@@ -518,7 +508,8 @@ function formatStage(stage: string) {
 async function fetchReport() {
   try {
     const res = await $fetch<any>(`${config.public.apiBase}/reports/admission`, {
-      headers: { authorization: `Bearer ${authStore.token}` },
+      headers: authStore.token ? { authorization: `Bearer ${authStore.token}` } : {},
+      credentials: 'include',
     });
     report.value = res;
   } catch (err) {
@@ -538,7 +529,8 @@ async function fetchCases() {
     const res = await $fetch<{ cases: any[] }>(
       `${config.public.apiBase}/cases?${params.toString()}`,
       {
-        headers: { authorization: `Bearer ${authStore.token}` },
+        headers: authStore.token ? { authorization: `Bearer ${authStore.token}` } : {},
+        credentials: 'include',
       }
     );
     cases.value = res.cases || [];
@@ -552,7 +544,8 @@ async function fetchCases() {
 async function fetchDeclineReasons() {
   try {
     const res = await $fetch<any[]>(`${config.public.apiBase}/picklists/decline_reasons`, {
-      headers: { authorization: `Bearer ${authStore.token}` },
+      headers: authStore.token ? { authorization: `Bearer ${authStore.token}` } : {},
+      credentials: 'include',
     });
     declineReasons.value = res || [];
   } catch (err) {
@@ -564,12 +557,7 @@ function openAdvanceModal(c: any) {
   activeCase.value = c;
   advanceForm.value = {
     stage: c.stage === 'plan_given' ? 'counseling_estimate' : (c.stage === 'counseling_estimate' ? 'plan_accepted' : 'in_treatment'),
-    estimatedAmount: c.estimatedAmount ? Number(c.estimatedAmount) : null,
-    depositReceived: !!c.depositReceived,
-    depositAmount: c.depositAmount ? Number(c.depositAmount) : (c.estimatedAmount ? Math.round(Number(c.estimatedAmount) * 0.5) : null),
     expectedAdmissionDate: '',
-    emergencyAdmission: !!c.emergencyAdmission,
-    emergencyReason: c.emergencyReason || '',
     notStartedReasonId: c.notStartedReasonId || null,
     note: '',
   };
@@ -582,19 +570,15 @@ async function submitAdvanceStage() {
   try {
     const payload: any = {
       stage: advanceForm.value.stage,
-      estimatedAmount: advanceForm.value.estimatedAmount,
-      depositReceived: advanceForm.value.depositReceived,
-      depositAmount: advanceForm.value.depositAmount,
       expectedAdmissionDate: advanceForm.value.expectedAdmissionDate ? new Date(advanceForm.value.expectedAdmissionDate).toISOString() : null,
-      emergencyAdmission: advanceForm.value.emergencyAdmission,
-      emergencyReason: advanceForm.value.emergencyReason || null,
       notStartedReasonId: advanceForm.value.notStartedReasonId,
       note: advanceForm.value.note || undefined,
     };
 
     await $fetch(`${config.public.apiBase}/cases/${activeCase.value.id}/advance-stage`, {
       method: 'POST',
-      headers: { authorization: `Bearer ${authStore.token}` },
+      headers: authStore.token ? { authorization: `Bearer ${authStore.token}` } : {},
+      credentials: 'include',
       body: payload,
     });
 

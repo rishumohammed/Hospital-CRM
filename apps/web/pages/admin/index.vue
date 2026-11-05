@@ -1396,7 +1396,6 @@
                 class="px-2 py-1 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs"
               >
                 <option value="en">English</option>
-                <option value="ml">Malayalam</option>
               </select>
             </div>
           </div>
@@ -1684,7 +1683,7 @@
           >
             <option :value="0" disabled>-- Select Department --</option>
             <option v-for="dept in adminDepartments" :key="dept.id" :value="dept.id">
-              {{ dept.labelEn }} {{ dept.labelMl ? `(${dept.labelMl})` : '' }}
+              {{ dept.labelEn }}
             </option>
           </select>
         </div>

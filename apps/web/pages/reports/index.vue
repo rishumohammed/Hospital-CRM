@@ -316,7 +316,7 @@
         </div>
 
         <div class="p-5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm">
-          <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Deposit Paid</p>
+          <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Plan Accepted</p>
           <p class="text-2xl font-semibold text-teal-600 dark:text-teal-400 mt-1">{{ admissionData.acceptedCount }}</p>
           <p class="text-xs text-slate-400 mt-1">{{ admissionData.acceptedRate }}% acceptance</p>
         </div>
@@ -450,16 +450,16 @@
         </div>
 
         <div class="p-5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm">
-          <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Pipeline Est. Revenue</p>
+          <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Visited Patients</p>
           <p class="text-2xl font-semibold text-emerald-600 dark:text-emerald-400 mt-1">
-            ₹{{ Number(sourceQualityData.overallRevenue || 0).toLocaleString('en-IN') }}
+            {{ sourceQualityData.sources?.reduce((acc: number, s: any) => acc + (s.visited || 0), 0) || 0 }}
           </p>
         </div>
 
         <div class="p-5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm col-span-2 md:col-span-1">
-          <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Deposits Collected</p>
+          <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Admitted Patients</p>
           <p class="text-2xl font-semibold text-teal-600 dark:text-teal-400 mt-1">
-            ₹{{ Number(sourceQualityData.overallDeposits || 0).toLocaleString('en-IN') }}
+            {{ sourceQualityData.sources?.reduce((acc: number, s: any) => acc + (s.inTreatment || 0), 0) || 0 }}
           </p>
         </div>
       </div>
@@ -468,7 +468,7 @@
       <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm space-y-4">
         <div class="flex items-center justify-between">
           <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">
-            Source Funnel Conversion & Revenue Performance
+            Source Funnel Conversion Performance
           </h3>
           <button
             type="button"
@@ -490,7 +490,6 @@
                 <th class="py-3 px-4 text-center">Booked %</th>
                 <th class="py-3 px-4 text-center">Visited %</th>
                 <th class="py-3 px-4 text-center">Admitted %</th>
-                <th class="py-3 px-4 text-right">Est. Revenue (₹)</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
@@ -503,9 +502,6 @@
                 <td class="py-3.5 px-4 text-center font-mono text-teal-600 font-semibold">{{ src.bookingRate }}%</td>
                 <td class="py-3.5 px-4 text-center font-mono text-teal-600 font-semibold">{{ src.visitRate }}%</td>
                 <td class="py-3.5 px-4 text-center font-mono text-emerald-600 font-semibold">{{ src.treatmentRate }}%</td>
-                <td class="py-3.5 px-4 text-right font-mono font-semibold text-emerald-600">
-                  ₹{{ Number(src.totalEstimatedRevenue).toLocaleString('en-IN') }}
-                </td>
               </tr>
             </tbody>
           </table>
@@ -996,7 +992,8 @@ const requestForm = ref({
 });
 
 const canApproveExport = computed(() => {
-  const role = authStore.user?.role?.code;
+  const u = authStore.user as any;
+  const role = (typeof u?.role === 'object' && u?.role?.code) ? u.role.code : (u?.roleCode || String(u?.role || ''));
   return (
     role === 'owner' ||
     role === 'admin' ||
@@ -1169,9 +1166,9 @@ function exportCurrentReportSummary() {
 
   if (sourceQualityData.value?.sources) {
     lines.push('--- MARKETING SOURCE ROI ---');
-    lines.push('Source,Total Leads,Contact Rate %,Booking Rate %,Visit Rate %,Treatment Rate %,Estimated Revenue');
+    lines.push('Source,Total Leads,Contact Rate %,Booking Rate %,Visit Rate %,Treatment Rate %');
     for (const s of sourceQualityData.value.sources) {
-      lines.push(`"${s.labelEn}",${s.totalLeads},${s.contactRate}%,${s.bookingRate}%,${s.visitRate}%,${s.treatmentRate}%,INR ${s.totalEstimatedRevenue}`);
+      lines.push(`"${s.labelEn}",${s.totalLeads},${s.contactRate}%,${s.bookingRate}%,${s.visitRate}%,${s.treatmentRate}%`);
     }
     lines.push('');
   }
@@ -1210,9 +1207,9 @@ function exportTelecallerTable() {
 function exportSourceRoiTable() {
   if (!sourceQualityData.value?.sources) return;
   const lines: string[] = [];
-  lines.push('Lead Source,Total Leads,Contact Rate %,Booking Rate %,Visit Rate %,Treatment Rate %,Estimated Revenue INR');
+  lines.push('Lead Source,Total Leads,Contact Rate %,Booking Rate %,Visit Rate %,Treatment Rate %');
   for (const s of sourceQualityData.value.sources) {
-    lines.push(`"${s.labelEn}",${s.totalLeads},${s.contactRate}%,${s.bookingRate}%,${s.visitRate}%,${s.treatmentRate}%,${s.totalEstimatedRevenue}`);
+    lines.push(`"${s.labelEn}",${s.totalLeads},${s.contactRate}%,${s.bookingRate}%,${s.visitRate}%,${s.treatmentRate}%`);
   }
   const blob = new Blob([lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
   const url = window.URL.createObjectURL(blob);
