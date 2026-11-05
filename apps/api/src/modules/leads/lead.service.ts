@@ -17,6 +17,8 @@ export interface CreateLeadInput {
   name: string;
   mobile: string;
   altMobile?: string | null;
+  age?: number | null;
+  location?: string | null;
   language?: 'en' | 'ml';
   concern?: string;
   departmentId?: number;
@@ -411,6 +413,8 @@ export async function quickCreateLead(
       mobileNorm: normMobile,
       altMobile: input.altMobile ?? null,
       altMobileNorm: normAltMobile,
+      age: input.age !== undefined && input.age !== null && (input.age as any) !== '' ? Number(input.age) : null,
+      location: input.location ?? null,
       language: input.language ?? 'en',
       concern: input.concern ?? '',
       departmentId,
@@ -847,9 +851,20 @@ export async function updateLead(
 
   const updateData: any = {};
   if (data.name !== undefined) updateData.name = data.name;
+  if (data.mobile !== undefined) {
+    updateData.mobile = data.mobile;
+    updateData.mobileNorm = normalizePhoneNumber(data.mobile);
+  }
+  if (data.age !== undefined) {
+    updateData.age = data.age !== null && (data.age as any) !== '' ? Number(data.age) : null;
+  }
+  if (data.location !== undefined) {
+    updateData.location = data.location ?? null;
+  }
+  if (data.departmentId !== undefined) updateData.departmentId = data.departmentId;
+  if (data.sourceId !== undefined) updateData.sourceId = data.sourceId;
   if (data.language !== undefined) updateData.language = data.language;
   if (data.concern !== undefined) updateData.concern = data.concern;
-  if (data.departmentId !== undefined) updateData.departmentId = data.departmentId;
   if (data.priority !== undefined) updateData.priority = data.priority;
   if (data.consentCalls !== undefined) updateData.consentCalls = data.consentCalls;
   if (data.consentWhatsapp !== undefined) updateData.consentWhatsapp = data.consentWhatsapp;

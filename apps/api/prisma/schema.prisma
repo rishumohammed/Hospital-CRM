@@ -275,6 +275,8 @@ model Lead {
   mobileNorm          String       @map("mobile_norm") @db.VarChar(20)
   altMobile           String?      @map("alt_mobile") @db.VarChar(25)
   altMobileNorm       String?      @map("alt_mobile_norm") @db.VarChar(20)
+  age                 Int?
+  location            String?      @db.VarChar(150)
   language            String       @default("en") @db.VarChar(10)
   concern             String?      @db.Text
   departmentId        Int          @map("department_id") @db.UnsignedInt

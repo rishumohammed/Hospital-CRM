@@ -244,19 +244,6 @@
           </select>
         </div>
 
-        <!-- Language Filter -->
-        <div>
-          <select
-            v-model="filters.language"
-            @change="fetchLeads"
-            class="w-full h-11 px-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-xs font-medium focus:ring-2 focus:ring-teal-500"
-          >
-            <option value="">All Languages</option>
-            <option value="en">English</option>
-            <option value="ml">Malayalam</option>
-          </select>
-        </div>
-
         <!-- Testimonials Filter -->
         <div>
           <select
@@ -356,9 +343,12 @@
                 <span>{{ (lead.testimonialsSentCount || 0) > 0 ? 'Testimonials Sent' : 'Testimonials' }}</span>
               </label>
 
-              <!-- Language Tag -->
-              <span class="px-1.5 py-0.5 text-[10px] font-mono font-semibold rounded bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
-                {{ lead.language?.toUpperCase() || 'EN' }}
+              <!-- Age & Location Badges -->
+              <span v-if="lead.age" class="px-2 py-0.5 text-[10px] font-semibold rounded-md bg-slate-100 dark:bg-slate-750 text-slate-700 dark:text-slate-300">
+                {{ lead.age }} yrs
+              </span>
+              <span v-if="lead.location" class="px-2 py-0.5 text-[10px] font-semibold rounded-md bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border border-teal-200/80 dark:border-teal-800">
+                📍 {{ lead.location }}
               </span>
 
               <!-- Emergency Tag -->
@@ -443,6 +433,17 @@
               <span class="hidden sm:inline">WhatsApp</span>
             </a>
 
+            <!-- Edit Button -->
+            <button
+              type="button"
+              @click.stop="openEditModal(lead)"
+              class="min-h-[44px] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs flex items-center space-x-1 transition-colors"
+              title="Edit Lead"
+            >
+              <span>✏️</span>
+              <span class="hidden sm:inline">Edit</span>
+            </button>
+
             <!-- View Details Button -->
             <NuxtLink
               :to="`/leads/${lead.id}`"
@@ -490,13 +491,20 @@
       @lead-created="onLeadCreated"
     />
 
-
+    <!-- Edit Lead Modal -->
+    <EditLeadModal
+      :is-open="showEditModal"
+      :lead="selectedLeadToEdit"
+      @close="showEditModal = false"
+      @updated="fetchLeads"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, watch, onMounted } from 'vue';
 import TestimonialChip from '~/components/testimonials/TestimonialChip.vue';
+import EditLeadModal from '~/components/lead/EditLeadModal.vue';
 import { useAuthStore } from '~/stores/auth';
 
 const authStore = useAuthStore();
@@ -507,6 +515,13 @@ const apiBase = rawApiBase.endsWith('/api/v1') ? rawApiBase : `${rawApiBase}/api
 const leads = ref<any[]>([]);
 const isLoading = ref(true);
 const showQuickCreate = ref(false);
+const showEditModal = ref(false);
+const selectedLeadToEdit = ref<any | null>(null);
+
+const openEditModal = (lead: any) => {
+  selectedLeadToEdit.value = lead;
+  showEditModal.value = true;
+};
 const activeSavedView = ref<'all' | 'not_sent' | 'sent'>('all');
 
 const pagination = reactive({

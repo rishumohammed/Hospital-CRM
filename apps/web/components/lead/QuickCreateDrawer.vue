@@ -145,27 +145,54 @@
             </div>
           </div>
 
-          <!-- 3. Language & Source -->
+          <!-- 3. Age & Location -->
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Language</label>
-              <select
-                v-model="form.language"
-                class="w-full h-10 px-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-normal"
-              >
-                <option value="en">English</option>
-                <option value="ml">Malayalam</option>
-              </select>
+              <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Age</label>
+              <input
+                v-model.number="form.age"
+                type="number"
+                min="0"
+                max="120"
+                class="w-full h-10 px-3.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-normal focus:ring-2 focus:ring-teal-500"
+                placeholder="e.g. 35"
+              />
             </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Location / Place</label>
+              <input
+                v-model="form.location"
+                type="text"
+                maxlength="150"
+                class="w-full h-10 px-3.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-normal focus:ring-2 focus:ring-teal-500"
+                placeholder="e.g. Kozhikode"
+              />
+            </div>
+          </div>
+
+          <!-- 4. Source & Department -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Source *</label>
               <select
                 v-model.number="form.sourceId"
                 required
-                class="w-full h-10 px-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-normal"
+                class="w-full h-10 px-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-normal focus:ring-2 focus:ring-teal-500"
               >
                 <option v-for="s in sources" :key="s.id" :value="s.id">
                   {{ s.labelEn }}
+                </option>
+              </select>
+            </div>
+            <div v-if="form.leadType !== 'product'">
+              <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Department *</label>
+              <select
+                v-model.number="form.departmentId"
+                required
+                class="w-full h-10 px-3.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-normal focus:ring-2 focus:ring-teal-500"
+              >
+                <option v-for="d in departments" :key="d.id" :value="d.id">
+                  {{ d.labelEn }}
                 </option>
               </select>
             </div>
@@ -207,20 +234,6 @@
                 </label>
               </div>
             </div>
-          </div>
-
-          <!-- Treatment Department if leadType is 'treatment' -->
-          <div v-else>
-            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Department *</label>
-            <select
-              v-model.number="form.departmentId"
-              required
-              class="w-full h-10 px-3.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-normal"
-            >
-              <option v-for="d in departments" :key="d.id" :value="d.id">
-                {{ d.labelEn }}
-              </option>
-            </select>
           </div>
 
           <!-- Notes / Concern -->
@@ -293,6 +306,8 @@ const form = reactive({
   leadType: 'treatment' as 'treatment' | 'product',
   name: '',
   mobile: '',
+  age: null as number | null,
+  location: '',
   language: 'en',
   concern: '',
   departmentId: 1,
@@ -416,7 +431,9 @@ const submitLead = async () => {
       leadType: form.leadType,
       name: form.name.trim(),
       mobile: form.mobile.trim(),
-      language: form.language,
+      age: form.age !== null && form.age !== undefined && (form.age as any) !== '' ? Number(form.age) : null,
+      location: form.location?.trim() || null,
+      language: 'en',
       concern: form.concern.trim() || undefined,
       departmentId: form.departmentId,
       sourceId: form.sourceId,
@@ -454,6 +471,8 @@ const submitLead = async () => {
     // Reset form fields
     form.name = '';
     form.mobile = '';
+    form.age = null;
+    form.location = '';
     form.concern = '';
     form.campaignId = null;
     form.productIds = [];

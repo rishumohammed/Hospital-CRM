@@ -86,6 +86,10 @@
 
               <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 flex-wrap">
                 <span class="font-mono font-semibold text-slate-700 dark:text-slate-300">ID: #{{ lead.id }}</span>
+                <span v-if="lead.age" class="text-slate-300 dark:text-slate-600">•</span>
+                <span v-if="lead.age" class="font-semibold text-slate-700 dark:text-slate-300">Age: {{ lead.age }} yrs</span>
+                <span v-if="lead.location" class="text-slate-300 dark:text-slate-600">•</span>
+                <span v-if="lead.location" class="font-semibold text-teal-700 dark:text-teal-300">📍 {{ lead.location }}</span>
                 <span>•</span>
                 <span>🏥 {{ lead.branch?.name }}</span>
                 <span>•</span>
@@ -98,6 +102,16 @@
 
           <!-- Action Toolbar (Categorized & Balanced) -->
           <div class="flex items-center flex-wrap gap-2.5">
+            <!-- Edit Lead -->
+            <button
+              type="button"
+              @click="showEditModal = true"
+              class="min-h-[40px] px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 dark:bg-slate-750 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs flex items-center gap-1.5 border border-slate-300 dark:border-slate-600 transition-colors shadow-2xs"
+            >
+              <span>✏️</span>
+              <span>Edit Lead</span>
+            </button>
+
             <!-- Direct Call -->
             <a
               :href="`tel:${lead.mobileNorm || lead.mobile}`"
@@ -264,11 +278,19 @@
                 </p>
               </div>
 
-              <!-- Tile: Language -->
+              <!-- Tile: Age -->
               <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200/70 dark:border-slate-750">
-                <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Preferred Language</p>
+                <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Patient Age</p>
                 <p class="font-semibold text-sm text-slate-900 dark:text-slate-100 mt-1">
-                  {{ lead.language === 'ml' ? 'Malayalam' : 'English' }}
+                  {{ lead.age ? `${lead.age} years` : 'Not specified' }}
+                </p>
+              </div>
+
+              <!-- Tile: Location -->
+              <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200/70 dark:border-slate-750">
+                <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Location / City</p>
+                <p class="font-semibold text-sm text-slate-900 dark:text-slate-100 mt-1 truncate">
+                  {{ lead.location || 'Not specified' }}
                 </p>
               </div>
             </div>
@@ -595,6 +617,14 @@
         </div>
       </div>
     </div>
+
+    <!-- Edit Lead Modal -->
+    <EditLeadModal
+      :is-open="showEditModal"
+      :lead="lead"
+      @close="showEditModal = false"
+      @updated="handleLeadUpdated"
+    />
   </div>
 </template>
 
@@ -604,6 +634,7 @@ import { useRoute, useRouter } from 'vue-router';
 import LogCallDrawer from '~/components/interaction/LogCallDrawer.vue';
 import BookAppointmentModal from '~/components/lead/BookAppointmentModal.vue';
 import ProductLeadPanel from '~/components/lead/ProductLeadPanel.vue';
+import EditLeadModal from '~/components/lead/EditLeadModal.vue';
 import { useAuthStore } from '~/stores/auth';
 
 const route = useRoute();
@@ -615,6 +646,8 @@ const apiBase = rawApiBase.endsWith('/api/v1') ? rawApiBase : `${rawApiBase}/api
 
 const lead = ref<any | null>(null);
 const isLoading = ref(true);
+
+const showEditModal = ref(false);
 
 const showLogCallDrawer = ref(false);
 const showBookApptModal = ref(false);
@@ -690,6 +723,13 @@ const toggleTestimonialsSent = async (event: Event) => {
   } finally {
     isUpdatingTestimonial.value = false;
   }
+};
+
+const handleLeadUpdated = (updated: any) => {
+  if (updated) {
+    lead.value = { ...lead.value, ...updated };
+  }
+  fetchLead();
 };
 
 const fetchLead = async () => {
