@@ -1,5 +1,5 @@
 import { prisma } from '../../database/client';
-import { UserContext, scopeWhere } from '../rbac/scope';
+import { UserContext, scopeWhere, getEffectiveScope } from '../rbac/scope';
 import { Permissions, CaseStages, LeadStatuses } from '@hospital-crm/shared';
 
 export interface AdmissionReportParams {
@@ -1036,6 +1036,938 @@ export async function getMissedReasonsReport(
   return {
     reasons,
     totalMissedVisits: total,
+  };
+}
+
+export interface CallLogsReportParams {
+  branchId?: number;
+  userId?: number;
+  outcomeId?: number;
+  startDate?: string;
+  endDate?: string;
+  search?: string;
+  type?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export async function getCallLogsReport(
+  params: CallLogsReportParams,
+  user: UserContext
+): Promise<any> {
+  const page = Math.max(1, params.page || 1);
+  const pageSize = Math.min(100, Math.max(1, params.pageSize || 25));
+
+  const leadScope = getEffectiveScope(user, Permissions.REPORT_VIEW) || getEffectiveScope(user, Permissions.LEAD_VIEW);
+  let effectiveUserId = params.userId;
+
+  if (leadScope === 'own') {
+    effectiveUserId = user.id;
+  }
+
+  const where: any = {
+    archivedAt: null,
+    type: params.type || { in: ['call', 'aftercare_call'] },
+  };
+
+  if (effectiveUserId) {
+    where.userId = effectiveUserId;
+  }
+
+  if (params.outcomeId) {
+    where.outcomeId = params.outcomeId;
+  }
+
+  if (params.startDate || params.endDate) {
+    where.occurredAt = {};
+    if (params.startDate) where.occurredAt.gte = new Date(params.startDate);
+    if (params.endDate) where.occurredAt.lte = new Date(params.endDate);
+  }
+
+  if (params.branchId) {
+    where.OR = [
+      { lead: { branchId: params.branchId } },
+      { case: { branchId: params.branchId } },
+    ];
+  } else if (leadScope === 'branch' && user.branchIds?.length) {
+    where.OR = [
+      { lead: { branchId: { in: user.branchIds } } },
+      { case: { branchId: { in: user.branchIds } } },
+    ];
+  }
+
+  if (params.search?.trim()) {
+    const q = params.search.trim();
+    const searchConditions = [
+      { lead: { name: { contains: q } } },
+      { lead: { mobileNorm: { contains: q } } },
+      { case: { patient: { name: { contains: q } } } },
+      { case: { patient: { mobileNorm: { contains: q } } } },
+      { note: { contains: q } },
+    ];
+    if (where.OR) {
+      where.AND = [{ OR: where.OR }, { OR: searchConditions }];
+      delete where.OR;
+    } else {
+      where.OR = searchConditions;
+    }
+  }
+
+  const [total, calls] = await Promise.all([
+    prisma.interaction.count({ where }),
+    prisma.interaction.findMany({
+      where,
+      include: {
+        user: { select: { id: true, name: true, role: { select: { code: true, name: true } } } },
+        lead: {
+          select: {
+            id: true,
+            name: true,
+            mobile: true,
+            mobileNorm: true,
+            status: true,
+            priority: true,
+            source: { select: { id: true, labelEn: true } },
+            department: { select: { id: true, labelEn: true } },
+          },
+        },
+        case: {
+          select: {
+            id: true,
+            stage: true,
+            careType: true,
+            patient: {
+              select: {
+                id: true,
+                name: true,
+                patientCode: true,
+                mobileNorm: true,
+              },
+            },
+          },
+        },
+        outcome: {
+          select: {
+            id: true,
+            code: true,
+            labelEn: true,
+            labelMl: true,
+            scope: true,
+          },
+        },
+      },
+      orderBy: { occurredAt: 'desc' },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+  ]);
+
+  const allFilteredCalls = await prisma.interaction.findMany({
+    where,
+    select: {
+      id: true,
+      durationSeconds: true,
+      outcomeId: true,
+      leadId: true,
+      caseId: true,
+      outcome: { select: { code: true, labelEn: true } },
+    },
+  });
+
+  const totalCallsCount = allFilteredCalls.length;
+  let totalDurationSec = 0;
+  let bookedCount = 0;
+  let callbackCount = 0;
+  const outcomeCounts: Record<string, { labelEn: string; count: number }> = {};
+  const uniqueContactSet = new Set<string>();
+
+  for (const c of allFilteredCalls) {
+    if (c.durationSeconds) totalDurationSec += c.durationSeconds;
+    if (c.leadId) uniqueContactSet.add(`lead_${c.leadId}`);
+    if (c.caseId) uniqueContactSet.add(`case_${c.caseId}`);
+
+    const code = c.outcome?.code || 'UNKNOWN';
+    const label = c.outcome?.labelEn || 'Not Specified';
+    if (!outcomeCounts[code]) {
+      outcomeCounts[code] = { labelEn: label, count: 0 };
+    }
+    outcomeCounts[code].count++;
+
+    if (code === 'APPOINTMENT_BOOKED' || code === 'ORDER_CONFIRMED') bookedCount++;
+    if (code === 'CALLBACK_REQUESTED') callbackCount++;
+  }
+
+  const avgDurationSeconds = totalCallsCount > 0 ? Math.round(totalDurationSec / totalCallsCount) : 0;
+
+  return {
+    calls,
+    summary: {
+      totalCalls: totalCallsCount,
+      uniqueContacts: uniqueContactSet.size,
+      totalDurationSeconds: totalDurationSec,
+      avgDurationSeconds,
+      bookedCount,
+      callbackCount,
+      outcomes: Object.values(outcomeCounts),
+    },
+    pagination: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize) || 1,
+    },
+  };
+}
+
+// -------------------------------------------------------------
+// TELECALLER & TEAM PERFORMANCE REPORTING
+// -------------------------------------------------------------
+
+export interface TelecallerPerformanceParams {
+  userId?: number;
+  branchId?: number;
+  date?: string; // YYYY-MM-DD
+  startDate?: string;
+  endDate?: string;
+}
+
+export async function getTelecallerPerformance(
+  params: TelecallerPerformanceParams,
+  user: UserContext
+) {
+  const isManagerOrAdmin = ['admin', 'owner', 'center_head', 'telecaller_manager', 'super_admin'].includes(user.roleCode);
+  const targetUserId = isManagerOrAdmin && params.userId ? params.userId : user.id;
+
+  const targetDateStr = params.date || new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+  const startOfPeriod = params.startDate ? new Date(params.startDate) : new Date(`${targetDateStr}T00:00:00.000+05:30`);
+  const endOfPeriod = params.endDate
+    ? new Date(params.endDate)
+    : params.startDate
+    ? new Date(new Date(params.startDate).setHours(23, 59, 59, 999))
+    : new Date(`${targetDateStr}T23:59:59.999+05:30`);
+
+  const refDate = params.endDate ? new Date(params.endDate) : params.startDate ? new Date(params.startDate) : new Date();
+  const year = refDate.getFullYear();
+  const yearStr = String(year);
+  const month = refDate.getMonth() + 1;
+  const lastDayOfMonth = new Date(year, month, 0).getDate();
+  const monthStr = String(month).padStart(2, '0');
+  const startOfMonth = new Date(`${yearStr}-${monthStr}-01T00:00:00.000+05:30`);
+  const endOfMonth = new Date(`${yearStr}-${monthStr}-${String(lastDayOfMonth).padStart(2, '0')}T23:59:59.999+05:30`);
+
+  const targetUser = await prisma.user.findUnique({
+    where: { id: targetUserId },
+    select: { id: true, name: true, email: true, role: { select: { code: true, name: true } } },
+  });
+
+  // 1. Period metrics (Daily / Custom range)
+  const callsPeriod = await prisma.interaction.findMany({
+    where: {
+      userId: targetUserId,
+      type: 'call',
+      occurredAt: { gte: startOfPeriod, lte: endOfPeriod },
+    },
+    select: {
+      id: true,
+      leadId: true,
+      durationSeconds: true,
+      occurredAt: true,
+      lead: { select: { id: true, createdAt: true } },
+    },
+    orderBy: { occurredAt: 'asc' },
+  });
+
+  // Track distinct new leads called in period vs follow-up calls
+  const newLeadIds = new Set<number>();
+  let followUpCallsCount = 0;
+
+  for (const c of callsPeriod) {
+    const leadId = c.lead?.id || c.leadId;
+    if (!leadId) {
+      followUpCallsCount++;
+      continue;
+    }
+
+    const isCreatedInPeriod = c.lead?.createdAt && (() => {
+      const lDate = new Date(c.lead.createdAt);
+      return lDate >= startOfPeriod && lDate <= endOfPeriod;
+    })();
+
+    if (isCreatedInPeriod) {
+      if (!newLeadIds.has(leadId)) {
+        newLeadIds.add(leadId);
+      } else {
+        followUpCallsCount++;
+      }
+    } else {
+      followUpCallsCount++;
+    }
+  }
+
+  const newLeadsCalled = newLeadIds.size;
+  const followUpsDone = followUpCallsCount;
+
+  const appointmentsBookedPeriod = await prisma.appointment.count({
+    where: {
+      createdAt: { gte: startOfPeriod, lte: endOfPeriod },
+      status: { not: 'cancelled' },
+      OR: [
+        { lead: { ownerId: targetUserId } },
+        { case: { ownerId: targetUserId } },
+      ],
+    },
+  });
+
+  // Confirmed patient visits in period
+  const [visitedCasesPeriod, visitedApptsPeriod] = await Promise.all([
+    prisma.case.count({
+      where: {
+        consultationCompletedAt: { gte: startOfPeriod, lte: endOfPeriod },
+        archivedAt: null,
+        OR: [
+          { ownerId: targetUserId },
+          { lead: { ownerId: targetUserId } },
+          { lead: { appointments: { some: { createdBy: targetUserId } } } },
+        ],
+      },
+    }),
+    prisma.appointment.count({
+      where: {
+        status: 'visited',
+        updatedAt: { gte: startOfPeriod, lte: endOfPeriod },
+        caseId: null,
+        OR: [
+          { createdBy: targetUserId },
+          { lead: { ownerId: targetUserId } },
+          { case: { ownerId: targetUserId } },
+        ],
+      },
+    }),
+  ]);
+
+  const patientsVisitedPeriod = visitedCasesPeriod + visitedApptsPeriod;
+
+  const patientsVisitingPeriod = await prisma.appointment.count({
+    where: {
+      startsAt: { gte: startOfPeriod, lte: endOfPeriod },
+      status: { not: 'cancelled' },
+      OR: [
+        { createdBy: targetUserId },
+        { lead: { ownerId: targetUserId } },
+        { case: { ownerId: targetUserId } },
+      ],
+    },
+  });
+
+  // 2. Monthly metrics
+  const monthlyBookings = await prisma.appointment.count({
+    where: {
+      createdAt: { gte: startOfMonth, lte: endOfMonth },
+      status: { not: 'cancelled' },
+      OR: [
+        { lead: { ownerId: targetUserId } },
+        { case: { ownerId: targetUserId } },
+      ],
+    },
+  });
+
+  const monthlyVisits = await prisma.case.count({
+    where: {
+      consultationCompletedAt: { gte: startOfMonth, lte: endOfMonth },
+      archivedAt: null,
+      OR: [
+        { ownerId: targetUserId },
+        { lead: { ownerId: targetUserId } },
+      ],
+    },
+  });
+
+  const monthlyLeadsCount = await prisma.lead.count({
+    where: {
+      ownerId: targetUserId,
+      createdAt: { gte: startOfMonth, lte: endOfMonth },
+      archivedAt: null,
+    },
+  });
+
+  const allTimeLeadsCount = await prisma.lead.count({
+    where: {
+      ownerId: targetUserId,
+      archivedAt: null,
+    },
+  });
+
+  const leadToBookingRatio = monthlyLeadsCount > 0
+    ? Number(((monthlyBookings / monthlyLeadsCount) * 100).toFixed(1))
+    : allTimeLeadsCount > 0
+    ? Number(((monthlyBookings / allTimeLeadsCount) * 100).toFixed(1))
+    : 0;
+
+  const leadToVisitRatio = monthlyLeadsCount > 0
+    ? Number(((monthlyVisits / monthlyLeadsCount) * 100).toFixed(1))
+    : allTimeLeadsCount > 0
+    ? Number(((monthlyVisits / allTimeLeadsCount) * 100).toFixed(1))
+    : 0;
+
+  return {
+    user: targetUser,
+    date: targetDateStr,
+    daily: {
+      totalCalls: callsPeriod.length,
+      newLeadsCalled,
+      followUpsDone,
+      appointmentsBooked: appointmentsBookedPeriod,
+      patientsVisited: patientsVisitedPeriod,
+      patientsVisiting: patientsVisitingPeriod,
+    },
+    monthly: {
+      month: `${yearStr}-${monthStr}`,
+      bookings: monthlyBookings,
+      bookingTarget: 0, // 0 = No target set
+      visits: monthlyVisits,
+      visitTarget: 0,   // 0 = No target set
+      leadsAssigned: monthlyLeadsCount,
+      allTimeLeads: allTimeLeadsCount,
+      leadToBookingRatio,
+      leadToVisitRatio,
+    },
+  };
+}
+
+export async function getProductTelecallerPerformance(
+  params: TelecallerPerformanceParams,
+  user: UserContext
+) {
+  const isManagerOrAdmin = ['admin', 'owner', 'center_head', 'telecaller_manager', 'product_manager', 'super_admin'].includes(user.roleCode);
+  const targetUserId = isManagerOrAdmin && params.userId ? params.userId : user.id;
+
+  const targetDateStr = params.date || new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+  const startOfToday = new Date(`${targetDateStr}T00:00:00.000+05:30`);
+  const endOfToday = new Date(`${targetDateStr}T23:59:59.999+05:30`);
+
+  const [yearStr, monthStr] = targetDateStr.split('-');
+  const year = parseInt(yearStr, 10);
+  const month = parseInt(monthStr, 10);
+  const now = new Date(Date.UTC(year, month - 1, 1));
+  const lastDayOfMonth = new Date(year, month, 0).getDate();
+  const startOfMonth = new Date(`${yearStr}-${monthStr}-01T00:00:00.000+05:30`);
+  const endOfMonth = new Date(`${yearStr}-${monthStr}-${String(lastDayOfMonth).padStart(2, '0')}T23:59:59.999+05:30`);
+
+  const targetUser = await prisma.user.findUnique({
+    where: { id: targetUserId },
+    select: { id: true, name: true, email: true, role: { select: { code: true, name: true } } },
+  });
+
+  // 1. Daily metrics
+  const callsToday = await prisma.interaction.findMany({
+    where: {
+      userId: targetUserId,
+      type: 'call',
+      occurredAt: { gte: startOfToday, lte: endOfToday },
+    },
+    select: {
+      id: true,
+      leadId: true,
+      durationSeconds: true,
+      occurredAt: true,
+      lead: { select: { id: true, leadType: true, createdAt: true } },
+    },
+    orderBy: { occurredAt: 'asc' },
+  });
+
+  const newLeadIds = new Set<number>();
+  let followUpCallsCount = 0;
+
+  for (const c of callsToday) {
+    const leadId = c.lead?.id || c.leadId;
+    if (!leadId) {
+      followUpCallsCount++;
+      continue;
+    }
+
+    const isCreatedToday = c.lead?.createdAt && (() => {
+      const lDate = new Date(c.lead.createdAt);
+      return lDate >= startOfToday && lDate <= endOfToday;
+    })();
+
+    if (isCreatedToday) {
+      if (!newLeadIds.has(leadId)) {
+        newLeadIds.add(leadId);
+      } else {
+        followUpCallsCount++;
+      }
+    } else {
+      followUpCallsCount++;
+    }
+  }
+
+  const newLeadsCalled = newLeadIds.size;
+  const followUpsDone = followUpCallsCount;
+
+  // Orders confirmed today
+  const confirmedLeadsToday = await prisma.lead.findMany({
+    where: {
+      ownerId: targetUserId,
+      leadType: 'product',
+      saleConfirmedAt: { gte: startOfToday, lte: endOfToday },
+    },
+    select: { id: true, saleAmount: true },
+  });
+
+  const ordersConfirmedToday = confirmedLeadsToday.length;
+  const revenueToday = confirmedLeadsToday.reduce((sum, l) => sum + Number(l.saleAmount || 0), 0);
+
+  // 2. Monthly metrics
+  const confirmedLeadsMonth = await prisma.lead.findMany({
+    where: {
+      ownerId: targetUserId,
+      leadType: 'product',
+      saleConfirmedAt: { gte: startOfMonth, lte: endOfMonth },
+    },
+    select: { id: true, saleAmount: true },
+  });
+
+  const monthlyOrders = confirmedLeadsMonth.length;
+  const monthlyRevenue = confirmedLeadsMonth.reduce((sum, l) => sum + Number(l.saleAmount || 0), 0);
+
+  const monthlyLeadsCount = await prisma.lead.count({
+    where: {
+      ownerId: targetUserId,
+      leadType: 'product',
+      createdAt: { gte: startOfMonth, lte: endOfMonth },
+      archivedAt: null,
+    },
+  });
+
+  const allTimeLeadsCount = await prisma.lead.count({
+    where: {
+      ownerId: targetUserId,
+      leadType: 'product',
+      archivedAt: null,
+    },
+  });
+
+  const leadToOrderRatio = monthlyLeadsCount > 0
+    ? Number(((monthlyOrders / monthlyLeadsCount) * 100).toFixed(1))
+    : allTimeLeadsCount > 0
+    ? Number(((monthlyOrders / allTimeLeadsCount) * 100).toFixed(1))
+    : 0;
+
+  const averageOrderValue = monthlyOrders > 0
+    ? Math.round(monthlyRevenue / monthlyOrders)
+    : 0;
+
+  // 3. 6-Month Status & Orders Distribution Trend
+  const monthsData: any[] = [];
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+    const mStart = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1, 0, 0, 0));
+    const mEnd = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0, 23, 59, 59, 999));
+    const label = `${monthNames[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+
+    const [monthLeads, mConfirmed] = await Promise.all([
+      prisma.lead.findMany({
+        where: {
+          ownerId: targetUserId,
+          leadType: 'product',
+          createdAt: { gte: mStart, lte: mEnd },
+          archivedAt: null,
+        },
+        select: { status: true },
+      }),
+      prisma.lead.findMany({
+        where: {
+          ownerId: targetUserId,
+          leadType: 'product',
+          saleConfirmedAt: { gte: mStart, lte: mEnd },
+        },
+        select: { saleAmount: true },
+      }),
+    ]);
+
+    let callbackRequested = 0;
+    let inProgress = 0;
+    let lost = 0;
+
+    for (const l of monthLeads) {
+      if (l.status === 'qualified' || l.status === 'contacted') callbackRequested++;
+      else if (l.status === 'new' || l.status === 'not_reachable') inProgress++;
+      else if (l.status === 'not_interested') lost++;
+    }
+
+    const ordersCount = mConfirmed.length;
+    const mRev = mConfirmed.reduce((sum, l) => sum + Number(l.saleAmount || 0), 0);
+
+    monthsData.push({
+      key: `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`,
+      label,
+      totalInquiries: monthLeads.length,
+      ordersConfirmed: ordersCount,
+      revenue: mRev,
+      callbackRequested,
+      inProgress,
+      lost,
+    });
+  }
+
+  return {
+    user: targetUser,
+    date: targetDateStr,
+    daily: {
+      newLeadsCalled,
+      followUpsDone,
+      ordersConfirmed: ordersConfirmedToday,
+      revenueGenerated: revenueToday,
+      totalCalls: callsToday.length,
+    },
+    monthly: {
+      month: `${yearStr}-${monthStr}`,
+      ordersConfirmed: monthlyOrders,
+      revenueGenerated: monthlyRevenue,
+      leadsAssigned: monthlyLeadsCount,
+      allTimeLeads: allTimeLeadsCount,
+      leadToOrderRatio,
+      averageOrderValue,
+      targetOrders: 0,
+    },
+    trend: monthsData,
+  };
+}
+
+export async function getTeamPerformance(
+  params: { branchId?: number; date?: string; startDate?: string; endDate?: string },
+  user: UserContext
+) {
+  const targetDateStr = params.date || new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+  const startOfPeriod = params.startDate ? new Date(params.startDate) : new Date(`${targetDateStr}T00:00:00.000+05:30`);
+  const endOfPeriod = params.endDate
+    ? new Date(params.endDate)
+    : params.startDate
+    ? new Date(new Date(params.startDate).setHours(23, 59, 59, 999))
+    : new Date(`${targetDateStr}T23:59:59.999+05:30`);
+
+  const refDate = params.endDate ? new Date(params.endDate) : params.startDate ? new Date(params.startDate) : new Date();
+  const year = refDate.getFullYear();
+  const yearStr = String(year);
+  const month = refDate.getMonth() + 1;
+  const lastDayOfMonth = new Date(year, month, 0).getDate();
+  const monthStr = String(month).padStart(2, '0');
+  const startOfMonth = new Date(`${yearStr}-${monthStr}-01T00:00:00.000+05:30`);
+  const endOfMonth = new Date(`${yearStr}-${monthStr}-${String(lastDayOfMonth).padStart(2, '0')}T23:59:59.999+05:30`);
+
+  const isManagerOrAdmin = ['admin', 'owner', 'center_head', 'telecaller_manager', 'super_admin'].includes(user.roleCode);
+
+  // Find all active telecallers & managers (scoped to self for telecaller role)
+  const whereUsers: any = {
+    status: 'active',
+    archivedAt: null,
+    role: {
+      code: { in: ['support_telecaller', 'caller', 'telecaller_manager', 'center_head', 'owner', 'admin'] },
+    },
+  };
+
+  if (!isManagerOrAdmin) {
+    whereUsers.id = user.id;
+  }
+
+  const telecallers = await prisma.user.findMany({
+    where: whereUsers,
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: { select: { code: true, name: true } },
+    },
+    orderBy: { name: 'asc' },
+  });
+
+  const telecallerMetrics = await Promise.all(
+    telecallers.map(async (tc) => {
+      const callsPeriod = await prisma.interaction.findMany({
+        where: {
+          userId: tc.id,
+          type: 'call',
+          occurredAt: { gte: startOfPeriod, lte: endOfPeriod },
+        },
+        select: {
+          id: true,
+          leadId: true,
+          occurredAt: true,
+          lead: { select: { id: true, createdAt: true } },
+        },
+        orderBy: { occurredAt: 'asc' },
+      });
+
+      const newLeadIds = new Set<number>();
+      let followUpCallsCount = 0;
+
+      for (const c of callsPeriod) {
+        const leadId = c.lead?.id || c.leadId;
+        if (!leadId) {
+          followUpCallsCount++;
+          continue;
+        }
+
+        const isCreatedInPeriod = c.lead?.createdAt && (() => {
+          const lDate = new Date(c.lead.createdAt);
+          return lDate >= startOfPeriod && lDate <= endOfPeriod;
+        })();
+
+        if (isCreatedInPeriod) {
+          if (!newLeadIds.has(leadId)) {
+            newLeadIds.add(leadId);
+          } else {
+            followUpCallsCount++;
+          }
+        } else {
+          followUpCallsCount++;
+        }
+      }
+
+      const newLeadsCalled = newLeadIds.size;
+      const followUpsDone = followUpCallsCount;
+
+      const appointmentsBookedPeriod = await prisma.appointment.count({
+        where: {
+          createdAt: { gte: startOfPeriod, lte: endOfPeriod },
+          status: { not: 'cancelled' },
+          OR: [{ lead: { ownerId: tc.id } }, { case: { ownerId: tc.id } }],
+        },
+      });
+
+      const [visitedCasesPeriod, visitedApptsPeriod] = await Promise.all([
+        prisma.case.count({
+          where: {
+            consultationCompletedAt: { gte: startOfPeriod, lte: endOfPeriod },
+            archivedAt: null,
+            OR: [
+              { ownerId: tc.id },
+              { lead: { ownerId: tc.id } },
+              { lead: { appointments: { some: { createdBy: tc.id } } } },
+            ],
+          },
+        }),
+        prisma.appointment.count({
+          where: {
+            status: 'visited',
+            updatedAt: { gte: startOfPeriod, lte: endOfPeriod },
+            caseId: null,
+            OR: [
+              { createdBy: tc.id },
+              { lead: { ownerId: tc.id } },
+              { case: { ownerId: tc.id } },
+            ],
+          },
+        }),
+      ]);
+
+      const patientsVisitedPeriod = visitedCasesPeriod + visitedApptsPeriod;
+
+      const patientsVisitingPeriod = await prisma.appointment.count({
+        where: {
+          startsAt: { gte: startOfPeriod, lte: endOfPeriod },
+          status: { not: 'cancelled' },
+          OR: [
+            { createdBy: tc.id },
+            { lead: { ownerId: tc.id } },
+            { case: { ownerId: tc.id } },
+          ],
+        },
+      });
+
+      const monthlyBookings = await prisma.appointment.count({
+        where: {
+          createdAt: { gte: startOfMonth, lte: endOfMonth },
+          status: { not: 'cancelled' },
+          OR: [{ lead: { ownerId: tc.id } }, { case: { ownerId: tc.id } }],
+        },
+      });
+
+      const monthlyVisits = await prisma.case.count({
+        where: {
+          consultationCompletedAt: { gte: startOfMonth, lte: endOfMonth },
+          archivedAt: null,
+          OR: [{ ownerId: tc.id }, { lead: { ownerId: tc.id } }],
+        },
+      });
+
+      const monthlyLeadsCount = await prisma.lead.count({
+        where: {
+          ownerId: tc.id,
+          createdAt: { gte: startOfMonth, lte: endOfMonth },
+          archivedAt: null,
+        },
+      });
+
+      const allTimeLeadsCount = await prisma.lead.count({
+        where: { ownerId: tc.id, archivedAt: null },
+      });
+
+      const leadToBookingRatio = monthlyLeadsCount > 0
+        ? Number(((monthlyBookings / monthlyLeadsCount) * 100).toFixed(1))
+        : allTimeLeadsCount > 0
+        ? Number(((monthlyBookings / allTimeLeadsCount) * 100).toFixed(1))
+        : 0;
+
+      const leadToVisitRatio = monthlyLeadsCount > 0
+        ? Number(((monthlyVisits / monthlyLeadsCount) * 100).toFixed(1))
+        : allTimeLeadsCount > 0
+        ? Number(((monthlyVisits / allTimeLeadsCount) * 100).toFixed(1))
+        : 0;
+
+      return {
+        user: tc,
+        daily: {
+          totalCalls: callsPeriod.length,
+          newLeadsCalled,
+          followUpsDone,
+          appointmentsBooked: appointmentsBookedPeriod,
+          patientsVisited: patientsVisitedPeriod,
+          patientsVisiting: patientsVisitingPeriod,
+        },
+        monthly: {
+          bookings: monthlyBookings,
+          bookingTarget: 0,
+          visits: monthlyVisits,
+          visitTarget: 0,
+          leadsAssigned: monthlyLeadsCount,
+          leadToBookingRatio,
+          leadToVisitRatio,
+        },
+      };
+    })
+  );
+
+  // Hospital-wide aggregates
+  const hospitalTotals = telecallerMetrics.reduce(
+    (acc, item) => ({
+      dailyCalls: acc.dailyCalls + item.daily.totalCalls,
+      dailyNewCalled: acc.dailyNewCalled + item.daily.newLeadsCalled,
+      dailyFollowUps: acc.dailyFollowUps + item.daily.followUpsDone,
+      dailyBookings: acc.dailyBookings + item.daily.appointmentsBooked,
+      dailyVisited: acc.dailyVisited + item.daily.patientsVisited,
+      dailyVisiting: acc.dailyVisiting + item.daily.patientsVisiting,
+      monthlyBookings: acc.monthlyBookings + item.monthly.bookings,
+      monthlyVisits: acc.monthlyVisits + item.monthly.visits,
+      monthlyLeads: acc.monthlyLeads + item.monthly.leadsAssigned,
+    }),
+    {
+      dailyCalls: 0,
+      dailyNewCalled: 0,
+      dailyFollowUps: 0,
+      dailyBookings: 0,
+      dailyVisited: 0,
+      dailyVisiting: 0,
+      monthlyBookings: 0,
+      monthlyVisits: 0,
+      monthlyLeads: 0,
+    }
+  );
+
+  return {
+    date: targetDateStr,
+    month: `${yearStr}-${monthStr}`,
+    totals: hospitalTotals,
+    telecallers: telecallerMetrics,
+  };
+}
+
+export async function getMonthlyStatusTrend(
+  params: { userId?: number; branchId?: number; months?: number },
+  user: UserContext
+) {
+  const isManagerOrAdmin = ['admin', 'owner', 'center_head', 'telecaller_manager', 'super_admin'].includes(user.roleCode);
+  const targetUserId = isManagerOrAdmin && params.userId ? params.userId : !isManagerOrAdmin ? user.id : undefined;
+
+  const numMonths = Math.min(Math.max(params.months || 6, 1), 12);
+  const now = new Date();
+  const monthsData: Array<{
+    month: string;
+    monthLabel: string;
+    callbackRequested: number;
+    appointmentBooked: number;
+    visited: number;
+    inProgress: number;
+    lost: number;
+    totalLeads: number;
+  }> = [];
+
+  for (let i = numMonths - 1; i >= 0; i--) {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+    const startM = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1, 0, 0, 0));
+    const endM = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0, 23, 59, 59, 999));
+    const key = `${startM.getUTCFullYear()}-${String(startM.getUTCMonth() + 1).padStart(2, '0')}`;
+    const monthLabel = startM.toLocaleString('en-US', { month: 'short', year: '2-digit', timeZone: 'UTC' });
+
+    const leadWhere: any = {
+      createdAt: { gte: startM, lte: endM },
+      archivedAt: null,
+    };
+    if (targetUserId) {
+      leadWhere.ownerId = targetUserId;
+    }
+
+    const leads = await prisma.lead.findMany({
+      where: leadWhere,
+      select: {
+        id: true,
+        status: true,
+      },
+    });
+
+    // Count callbacks from interactions in that month
+    const interactionWhere: any = {
+      occurredAt: { gte: startM, lte: endM },
+      outcome: { code: 'CALLBACK_REQUESTED' },
+    };
+    if (targetUserId) {
+      interactionWhere.userId = targetUserId;
+    }
+    const callbackCount = await prisma.interaction.count({ where: interactionWhere });
+
+    // Appointments booked in this month
+    const apptWhere: any = {
+      createdAt: { gte: startM, lte: endM },
+      status: { not: 'cancelled' },
+    };
+    if (targetUserId) {
+      apptWhere.OR = [{ lead: { ownerId: targetUserId } }, { case: { ownerId: targetUserId } }];
+    }
+    const bookedCount = await prisma.appointment.count({ where: apptWhere });
+
+    // Visits / Consultations completed in this month
+    const caseWhere: any = {
+      consultationCompletedAt: { gte: startM, lte: endM },
+      archivedAt: null,
+    };
+    if (targetUserId) {
+      caseWhere.OR = [{ ownerId: targetUserId }, { lead: { ownerId: targetUserId } }];
+    }
+    const visitedCount = await prisma.case.count({ where: caseWhere });
+
+    // Leads in progress (contacted, qualified, new)
+    const inProgressCount = leads.filter((l) => ['new', 'contacted', 'qualified', 'callback'].includes(l.status)).length;
+
+    // Leads lost / not interested
+    const lostCount = leads.filter((l) => ['not_interested', 'lost', 'unqualified'].includes(l.status)).length;
+
+    monthsData.push({
+      month: key,
+      monthLabel,
+      callbackRequested: callbackCount,
+      appointmentBooked: bookedCount,
+      visited: visitedCount,
+      inProgress: inProgressCount,
+      lost: lostCount,
+      totalLeads: leads.length,
+    });
+  }
+
+  return {
+    targetUserId: targetUserId || 'all',
+    months: monthsData,
   };
 }
 

@@ -87,6 +87,14 @@ export const quickCreateLeadSchema = z.object({
   consentSms: z.boolean().default(false),
   overrideDuplicate: z.boolean().default(false),
   overrideReason: z.string().max(500).optional(),
+  ownerId: z.coerce.number().int().positive().optional().nullable(),
+  owner_id: z.coerce.number().int().positive().optional().nullable(),
+  existingPatientId: z.coerce.number().int().positive().optional().nullable(),
+  existing_patient_id: z.coerce.number().int().positive().optional().nullable(),
+  isFamilyMember: z.boolean().optional().default(false),
+  is_family_member: z.boolean().optional(),
+  familyRelation: z.string().max(50).optional().nullable(),
+  family_relation: z.string().max(50).optional().nullable(),
 });
 
 export const leadFilterSchema = z.object({
@@ -118,6 +126,8 @@ export const leadFilterSchema = z.object({
   testimonials: z.enum(['sent', 'not_sent']).optional(),
   sortBy: z.string().optional(),
   sortOrder: z.enum(['asc', 'desc']).optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
 });
 
 export const updateLeadSchema = z.object({
@@ -203,8 +213,22 @@ export const convertLeadSchema = z.object({
   patientCode: z.string().max(50).optional(),
   dateOfBirth: z.string().optional().nullable(),
   treatingDoctorId: z.number().int().positive().optional().nullable(),
+  doctorName: z.string().max(100).optional(),
   departmentId: z.number().int().positive().optional().nullable(),
-  note: z.string().max(500).optional(),
+  note: z.string().max(1000).optional(),
+  decision: z.enum(['in_patient', 'consultation_only', 'opd_course']).optional().default('consultation_only'),
+  estimatedAmount: z.number().nonnegative().optional().nullable(),
+  schedule: z
+    .object({
+      therapyId: z.number().int().positive().optional().nullable(),
+      frequencyType: z.enum(['daily', 'weekly', 'alternate_days', 'custom_weekdays', 'custom_dates']).optional().default('daily'),
+      totalSessions: z.number().int().positive().max(150).optional().default(7),
+      startDate: z.string().optional(),
+      windowStart: z.string().optional(),
+      windowEnd: z.string().optional(),
+      weekdays: z.array(z.number()).optional(),
+    })
+    .optional(),
 });
 
 // Case Schemas
@@ -219,6 +243,13 @@ export const caseFilterSchema = z.object({
   treatingDoctorId: z.coerce.number().int().positive().optional(),
   team: z.string().optional(),
   search: z.string().optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  advisedAdmission: z.preprocess((val) => {
+    if (val === 'true' || val === true) return true;
+    if (val === 'false' || val === false) return false;
+    return undefined;
+  }, z.boolean().optional()).optional(),
 });
 
 export const consultationOutcomeSchema = z.object({
@@ -882,9 +913,24 @@ export const skuSchema = z
 
 export const createProductCategorySchema = z.object({
   name: z.string().trim().min(2, 'Name must be at least 2 characters').max(100),
-  slug: z.string().trim().min(2).max(100).optional(),
-  parentId: z.coerce.number().int().positive().optional().nullable(),
-  parent_id: z.coerce.number().int().positive().optional().nullable(),
+  slug: z
+    .preprocess(
+      (val) => (typeof val === 'string' && val.trim() === '' ? undefined : val === null ? undefined : val),
+      z.string().trim().min(2).max(100).optional().nullable()
+    )
+    .optional(),
+  parentId: z
+    .preprocess(
+      (val) => (val === '' || val === 'null' || val === 0 ? null : val),
+      z.coerce.number().int().positive().optional().nullable()
+    )
+    .optional(),
+  parent_id: z
+    .preprocess(
+      (val) => (val === '' || val === 'null' || val === 0 ? null : val),
+      z.coerce.number().int().positive().optional().nullable()
+    )
+    .optional(),
   sort: z.coerce.number().int().default(0).optional(),
   active: z.boolean().default(true).optional(),
   description: z.string().trim().max(500).optional().nullable(),
@@ -1105,6 +1151,10 @@ export const confirmSaleSchema = z.object({
   order_reference: z.string().trim().min(1).max(100).optional(),
   saleAmount: z.coerce.number().min(0, 'Sale amount must be zero or greater').optional(),
   sale_amount: z.coerce.number().min(0).optional(),
+  paymentMethod: z.string().trim().max(50).optional().default('cod'),
+  payment_method: z.string().trim().max(50).optional(),
+  shippingAddress: z.string().trim().max(1000).optional().default(''),
+  shipping_address: z.string().trim().max(1000).optional(),
   prescriptionVerifiedLines: z.array(z.coerce.number().int().positive()).optional(),
   prescription_verified_lines: z.array(z.coerce.number().int().positive()).optional(),
 }).refine((data) => (data.orderReference && data.orderReference.length > 0) || (data.order_reference && data.order_reference.length > 0), {

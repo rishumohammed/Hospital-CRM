@@ -15,6 +15,9 @@ export interface ListCasesParams {
   treatingDoctorId?: number;
   team?: string;
   search?: string;
+  startDate?: string;
+  endDate?: string;
+  advisedAdmission?: boolean;
 }
 
 /**
@@ -117,6 +120,16 @@ export async function listCases(
 
   if (params.team) {
     where.team = params.team;
+  }
+
+  if (params.advisedAdmission !== undefined) {
+    where.advisedAdmission = params.advisedAdmission;
+  }
+
+  if (params.startDate || params.endDate) {
+    where.createdAt = {};
+    if (params.startDate) where.createdAt.gte = new Date(params.startDate);
+    if (params.endDate) where.createdAt.lte = new Date(params.endDate);
   }
 
   if (params.search && params.search.trim()) {
@@ -643,13 +656,56 @@ export async function advanceCaseStage(
       },
     });
 
-    // If admitted (in_treatment) or closed (not_started/completed), cancel open cadence tasks
+    // If plan accepted, mark open counseling/admission callback tasks as done
+    if (input.stage === CaseStages.PLAN_ACCEPTED) {
+      await tx.task.updateMany({
+        where: {
+          caseId,
+          status: 'open',
+        },
+        data: {
+          status: 'done',
+          completedAt: now,
+          completedBy: user.id,
+        },
+      });
+    }
+
+    // If admitted (in_treatment) or closed (not_started/completed), cancel open cadence tasks and resolve remaining open tasks
     if (
       input.stage === CaseStages.IN_TREATMENT ||
       input.stage === CaseStages.NOT_STARTED ||
       input.stage === CaseStages.COMPLETED
     ) {
       await cancelOpenCadenceTasks(tx, 'case', caseId);
+
+      if (input.stage === CaseStages.IN_TREATMENT) {
+        // Any remaining open admission follow-ups are completed
+        await tx.task.updateMany({
+          where: {
+            caseId,
+            status: 'open',
+          },
+          data: {
+            status: 'done',
+            completedAt: now,
+            completedBy: user.id,
+          },
+        });
+      } else {
+        // Closed case (declined or completed): cancel open tasks
+        await tx.task.updateMany({
+          where: {
+            caseId,
+            status: 'open',
+          },
+          data: {
+            status: 'cancelled',
+            completedAt: now,
+            completedBy: user.id,
+          },
+        });
+      }
     }
 
     // In-Patient Handover to Treatment Follow-up Desk

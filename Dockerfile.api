@@ -2,11 +2,13 @@ FROM node:22-slim
 
 WORKDIR /app
 
-# Install openssl for Prisma engines, netcat for health check, and ca-certificates
+# Install openssl for Prisma engines, netcat for health check, ca-certificates, and mysql client for backups
 RUN apt-get update && apt-get install -y --no-install-recommends \
     openssl \
     ca-certificates \
     netcat-traditional \
+    default-mysql-client \
+    gzip \
     && rm -rf /var/lib/apt/lists/*
 
 # Enable and configure pnpm

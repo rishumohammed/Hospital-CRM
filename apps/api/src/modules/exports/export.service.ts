@@ -12,7 +12,8 @@ export async function requestExport(
   const isAutoApproved =
     user.roleCode === 'owner' ||
     user.roleCode === 'admin' ||
-    user.roleCode === 'center_head';
+    user.roleCode === 'center_head' ||
+    user.roleCode === 'auditor';
 
   const branchId = input.branchId || user.branchIds[0] || null;
 
@@ -62,7 +63,8 @@ export async function listExports(user: UserContext, query: { status?: string })
     user.roleCode !== 'owner' &&
     user.roleCode !== 'admin' &&
     user.roleCode !== 'center_head' &&
-    user.roleCode !== 'telecaller_manager'
+    user.roleCode !== 'telecaller_manager' &&
+    user.roleCode !== 'auditor'
   ) {
     where.userId = user.id;
   } else if (user.roleCode === 'center_head' || user.roleCode === 'telecaller_manager') {

@@ -16,12 +16,20 @@ if (process.platform === 'win32' && !fs.existsSync('S:\\')) {
 
 const sDriveActive = fs.existsSync('S:\\');
 
+const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const repoRootFwd = repoRoot.replace(/\\/g, '/');
+const repoRootBack = repoRoot.replace(/\//g, '\\');
+const rootPattern = new RegExp(
+  `^(${escapeRegExp(repoRootFwd)}|${escapeRegExp(repoRootBack)}|[a-zA-Z]:[\\\/].*?[\\\/]Samad's Elements[\\\/]CRM)`,
+  'i'
+);
+
 const sanitize = (p) => {
   if (typeof p === 'string' && sDriveActive) {
     return p
-      .replace(/^[a-zA-Z]:[\\\/]Consulting[\\\/]Samad's Elements[\\\/]CRM/i, 'S:')
-      .replace(/^D:[\\\/]node_modules/i, 'S:\\node_modules')
-      .replace(/^D:\/node_modules/i, 'S:/node_modules');
+      .replace(rootPattern, 'S:')
+      .replace(/^[a-zA-Z]:[\\\/]node_modules/i, 'S:\\node_modules')
+      .replace(/^[a-zA-Z]:\/node_modules/i, 'S:/node_modules');
   }
   return p;
 };
@@ -43,12 +51,10 @@ fs.realpathSync = function(p, options) {
   } catch (err) {
     if (err && err.code === 'ENOENT' && typeof cleanP === 'string') {
       const onS = cleanP.replace(/^[a-zA-Z]:/i, 'S:');
-      if (fs.existsSync(onS)) {
-        try {
-          return sanitize(origRealpathSync(onS, options));
-        } catch {
-          return onS;
-        }
+      try {
+        return sanitize(origRealpathSync(onS, options));
+      } catch {
+        return onS;
       }
     }
     throw err;
@@ -69,12 +75,10 @@ if (fs.realpath) {
       if (err) {
         if (err.code === 'ENOENT' && typeof cleanP === 'string') {
           const onS = cleanP.replace(/^[a-zA-Z]:/i, 'S:');
-          if (fs.existsSync(onS)) {
-            return origRealpath(onS, options, (err2, res2) => {
-              if (err2) return callback(null, onS);
-              return callback(null, sanitize(res2));
-            });
-          }
+          return origRealpath(onS, options, (err2, res2) => {
+            if (err2) return callback(null, onS);
+            return callback(null, sanitize(res2));
+          });
         }
         return callback(err);
       }
@@ -95,13 +99,11 @@ if (fs.promises && fs.promises.realpath) {
     } catch (err) {
       if (err && err.code === 'ENOENT' && typeof cleanP === 'string') {
         const onS = cleanP.replace(/^[a-zA-Z]:/i, 'S:');
-        if (fs.existsSync(onS)) {
-          try {
-            const res = await origPromises(onS, options);
-            return sanitize(res);
-          } catch {
-            return onS;
-          }
+        try {
+          const res = await origPromises(onS, options);
+          return sanitize(res);
+        } catch {
+          return onS;
         }
       }
       throw err;

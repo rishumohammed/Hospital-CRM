@@ -110,6 +110,16 @@
               >
                 <UIcon name="i-heroicons-pencil-square" class="w-4 h-4" />
               </button>
+
+              <button
+                v-if="canManageCategories"
+                type="button"
+                @click="confirmDeleteCategory(root)"
+                class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors"
+                title="Delete Category"
+              >
+                <UIcon name="i-heroicons-trash" class="w-4 h-4" />
+              </button>
             </div>
           </div>
 
@@ -150,8 +160,18 @@
                   type="button"
                   @click="openEditCategoryModal(child)"
                   class="p-1 rounded text-slate-400 hover:text-teal-600"
+                  title="Edit Subcategory"
                 >
                   <UIcon name="i-heroicons-pencil-square" class="w-3.5 h-3.5" />
+                </button>
+                <button
+                  v-if="canManageCategories"
+                  type="button"
+                  @click="confirmDeleteCategory(child)"
+                  class="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors"
+                  title="Delete Subcategory"
+                >
+                  <UIcon name="i-heroicons-trash" class="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>
@@ -192,11 +212,13 @@
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Slug *</label>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              Slug <span class="font-normal text-slate-400">(Optional - auto-generated if left blank)</span>
+            </label>
             <input
               v-model="categoryForm.slug"
               type="text"
-              placeholder="classical-oils-ghritams"
+              placeholder="e.g. classical-oils"
               class="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-850 text-xs font-normal font-mono focus:outline-none focus:ring-2 focus:ring-teal-500/20"
             />
           </div>
@@ -229,23 +251,36 @@
           </div>
         </div>
 
-        <div class="flex items-center justify-end space-x-2 pt-2">
-          <button
-            type="button"
-            class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-            @click="showCategoryModal = false"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            :disabled="!categoryForm.name || isSubmittingCategory"
-            @click="saveCategory"
-            class="px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-xs shadow-md shadow-teal-500/20 disabled:opacity-50 transition-all flex items-center gap-1.5"
-          >
-            <span v-if="isSubmittingCategory" class="animate-spin text-xs">⟳</span>
-            <span>{{ editingCategory ? 'Update' : 'Create' }}</span>
-          </button>
+        <div class="flex items-center justify-between gap-2 pt-2">
+          <div>
+            <button
+              v-if="editingCategory && canManageCategories"
+              type="button"
+              @click="confirmDeleteCategory(editingCategory)"
+              class="px-3 py-2 rounded-xl border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+            >
+              <UIcon name="i-heroicons-trash" class="w-4 h-4" />
+              <span>Delete Category</span>
+            </button>
+          </div>
+          <div class="flex items-center space-x-2">
+            <button
+              type="button"
+              class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+              @click="showCategoryModal = false"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              :disabled="!categoryForm.name || isSubmittingCategory"
+              @click="saveCategory"
+              class="px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-xs shadow-md shadow-teal-500/20 disabled:opacity-50 transition-all flex items-center gap-1.5"
+            >
+              <span v-if="isSubmittingCategory" class="animate-spin text-xs">⟳</span>
+              <span>{{ editingCategory ? 'Update' : 'Create' }}</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -323,7 +358,27 @@ const authStore = useAuthStore();
 const config = useRuntimeConfig();
 const apiBase = config.public.apiBase || 'http://localhost:4000/api/v1';
 
-const canManageCategories = computed(() => authStore.hasPermission('product_category.manage'));
+const canManageCategories = computed(() => {
+  const role = (authStore.user?.role?.code || (authStore.user as any)?.roleCode || '').toLowerCase();
+  return (
+    role === 'owner' ||
+    role === 'admin' ||
+    role === 'super_admin' ||
+    role === 'product_manager' ||
+    authStore.hasPermission('product_category.manage')
+  );
+});
+
+const getAuthHeaders = (): Record<string, string> => {
+  const token = authStore.token || authStore.accessToken || (typeof window !== 'undefined' ? localStorage.getItem('hospital_crm_token') : null);
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+};
 
 const categories = ref<any[]>([]);
 const isLoading = ref(true);
@@ -363,11 +418,14 @@ const fetchCategories = async () => {
   isLoading.value = true;
   try {
     const res = await fetch(`${apiBase}/product-categories`, {
-      headers: { Authorization: `Bearer ${authStore.token}` },
+      headers: getAuthHeaders(),
+      credentials: 'include',
     });
     if (res.ok) {
       const data = await res.json();
-      categories.value = data.data || [];
+      categories.value = Array.isArray(data)
+        ? data
+        : (data.categories || data.data || data.tree || []);
     }
   } catch (err) {
     console.error('Failed to load categories', err);
@@ -399,32 +457,56 @@ const openEditCategoryModal = (category: any) => {
 };
 
 const saveCategory = async () => {
-  if (!categoryForm.value.name) return;
+  if (!categoryForm.value.name || !categoryForm.value.name.trim()) {
+    alert('Category name is required.');
+    return;
+  }
   isSubmittingCategory.value = true;
   try {
-    const url = editingCategory.value
+    const isEdit = !!editingCategory.value;
+    const url = isEdit
       ? `${apiBase}/product-categories/${editingCategory.value.id}`
       : `${apiBase}/product-categories`;
-    const method = editingCategory.value ? 'PUT' : 'POST';
+    const method = isEdit ? 'PATCH' : 'POST';
+
+    const payload: any = {
+      name: categoryForm.value.name.trim(),
+      sort: Number(categoryForm.value.sort ?? 0),
+    };
+
+    const cleanSlug = (categoryForm.value.slug || '')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+
+    if (cleanSlug.length >= 2) {
+      payload.slug = cleanSlug;
+    }
+
+    if (categoryForm.value.parentId) {
+      payload.parentId = Number(categoryForm.value.parentId);
+    } else {
+      payload.parentId = null;
+    }
 
     const res = await fetch(url, {
       method,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${authStore.token}`,
-      },
-      body: JSON.stringify(categoryForm.value),
+      headers: getAuthHeaders(),
+      credentials: 'include',
+      body: JSON.stringify(payload),
     });
 
     if (res.ok) {
       showCategoryModal.value = false;
-      fetchCategories();
+      await fetchCategories();
     } else {
-      const err = await res.json();
-      alert(err.error?.message || 'Failed to save category');
+      const err = await res.json().catch(() => ({}));
+      alert(err.error?.message || err.message || 'Failed to save category');
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error('Save category error', err);
+    alert(err.message || 'Network error while saving category');
   } finally {
     isSubmittingCategory.value = false;
   }
@@ -444,10 +526,8 @@ const submitMoveProducts = async () => {
       `${apiBase}/product-categories/${sourceCategory.value.id}/move-products`,
       {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${authStore.token}`,
-        },
+        headers: getAuthHeaders(),
+        credentials: 'include',
         body: JSON.stringify({
           targetCategoryId: targetCategoryId.value,
         }),
@@ -458,13 +538,65 @@ const submitMoveProducts = async () => {
       showMoveModal.value = false;
       fetchCategories();
     } else {
-      const err = await res.json();
-      alert(err.error?.message || 'Failed to move products');
+      const err = await res.json().catch(() => ({}));
+      alert(err.error?.message || err.message || 'Failed to move products');
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error('Move products error', err);
+    alert(err.message || 'Network error while moving products');
   } finally {
     isMovingProducts.value = false;
+  }
+};
+
+const confirmDeleteCategory = async (category: any) => {
+  if (!category) return;
+
+  // 1. Enforce requirement: Delete subcategories first before deleting parent category
+  const childCount = (category.children && category.children.length) ||
+    categories.value.filter((c) => c.parentId === category.id).length;
+
+  if (childCount > 0) {
+    alert(
+      `Cannot delete category "${category.name}" because it contains ${childCount} subcategory(s).\n\nPlease delete the subcategories first before deleting this parent category.`
+    );
+    return;
+  }
+
+  // 2. Check if category contains active products
+  const productCount = category._count?.products || 0;
+  if (productCount > 0) {
+    alert(
+      `Cannot delete category "${category.name}" because it contains ${productCount} active product(s).\n\nPlease move products to another category first using the "Move Products" button.`
+    );
+    return;
+  }
+
+  // 3. Confirm deletion
+  const confirmed = confirm(
+    `Are you sure you want to permanently delete category "${category.name}"?`
+  );
+  if (!confirmed) return;
+
+  try {
+    const res = await fetch(`${apiBase}/product-categories/${category.id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
+
+    if (res.ok) {
+      if (showCategoryModal.value && editingCategory.value?.id === category.id) {
+        showCategoryModal.value = false;
+      }
+      await fetchCategories();
+    } else {
+      const err = await res.json().catch(() => ({}));
+      alert(err.error?.message || err.message || 'Failed to delete category');
+    }
+  } catch (err: any) {
+    console.error('Delete category error', err);
+    alert(err.message || 'Network error while deleting category');
   }
 };
 

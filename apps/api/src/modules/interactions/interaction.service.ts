@@ -151,10 +151,19 @@ export async function logCallInteraction(input: LogCallInput, user: UserContext)
 
   // 3. Mandatory next action rule
   // An open lead cannot be saved or have a call logged without a next action and due time,
-  // unless closing with a reason or converting.
+  // unless closing with a reason, or completing an appointment reminder/cadence task where future steps already exist.
   const isClosing = Boolean(input.closedReasonId || input.closureCodeId || input.notStartedReasonId);
+  const isTaskCompletion = Boolean(input.taskId);
 
-  if (!isClosing && !input.nextAction) {
+  let isAppointmentConfirmed = false;
+  if (input.outcomeId) {
+    const outcome = await prisma.callOutcome.findUnique({ where: { id: input.outcomeId } });
+    if (outcome && (outcome.code === 'APPOINTMENT_CONFIRMED' || outcome.labelEn.toLowerCase().includes('confirmed'))) {
+      isAppointmentConfirmed = true;
+    }
+  }
+
+  if (!isClosing && !isTaskCompletion && !isAppointmentConfirmed && !input.nextAction) {
     throw {
       statusCode: 400,
       code: 'NEXT_ACTION_REQUIRED',

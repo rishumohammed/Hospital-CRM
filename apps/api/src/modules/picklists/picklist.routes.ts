@@ -61,7 +61,12 @@ const updatePicklistSchema = z.object({
   sort: z.coerce.number().int().optional(),
 });
 
-function getPrismaModel(type: string): any {
+function normalizePicklistType(type: string): string {
+  return (type || '').toLowerCase().trim().replace(/_/g, '-');
+}
+
+function getPrismaModel(rawType: string): any {
+  const type = normalizePicklistType(rawType);
   switch (type) {
     case 'sources':
       return prisma.source;
@@ -83,19 +88,36 @@ function getPrismaModel(type: string): any {
 export const picklistRoutes: FastifyPluginAsync = async (fastify) => {
   // Public or authenticated list of active picklists
   fastify.get('/picklists/:type', async (request, reply) => {
-    const { type } = request.params as { type: string };
+    const rawType = (request.params as { type: string }).type;
+    const type = normalizePicklistType(rawType);
     const { scope } = (request.query as { scope?: string }) || {};
     const model = getPrismaModel(type);
 
     if (!model) {
       return reply.status(404).send({
-        error: { code: 'INVALID_PICKLIST_TYPE', message: `Unknown picklist type: ${type}` },
+        error: { code: 'INVALID_PICKLIST_TYPE', message: `Unknown picklist type: ${rawType}` },
       });
     }
 
     const where: any = { active: true };
-    if (type === 'call-outcomes' && scope) {
-      where.scope = { in: [scope, 'both'] };
+    if (type === 'call-outcomes') {
+      const existing = await prisma.callOutcome.findUnique({ where: { code: 'APPOINTMENT_CONFIRMED' } }).catch(() => null);
+      if (!existing) {
+        await prisma.callOutcome.create({
+          data: {
+            code: 'APPOINTMENT_CONFIRMED',
+            labelEn: 'Appointment Confirmed (Ready to Visit)',
+            labelMl: 'അപ്പോയിന്റ്മെന്റ് സ്ഥിരീകരിച്ചു',
+            scope: 'treatment',
+            sort: 2,
+            active: true,
+          },
+        }).catch(() => {});
+      }
+      where.code = { notIn: ['EMERGENCY_REDIRECTED', 'COMPLAINT'] };
+      if (scope) {
+        where.scope = { in: [scope, 'both'] };
+      }
     }
 
     const items = await model.findMany({
@@ -111,12 +133,13 @@ export const picklistRoutes: FastifyPluginAsync = async (fastify) => {
     '/picklists/:type/all',
     { preHandler: [authenticate, requirePicklistManage] },
     async (request, reply) => {
-      const { type } = request.params as { type: string };
+      const rawType = (request.params as { type: string }).type;
+      const type = normalizePicklistType(rawType);
       const model = getPrismaModel(type);
 
       if (!model) {
         return reply.status(404).send({
-          error: { code: 'INVALID_PICKLIST_TYPE', message: `Unknown picklist type: ${type}` },
+          error: { code: 'INVALID_PICKLIST_TYPE', message: `Unknown picklist type: ${rawType}` },
         });
       }
 
@@ -133,12 +156,13 @@ export const picklistRoutes: FastifyPluginAsync = async (fastify) => {
     '/picklists/:type',
     { preHandler: [authenticate, requirePicklistManage] },
     async (request, reply) => {
-      const { type } = request.params as { type: string };
+      const rawType = (request.params as { type: string }).type;
+      const type = normalizePicklistType(rawType);
       const model = getPrismaModel(type);
 
       if (!model) {
         return reply.status(404).send({
-          error: { code: 'INVALID_PICKLIST_TYPE', message: `Unknown picklist type: ${type}` },
+          error: { code: 'INVALID_PICKLIST_TYPE', message: `Unknown picklist type: ${rawType}` },
         });
       }
 
@@ -188,13 +212,15 @@ export const picklistRoutes: FastifyPluginAsync = async (fastify) => {
     '/picklists/:type/:id',
     { preHandler: [authenticate, requirePicklistManage] },
     async (request, reply) => {
-      const { type, id } = request.params as { type: string; id: string };
+      const { id } = request.params as { type: string; id: string };
+      const rawType = (request.params as { type: string }).type;
+      const type = normalizePicklistType(rawType);
       const numId = parseInt(id, 10);
       const model = getPrismaModel(type);
 
       if (!model) {
         return reply.status(404).send({
-          error: { code: 'INVALID_PICKLIST_TYPE', message: `Unknown picklist type: ${type}` },
+          error: { code: 'INVALID_PICKLIST_TYPE', message: `Unknown picklist type: ${rawType}` },
         });
       }
 
@@ -245,14 +271,16 @@ export const picklistRoutes: FastifyPluginAsync = async (fastify) => {
     '/picklists/:type/:id',
     { preHandler: [authenticate, requirePicklistManage] },
     async (request, reply) => {
-      const { type, id } = request.params as { type: string; id: string };
+      const { id } = request.params as { type: string; id: string };
+      const rawType = (request.params as { type: string }).type;
+      const type = normalizePicklistType(rawType);
       const { deactivateIfInUse } = (request.query as { deactivateIfInUse?: string }) || {};
       const numId = parseInt(id, 10);
       const model = getPrismaModel(type);
 
       if (!model) {
         return reply.status(404).send({
-          error: { code: 'INVALID_PICKLIST_TYPE', message: `Unknown picklist type: ${type}` },
+          error: { code: 'INVALID_PICKLIST_TYPE', message: `Unknown picklist type: ${rawType}` },
         });
       }
 

@@ -56,6 +56,8 @@ export const Permissions = {
   EXPORT_APPROVE: 'export.approve',
   IMPORT_RUN: 'import.run',
   SETTINGS_MANAGE: 'settings.manage',
+  BACKUP_VIEW: 'backup.view',
+  BACKUP_MANAGE: 'backup.manage',
   USER_MANAGE: 'user.manage',
   ROLE_MANAGE: 'role.manage',
   AUDIT_VIEW: 'audit.view',
@@ -88,9 +90,52 @@ export const Permissions = {
   PRODUCT_LEAD_EDIT: 'product_lead.edit',
   PRODUCT_LEAD_REASSIGN: 'product_lead.reassign',
   PRODUCT_REPORT_VIEW: 'product_report.view',
+
+  // Order & Customer Fulfillment Permissions
+  ORDER_VIEW: 'order.view',
+  ORDER_CREATE: 'order.create',
+  ORDER_EDIT: 'order.edit',
+  ORDER_FULFILL: 'order.fulfill',
+  CUSTOMER_VIEW: 'customer.view',
+  CUSTOMER_EDIT: 'customer.edit',
 } as const;
 
 export type PermissionCode = (typeof Permissions)[keyof typeof Permissions];
+
+export const OrderStatuses = {
+  ORDER_RECEIVED: 'order_received',
+  PACKED: 'packed',
+  DISPATCHED: 'dispatched',
+  DELIVERED: 'delivered',
+  OUT_OF_STOCK: 'out_of_stock',
+  CANCELLED: 'cancelled',
+} as const;
+
+export type OrderStatus = (typeof OrderStatuses)[keyof typeof OrderStatuses];
+
+export const PaymentMethods = {
+  COD: 'cod',
+  PREPAID: 'prepaid',
+  UPI: 'upi',
+} as const;
+
+export type PaymentMethod = (typeof PaymentMethods)[keyof typeof PaymentMethods];
+
+export const PaymentStatuses = {
+  PENDING: 'pending',
+  PAID: 'paid',
+  COD_PENDING: 'cod_pending',
+  FAILED: 'failed',
+} as const;
+
+export type PaymentStatus = (typeof PaymentStatuses)[keyof typeof PaymentStatuses];
+
+export const CustomerSegments = {
+  BUYER: 'buyer',
+  INQUIRY_ONLY: 'inquiry_only',
+} as const;
+
+export type CustomerSegment = (typeof CustomerSegments)[keyof typeof CustomerSegments];
 
 export const LeadTypes = {
   TREATMENT: 'treatment',

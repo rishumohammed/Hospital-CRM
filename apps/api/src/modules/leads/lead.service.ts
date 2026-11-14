@@ -12,6 +12,8 @@ import { getSetting } from '../settings/settings.service';
 import { cancelOpenCadenceTasks, calculateStepDueAt } from '../cadences/cadence.service';
 import { addHours, addDays, setHours, setMinutes, setSeconds, setMilliseconds } from 'date-fns';
 import { toZonedTime, fromZonedTime } from 'date-fns-tz';
+import { generateScheduleVisits } from '../treatment-followup/schedule.engine';
+import { getBranchScheduleConfig, recomputeCaseAdherence } from '../treatment-followup/treatment.service';
 
 export interface CreateLeadInput {
   leadType?: 'treatment' | 'product';
@@ -43,6 +45,14 @@ export interface CreateLeadInput {
   consentSms?: boolean;
   overrideDuplicate?: boolean;
   overrideReason?: string;
+  ownerId?: number | null;
+  owner_id?: number | null;
+  existingPatientId?: number | null;
+  existing_patient_id?: number | null;
+  isFamilyMember?: boolean;
+  is_family_member?: boolean;
+  familyRelation?: string | null;
+  family_relation?: string | null;
 }
 
 export interface ListLeadsParams {
@@ -65,6 +75,8 @@ export interface ListLeadsParams {
   testimonials?: 'sent' | 'not_sent';
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+  startDate?: string;
+  endDate?: string;
 }
 
 /**
@@ -254,7 +266,8 @@ export async function assignProductLeadRoundRobin(branchId: number): Promise<num
 }
 
 /**
- * Checks if a lead with the same normalized mobile already exists.
+ * Checks if an active lead or registered patient with the same normalized mobile already exists.
+ * Distinguishes between active in-progress leads vs returning patients & family accounts.
  */
 export async function checkDuplicateLead(
   mobile: string,
@@ -275,9 +288,11 @@ export async function checkDuplicateLead(
     }
   }
 
-  const existing = await prisma.lead.findFirst({
+  // Find active lead (in-progress unconverted & unclosed)
+  const activeLead = await prisma.lead.findFirst({
     where: {
       OR: conditions,
+      status: { in: ['new', 'contacted', 'qualified', 'appointment_booked'] },
       archivedAt: null,
     },
     include: {
@@ -286,9 +301,80 @@ export async function checkDuplicateLead(
       source: { select: { id: true, code: true, labelEn: true } },
       department: { select: { id: true, code: true, labelEn: true } },
     },
+    orderBy: { createdAt: 'desc' },
   });
 
-  return existing;
+  // Check for existing registered patients under this mobile number
+  const mobileVariants = [normMobile];
+  if (altMobile) {
+    const normAlt = normalizePhoneNumber(altMobile);
+    if (normAlt && !mobileVariants.includes(normAlt)) mobileVariants.push(normAlt);
+  }
+
+  const existingPatients = await prisma.patient.findMany({
+    where: {
+      mobileNorm: { in: mobileVariants },
+      archivedAt: null,
+    },
+    include: {
+      branch: { select: { id: true, name: true, code: true } },
+      cases: {
+        where: { archivedAt: null },
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+        include: {
+          treatingDoctor: { select: { id: true, name: true } },
+          department: { select: { id: true, code: true, labelEn: true } },
+        },
+      },
+    },
+  });
+
+  const formattedPatients = existingPatients.map((p: any) => ({
+    id: p.id,
+    patientCode: p.patientCode,
+    name: p.name,
+    mobileNorm: p.mobileNorm,
+    dateOfBirth: p.dateOfBirth,
+    branchName: p.branch?.name,
+    lastCase: p.cases[0]
+      ? {
+          id: p.cases[0].id,
+          stage: p.cases[0].stage,
+          careType: p.cases[0].careType,
+          doctorName: p.cases[0].treatingDoctor?.name || 'Doctor',
+          departmentName: p.cases[0].department?.labelEn || p.cases[0].department?.code || 'General',
+          visitedAt: p.cases[0].consultationCompletedAt || p.cases[0].createdAt,
+        }
+      : null,
+  }));
+
+  if (!activeLead && formattedPatients.length === 0) {
+    return null;
+  }
+
+  const result: any = {
+    duplicate: Boolean(activeLead),
+    hasActiveLead: Boolean(activeLead),
+    activeLead: activeLead || null,
+    hasExistingPatients: formattedPatients.length > 0,
+    existingPatients: formattedPatients,
+  };
+
+  if (activeLead) {
+    result.id = activeLead.id;
+    result.name = activeLead.name;
+    result.mobileNorm = activeLead.mobileNorm;
+    result.status = activeLead.status;
+    result.leadType = activeLead.leadType;
+    result.owner = activeLead.owner;
+    result.branch = activeLead.branch;
+    result.source = activeLead.source;
+    result.department = activeLead.department;
+    result.createdAt = activeLead.createdAt;
+  }
+
+  return result;
 }
 
 /**
@@ -326,23 +412,28 @@ export async function quickCreateLead(
 
   const normAltMobile = input.altMobile ? normalizePhoneNumber(input.altMobile) : null;
 
-  // Duplicate Check: warns across both types without merging
+  const resolvedPatientId = input.existingPatientId ?? input.existing_patient_id ?? null;
+  const isReturningPatient = Boolean(resolvedPatientId);
+  const isFamilyMember = Boolean(input.isFamilyMember || input.is_family_member);
+
+  // Duplicate Check: warns across both types without merging, unless explicitly registering a returning patient or family member
   const duplicate = await checkDuplicateLead(normMobile, normAltMobile);
-  if (duplicate && !input.overrideDuplicate) {
-    const error: any = new Error('Duplicate lead detected');
+  if (duplicate?.hasActiveLead && !input.overrideDuplicate && !isReturningPatient && !isFamilyMember) {
+    const error: any = new Error('Duplicate lead detected: An active enquiry is already in progress');
     error.statusCode = 409;
     error.code = 'DUPLICATE_LEAD';
     error.details = {
       duplicate: true,
+      hasActiveLead: true,
       existingLead: {
-        id: duplicate.id,
-        name: duplicate.name,
-        mobile: maskPhoneNumber(duplicate.mobileNorm),
-        status: duplicate.status,
-        leadType: duplicate.leadType,
-        ownerName: duplicate.owner?.name ?? 'Unassigned',
-        branchName: duplicate.branch.name,
-        createdAt: duplicate.createdAt,
+        id: duplicate.activeLead?.id || duplicate.id,
+        name: duplicate.activeLead?.name || duplicate.name,
+        mobile: maskPhoneNumber((duplicate.activeLead?.mobileNorm || duplicate.mobileNorm) as string),
+        status: duplicate.activeLead?.status || duplicate.status,
+        leadType: duplicate.activeLead?.leadType || duplicate.leadType,
+        ownerName: duplicate.activeLead?.owner?.name ?? duplicate.owner?.name ?? 'Unassigned',
+        branchName: duplicate.activeLead?.branch?.name || duplicate.branch?.name,
+        createdAt: duplicate.activeLead?.createdAt || duplicate.createdAt,
       },
     };
     throw error;
@@ -374,19 +465,32 @@ export async function quickCreateLead(
     isProduct ? 'product' : 'treatment'
   );
 
+  const requestedOwnerId = input.ownerId ?? input.owner_id;
   let assignedOwnerId: number | null = null;
-  if (isProduct) {
-    if (user.roleCode === 'product_sales_executive') {
-      assignedOwnerId = user.id;
-    } else {
-      assignedOwnerId = await assignProductLeadRoundRobin(branchId);
-      if (!assignedOwnerId) assignedOwnerId = user.id;
+
+  if (requestedOwnerId) {
+    const targetUser = await prisma.user.findFirst({
+      where: { id: requestedOwnerId, status: 'active', archivedAt: null },
+    });
+    if (targetUser) {
+      assignedOwnerId = targetUser.id;
     }
-  } else {
-    if (user.roleCode === 'support_telecaller') {
-      assignedOwnerId = user.id;
+  }
+
+  if (assignedOwnerId === null) {
+    if (isProduct) {
+      if (user.roleCode === 'product_sales_executive') {
+        assignedOwnerId = user.id;
+      } else {
+        assignedOwnerId = await assignProductLeadRoundRobin(branchId);
+        if (!assignedOwnerId) assignedOwnerId = user.id;
+      }
     } else {
-      assignedOwnerId = await assignLeadRoundRobin(branchId);
+      if (user.roleCode === 'support_telecaller') {
+        assignedOwnerId = user.id;
+      } else {
+        assignedOwnerId = await assignLeadRoundRobin(branchId);
+      }
     }
   }
 
@@ -407,6 +511,12 @@ export async function quickCreateLead(
   const referrerText = input.referrerText ?? input.referrer_text ?? null;
   const productIds = input.productIds ?? input.product_ids;
 
+  let concernText = input.concern ?? '';
+  if (isFamilyMember && (input.familyRelation || input.family_relation)) {
+    const rel = input.familyRelation || input.family_relation;
+    concernText = concernText ? `[Family Member: ${rel}] ${concernText}` : `[Family Member: ${rel}]`;
+  }
+
   const lead = await prisma.lead.create({
     data: {
       leadType: isProduct ? 'product' : 'treatment',
@@ -418,7 +528,7 @@ export async function quickCreateLead(
       age: input.age !== undefined && input.age !== null && (input.age as any) !== '' ? Number(input.age) : null,
       location: input.location ?? null,
       language: input.language ?? 'en',
-      concern: input.concern ?? '',
+      concern: concernText,
       departmentId,
       sourceId,
       branchId,
@@ -434,6 +544,7 @@ export async function quickCreateLead(
       priority,
       ownerId: assignedOwnerId,
       firstResponseDueAt,
+      convertedPatientId: resolvedPatientId,
     },
     include: {
       source: true,
@@ -504,18 +615,6 @@ export async function quickCreateLead(
         title: isProduct ? 'New Product Lead Assigned' : 'New Lead Assigned',
         body: `You have been assigned new ${isProduct ? 'product ' : ''}lead: ${lead.name} (${source?.labelEn || 'Direct'}).`,
         link: `/leads/${lead.id}`,
-      },
-    });
-
-    await prisma.task.create({
-      data: {
-        title: `Inquiry Call: ${lead.name}${lead.department ? ` (${lead.department.labelEn})` : ''}`,
-        type: 'call',
-        dueAt: lead.firstResponseDueAt || new Date(),
-        priority: lead.priority || 'hot',
-        status: 'open',
-        ownerId: assignedOwnerId,
-        leadId: lead.id,
       },
     });
   }
@@ -591,7 +690,14 @@ export async function listLeads(
   };
 
   if (params.status) {
-    where.status = params.status;
+    if (params.status === 'active') {
+      where.status = { in: ['new', 'contacted', 'qualified', 'appointment_booked', 'not_reachable'] };
+    } else if (params.status !== 'all') {
+      where.status = params.status;
+    }
+  } else {
+    // Default to active leads only for zero-clutter telecaller desk experience
+    where.status = { in: ['new', 'contacted', 'qualified', 'appointment_booked', 'not_reachable'] };
   }
   if (params.sourceId) {
     where.sourceId = params.sourceId;
@@ -631,6 +737,12 @@ export async function listLeads(
     where.testimonialsSentCount = 0;
   }
 
+  if (params.startDate || params.endDate) {
+    where.createdAt = {};
+    if (params.startDate) where.createdAt.gte = new Date(params.startDate);
+    if (params.endDate) where.createdAt.lte = new Date(params.endDate);
+  }
+
   if (params.search) {
     const term = params.search.trim();
     const normalizedTerm = normalizePhoneNumber(term);
@@ -645,8 +757,8 @@ export async function listLeads(
     }
   }
 
+  // Default LIFO: Last entered leads show first
   let orderBy: any[] = [
-    { firstResponseDueAt: 'asc' },
     { createdAt: 'desc' },
   ];
 
@@ -655,11 +767,19 @@ export async function listLeads(
       { testimonialsLastSentAt: params.sortOrder || 'desc' },
       { createdAt: 'desc' },
     ];
+  } else if (params.sortBy === 'first_response_due_at') {
+    orderBy = [
+      { firstResponseDueAt: params.sortOrder || 'asc' },
+      { createdAt: 'desc' },
+    ];
   } else if (params.sortBy === 'created_at') {
     orderBy = [{ createdAt: params.sortOrder || 'desc' }];
   }
 
-  const [total, rawLeads] = await Promise.all([
+  const statsWhere = { ...where };
+  delete statsWhere.status;
+
+  const [total, rawLeads, statusGrouping] = await Promise.all([
     prisma.lead.count({ where }),
     prisma.lead.findMany({
       where,
@@ -672,6 +792,7 @@ export async function listLeads(
         owner: { select: { id: true, name: true, email: true } },
         branch: { select: { id: true, code: true, name: true } },
         campaign: { select: { id: true, name: true, channel: true } },
+        _count: { select: { interactions: true } },
         productInterests: {
           include: {
             product: { select: { id: true, sku: true, name: true, price: true, stockStatus: true } },
@@ -679,7 +800,36 @@ export async function listLeads(
         },
       },
     }),
+    prisma.lead.groupBy({
+      by: ['status'],
+      where: statsWhere,
+      _count: { _all: true },
+    }),
   ]);
+
+  const stats: Record<string, number> = {
+    all: 0,
+    active: 0,
+    new: 0,
+    contacted: 0,
+    qualified: 0,
+    appointment_booked: 0,
+    converted: 0,
+    not_reachable: 0,
+    not_interested: 0,
+  };
+
+  for (const group of statusGrouping) {
+    stats[group.status] = group._count._all;
+    stats.all += group._count._all;
+  }
+
+  stats.active =
+    (stats.new || 0) +
+    (stats.contacted || 0) +
+    (stats.qualified || 0) +
+    (stats.appointment_booked || 0) +
+    (stats.not_reachable || 0);
 
   const leads = rawLeads.map((l) => {
     if (user.maskPhone) {
@@ -694,6 +844,7 @@ export async function listLeads(
 
   return {
     leads,
+    stats,
     pagination: {
       total,
       page,
@@ -936,6 +1087,18 @@ export async function assignLead(
     data: { ownerId: newOwnerId },
     include: { owner: { select: { id: true, name: true, email: true } } },
   });
+
+  // Transfer any open tasks to the new telecaller
+  const openTasks = await prisma.task.findMany({
+    where: { leadId: id, status: 'open' },
+  });
+
+  if (openTasks.length > 0) {
+    await prisma.task.updateMany({
+      where: { leadId: id, status: 'open' },
+      data: { ownerId: newOwnerId },
+    });
+  }
 
   await prisma.notification.create({
     data: {
@@ -1268,11 +1431,22 @@ export async function convertLead(
     treatingDoctorId?: number | null;
     departmentId?: number | null;
     note?: string;
+    decision?: 'in_patient' | 'consultation_only' | 'opd_course';
+    estimatedAmount?: number | null;
+    schedule?: {
+      therapyId?: number | null;
+      frequencyType?: 'daily' | 'weekly' | 'alternate_days' | 'custom_weekdays' | 'custom_dates';
+      totalSessions?: number;
+      startDate?: string;
+      windowStart?: string;
+      windowEnd?: string;
+      weekdays?: number[];
+    };
   },
   user: UserContext,
   ip?: string,
   userAgent?: string
-): Promise<{ lead: any; patient: any; case: any }> {
+): Promise<{ lead: any; patient: any; case: any; redirectUrl: string }> {
   const lead = await prisma.lead.findFirst({
     where: {
       id: leadId,
@@ -1317,19 +1491,38 @@ export async function convertLead(
 
   const result = await prisma.$transaction(async (tx: any) => {
     // 1. Find or create patient
-    let patient = await tx.patient.findFirst({
-      where: {
-        mobileNorm: lead.mobileNorm,
-        branchId: lead.branchId,
-        archivedAt: null,
-      },
-    });
+    let patient: any = null;
+
+    if (lead.convertedPatientId) {
+      patient = await tx.patient.findFirst({
+        where: {
+          id: lead.convertedPatientId,
+          archivedAt: null,
+        },
+      });
+    }
+
+    if (!patient) {
+      // Look up patient matching both mobileNorm AND name to distinguish family members sharing a mobile
+      const candidates = await tx.patient.findMany({
+        where: {
+          mobileNorm: lead.mobileNorm,
+          branchId: lead.branchId,
+          archivedAt: null,
+        },
+      });
+      patient = candidates.find((p: any) => p.name.trim().toLowerCase() === lead.name.trim().toLowerCase()) || null;
+    }
 
     if (!patient) {
       const now = new Date();
       const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
-      const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-      const generatedCode = input.patientCode || `PAT-${yearMonth}-${randomSuffix}`;
+      let generatedCode = input.patientCode;
+      if (!generatedCode) {
+        const timePart = Date.now().toString().slice(-6);
+        const randPart = Math.floor(1000 + Math.random() * 9000);
+        generatedCode = `PAT-${yearMonth}-${timePart}${randPart}`;
+      }
 
       patient = await tx.patient.create({
         data: {
@@ -1343,18 +1536,89 @@ export async function convertLead(
       });
     }
 
-    // 2. Create Case
+    // 2. Determine clinical path based on doctor's decision
+    const decision = input.decision || 'consultation_only';
+    let careType = 'consultation_only';
+    let stage = 'completed';
+    let team = 'aftercare';
+    let advisedAdmission = false;
+    let redirectUrl = '/aftercare';
+
+    if (decision === 'in_patient') {
+      careType = 'in_patient';
+      stage = 'counseling_estimate';
+      team = 'admission';
+      advisedAdmission = true;
+      redirectUrl = '/admission';
+    } else if (decision === 'opd_course') {
+      careType = 'opd_course';
+      stage = 'in_treatment';
+      team = 'treatment';
+      advisedAdmission = false;
+      redirectUrl = '/doctor';
+    } else {
+      careType = 'consultation_only';
+      stage = 'completed';
+      team = 'aftercare';
+      advisedAdmission = false;
+      redirectUrl = '/aftercare';
+    }
+
+    // Safely verify if treatingDoctorId is a valid User id in the DB (cases.treating_doctor_id is a FK to users.id)
+    let safeTreatingDoctorUserId: number | null = null;
+    if (input.treatingDoctorId) {
+      const docUser = await tx.user.findFirst({
+        where: { id: input.treatingDoctorId, status: 'active' },
+        select: { id: true },
+      });
+      if (docUser) {
+        safeTreatingDoctorUserId = docUser.id;
+      }
+    }
+
+    // Safely resolve departmentId (cases.department_id is NOT NULL in database)
+    let caseDepartmentId: number | null = input.departmentId || lead.departmentId || null;
+    if (caseDepartmentId) {
+      const existsDept = await tx.department.findUnique({ where: { id: caseDepartmentId } });
+      if (!existsDept) caseDepartmentId = null;
+    }
+    if (!caseDepartmentId && safeTreatingDoctorUserId) {
+      const docUser = await tx.user.findFirst({
+        where: { id: safeTreatingDoctorUserId },
+        select: { departmentId: true },
+      });
+      if (docUser?.departmentId) {
+        const existsDept = await tx.department.findUnique({ where: { id: docUser.departmentId } });
+        if (existsDept) caseDepartmentId = docUser.departmentId;
+      }
+    }
+    if (!caseDepartmentId) {
+      const defaultDept = await tx.department.findFirst({
+        where: { active: true },
+        orderBy: { sort: 'asc' },
+      });
+      caseDepartmentId = defaultDept?.id || 1;
+    }
+
+    const doctorNote = (input as any).doctorName
+      ? `Treating Doctor: ${(input as any).doctorName}${input.note ? ' | ' + input.note : ''}`
+      : input.note || null;
+
+    // Create Case
     const patientCase = await tx.case.create({
       data: {
         patientId: patient.id,
         leadId: lead.id,
         branchId: lead.branchId,
-        stage: 'visited',
-        careType: 'consultation_only',
-        departmentId: input.departmentId ?? lead.departmentId,
-        treatingDoctorId: input.treatingDoctorId ?? null,
+        stage,
+        careType,
+        advisedAdmission,
+        estimatedAmount: input.estimatedAmount || null,
+        departmentId: caseDepartmentId,
+        treatingDoctorId: safeTreatingDoctorUserId,
         ownerId: lead.ownerId,
-        team: 'admission',
+        team,
+        consultationCompletedAt: new Date(),
       },
       include: {
         patient: true,
@@ -1364,6 +1628,62 @@ export async function convertLead(
         treatingDoctor: { select: { id: true, name: true, email: true } },
       },
     });
+
+    // If periodic OPD course treatment, generate therapy session visits
+    if (decision === 'opd_course') {
+      const therapy = input.schedule?.therapyId
+        ? await tx.therapy.findUnique({ where: { id: input.schedule.therapyId } })
+        : await tx.therapy.findFirst({ where: { active: true }, orderBy: { sort: 'asc' } });
+
+      if (therapy) {
+        const sched = input.schedule || {};
+        const config = await getBranchScheduleConfig(lead.branchId);
+        const startDate = sched.startDate || new Date().toISOString().split('T')[0];
+        const totalSessions = sched.totalSessions || 7;
+        const frequencyType = sched.frequencyType || 'daily';
+        const windowStart = sched.windowStart || '09:00';
+        const windowEnd = sched.windowEnd || '10:00';
+
+        const generatedVisits = generateScheduleVisits({
+          startDate,
+          totalSessions,
+          frequencyType,
+          weekdays: sched.weekdays,
+          windowStart,
+          windowEnd,
+          config,
+        });
+
+        await tx.visitSchedule.create({
+          data: {
+            caseId: patientCase.id,
+            setting: 'opd',
+            therapyId: therapy.id,
+            frequencyType,
+            totalSessions,
+            startDate: new Date(startDate),
+            windowStart,
+            windowEnd,
+            doctorId: safeTreatingDoctorUserId,
+            createdBy: user.id,
+            status: 'active',
+            notes: input.note || `Periodic OPD Treatment: ${totalSessions} sessions (${frequencyType})`,
+            visits: {
+              create: generatedVisits.map((v) => ({
+                caseId: patientCase.id,
+                sessionNo: v.sessionNo,
+                scheduledDate: new Date(v.scheduledDate),
+                windowStart: v.windowStart,
+                windowEnd: v.windowEnd,
+                status: 'planned',
+              })),
+            },
+          },
+        });
+
+        await recomputeCaseAdherence(patientCase.id, tx);
+      }
+    }
 
     // 3. Update Lead
     const updatedLead = await tx.lead.update({
@@ -1399,6 +1719,15 @@ export async function convertLead(
     });
 
     // 6. Record interaction
+    const decisionLabels: Record<string, string> = {
+      in_patient: 'In-Patient Admission Advised (routed to Admission Desk)',
+      consultation_only: 'Consultation Only (completed, routed to Aftercare Desk)',
+      opd_course: `Periodic OPD Treatment (${input.schedule?.totalSessions || 7} sessions, routed to Treatment Desk)`,
+    };
+    const noteContent = doctorNote
+      ? `Lead marked visited & converted. Decision: ${decisionLabels[decision] || decision}. ${doctorNote}`
+      : `Lead marked visited & converted. Decision: ${decisionLabels[decision] || decision}. Patient ${patient.patientCode} (Case #${patientCase.id})`;
+
     await tx.interaction.create({
       data: {
         type: 'visit',
@@ -1406,12 +1735,12 @@ export async function convertLead(
         userId: user.id,
         leadId: lead.id,
         caseId: patientCase.id,
-        note: input.note || `Lead marked visited and converted to Patient ${patient.patientCode} (Case #${patientCase.id})`,
+        note: noteContent,
         occurredAt: new Date(),
       },
     });
 
-    return { lead: updatedLead, patient, case: patientCase };
+    return { lead: updatedLead, patient, case: patientCase, redirectUrl };
   });
 
   await recordAuditLog({
@@ -1895,6 +2224,9 @@ export async function confirmLeadSale(
       ? input.sale_amount
       : defaultTotal;
 
+  const paymentMethod = (input.paymentMethod ?? input.payment_method ?? 'cod').trim();
+  const shippingAddress = (input.shippingAddress ?? input.shipping_address ?? lead.location ?? '').trim();
+
   const now = new Date();
 
   const result = await prisma.$transaction(async (tx) => {
@@ -1917,11 +2249,11 @@ export async function confirmLeadSale(
         saleAmount,
         orderReference,
         status: 'converted',
+        location: shippingAddress || lead.location,
       },
     });
 
     // 5. Refill reminder:
-    // "when a sale is confirmed, for each accepted line with refill_days, create a task refill_reminder due at refill_days minus 5 days, owned by the same caller, titled with the product name."
     for (const line of acceptedLines) {
       const refillDays = line.product.refillDays;
       if (refillDays && refillDays > 0) {
@@ -1941,18 +2273,65 @@ export async function confirmLeadSale(
       }
     }
 
-    // 6. Record interaction note
+    // 6. Record interaction note with payment method and shipping address
     const productNames = acceptedLines.map((l) => `${l.product.name} (x${l.quantity})`).join(', ');
+    const paymentLabel = paymentMethod === 'upi' ? 'UPI' : paymentMethod === 'bank_transfer' ? 'Bank Transfer' : 'COD';
     await tx.interaction.create({
       data: {
         leadId,
         userId: user.id,
         type: 'call',
         direction: 'outbound',
-        note: `Order Confirmed. Reference: ${orderReference}. Total: ₹${saleAmount}. Products: ${productNames}`,
+        note: `Order Confirmed (${paymentLabel}). Ref: ${orderReference}. Total: ₹${saleAmount}. Address: ${shippingAddress || 'Not provided'}. Products: ${productNames}`,
         occurredAt: now,
       },
     });
+
+    // 7. Auto-create fulfillment Order record if not existing
+    try {
+      const phoneNorm = (lead.mobileNorm || normalizePhoneNumber(lead.mobile)) || (lead.mobile ? lead.mobile.replace(/\D/g, '') : '') || 'unknown';
+      let customer = await tx.productCustomer.findFirst({
+        where: { phoneNorm },
+      });
+      if (!customer) {
+        customer = await tx.productCustomer.create({
+          data: {
+            name: lead.name,
+            phone: lead.mobile,
+            phoneNorm,
+            address: shippingAddress || 'Address on file',
+          },
+        });
+      }
+
+      const orderPaymentMethod = paymentMethod === 'upi' ? 'upi' : paymentMethod === 'bank_transfer' ? 'prepaid' : 'cod';
+      await tx.order.create({
+        data: {
+          orderNumber: orderReference,
+          customerId: customer.id,
+          leadId,
+          createdById: user.id,
+          status: 'order_received',
+          paymentMethod: orderPaymentMethod,
+          paymentStatus: orderPaymentMethod === 'cod' ? 'cod_pending' : 'pending',
+          subtotal: saleAmount,
+          totalAmount: saleAmount,
+          recipientName: lead.name,
+          phoneNumber: lead.mobile,
+          shippingAddress: shippingAddress || 'Address on file',
+          items: {
+            create: acceptedLines.map((l) => ({
+              productId: l.productId,
+              quantity: l.quantity,
+              unitPrice: Number(l.unitPriceAtTime),
+              totalPrice: Number(l.unitPriceAtTime) * l.quantity,
+            })),
+          },
+        },
+      });
+    } catch (orderErr) {
+      console.warn('Auto order creation alongside sale confirmation:', orderErr);
+    }
 
     return updatedLead;
   });

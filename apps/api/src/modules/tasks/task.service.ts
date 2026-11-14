@@ -1,13 +1,15 @@
 import { prisma } from '../../database/client';
 import { UserContext, scopeWhere } from '../rbac/scope';
-import { Permissions, maskPhoneNumber } from '@hospital-crm/shared';
+import { Permissions, maskPhoneNumber, normalizePhoneNumber } from '@hospital-crm/shared';
 import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 import { startOfDay, endOfDay } from 'date-fns';
 
 export interface TaskFilterOptions {
   team?: 'support' | 'admission' | 'aftercare' | 'product';
+  category?: 'all' | 'enquiry' | 'appointment' | 'today_visits' | 'post_visit';
   status?: 'open' | 'done' | 'cancelled' | 'snoozed' | 'all';
-  due?: 'overdue' | 'today' | 'upcoming';
+  due?: 'overdue' | 'today' | 'upcoming' | 'appointments' | 'appointment_followups' | 'today_visits';
+  priority?: 'hot' | 'warm' | 'cold';
   ownerId?: number;
   leadId?: number;
   caseId?: number;
@@ -15,6 +17,43 @@ export interface TaskFilterOptions {
   nextStepOnly?: boolean;
   page?: number;
   pageSize?: number;
+}
+
+export function buildTaskSearchWhere(search: string) {
+  const s = search.trim();
+  const cleanDigits = s.replace(/\D/g, '');
+  const normalizedTerm = normalizePhoneNumber(s);
+
+  const orClauses: any[] = [
+    { title: { contains: s } },
+    { lead: { name: { contains: s } } },
+    { lead: { concern: { contains: s } } },
+    { lead: { mobile: { contains: s } } },
+    { lead: { mobileNorm: { contains: s } } },
+    { case: { patient: { name: { contains: s } } } },
+    { case: { patient: { patientCode: { contains: s } } } },
+    { case: { patient: { mobileNorm: { contains: s } } } },
+  ];
+
+  if (normalizedTerm) {
+    orClauses.push({ lead: { mobileNorm: { contains: normalizedTerm } } });
+    orClauses.push({ case: { patient: { mobileNorm: { contains: normalizedTerm } } } });
+  }
+
+  if (cleanDigits && cleanDigits.length >= 3 && cleanDigits !== s) {
+    orClauses.push({ lead: { mobile: { contains: cleanDigits } } });
+    orClauses.push({ lead: { mobileNorm: { contains: cleanDigits } } });
+    orClauses.push({ case: { patient: { mobileNorm: { contains: cleanDigits } } } });
+  }
+
+  const numericId = parseInt(s.replace(/^#/, ''), 10);
+  if (!isNaN(numericId) && numericId > 0 && String(numericId) === s.replace(/^#/, '')) {
+    orClauses.push({ id: numericId });
+    orClauses.push({ caseId: numericId });
+    orClauses.push({ leadId: numericId });
+  }
+
+  return { OR: orClauses };
 }
 
 /**
@@ -36,6 +75,23 @@ export async function listTasks(filter: TaskFilterOptions, user: UserContext) {
     where.AND.push({ status });
   }
 
+  // Ensure follow-up tasks are linked to an active lead or case (exclude orphaned records)
+  if (!filter.leadId && !filter.caseId) {
+    where.AND.push({
+      OR: [
+        { leadId: { not: null } },
+        { caseId: { not: null } },
+      ],
+    });
+  }
+
+  // Exclude initial first-touch inquiry call tasks from follow-ups (only actual follow-ups and scheduled callbacks)
+  where.AND.push({
+    NOT: {
+      title: { startsWith: 'Inquiry Call:' },
+    },
+  });
+
   // Due Timing Filter
   if (filter.due === 'overdue') {
     where.AND.push({
@@ -56,6 +112,44 @@ export async function listTasks(filter: TaskFilterOptions, user: UserContext) {
     where.AND.push({
       dueAt: { gt: endOfToday },
       status: 'open',
+    });
+  } else if (filter.due === 'appointment_followups' || filter.due === 'appointments') {
+    where.AND.push({
+      status: 'open',
+      OR: [
+        { cadenceKey: { startsWith: 'appointment' } },
+        { title: { contains: 'Appointment' } },
+        { lead: { status: 'appointment_booked' } },
+      ],
+    });
+  } else if (filter.due === 'today_visits') {
+    const startOfToday = fromZonedTime(startOfDay(zonedNow), timezone);
+    const endOfToday = fromZonedTime(endOfDay(zonedNow), timezone);
+
+    where.AND.push({
+      status: 'open',
+      OR: [
+        {
+          lead: {
+            appointments: {
+              some: {
+                startsAt: { gte: startOfToday, lte: endOfToday },
+                status: { not: 'cancelled' },
+              },
+            },
+          },
+        },
+        {
+          case: {
+            appointments: {
+              some: {
+                startsAt: { gte: startOfToday, lte: endOfToday },
+                status: { not: 'cancelled' },
+              },
+            },
+          },
+        },
+      ],
     });
   }
 
@@ -84,7 +178,10 @@ export async function listTasks(filter: TaskFilterOptions, user: UserContext) {
     });
   }
 
-  // Direct entity or owner filters
+  // Direct entity, priority, or owner filters
+  if (filter.priority) {
+    where.AND.push({ priority: filter.priority });
+  }
   if (filter.ownerId) {
     where.AND.push({ ownerId: filter.ownerId });
   }
@@ -95,22 +192,170 @@ export async function listTasks(filter: TaskFilterOptions, user: UserContext) {
     where.AND.push({ caseId: filter.caseId });
   }
   if (filter.search && filter.search.trim()) {
-    const s = filter.search.trim();
-    where.AND.push({
-      OR: [
-        { title: { contains: s } },
-        { lead: { name: { contains: s } } },
-        { lead: { mobile: { contains: s } } },
-        { case: { patient: { name: { contains: s } } } },
-        { case: { patient: { mobile: { contains: s } } } },
-      ],
-    });
+    where.AND.push(buildTaskSearchWhere(filter.search));
   }
 
-  // Single next step filter: restrict to earliest open task per lead or case
-  if (filter.nextStepOnly) {
+  // Follow-up Category Filter for Telecallers & Workstations
+  let categoryClause: any = null;
+  if (filter.category && filter.category !== 'all') {
+    const startOfToday = fromZonedTime(startOfDay(zonedNow), timezone);
+    const endOfToday = fromZonedTime(endOfDay(zonedNow), timezone);
+
+    if (filter.category === 'enquiry') {
+      categoryClause = {
+        leadId: { not: null },
+        lead: {
+          status: {
+            notIn: ['appointment_booked', 'visited', 'converted', 'closed', 'lost'],
+          },
+        },
+        title: {
+          not: { contains: 'Appointment' },
+        },
+        NOT: [
+          { title: { contains: 'Refill' } },
+          { title: { contains: 'Post-' } },
+        ],
+      };
+    } else if (filter.category === 'appointment') {
+      categoryClause = {
+        OR: [
+          { title: { contains: 'Appointment' } },
+          { cadenceKey: { startsWith: 'appointment.reminders' } },
+          { lead: { status: 'appointment_booked' } },
+        ],
+        title: {
+          not: { contains: 'Post-' },
+        },
+        lead: {
+          status: { notIn: ['visited', 'closed', 'lost'] },
+        },
+      };
+    } else if (filter.category === 'today_visits') {
+      categoryClause = {
+        OR: [
+          {
+            lead: {
+              appointments: {
+                some: {
+                  startsAt: { gte: startOfToday, lte: endOfToday },
+                  status: { not: 'cancelled' },
+                },
+              },
+            },
+          },
+          {
+            case: {
+              appointments: {
+                some: {
+                  startsAt: { gte: startOfToday, lte: endOfToday },
+                  status: { not: 'cancelled' },
+                },
+              },
+            },
+          },
+          {
+            AND: [
+              { dueAt: { gte: startOfToday, lte: endOfToday } },
+              {
+                OR: [
+                  { title: { contains: 'Visit' } },
+                  { title: { contains: 'Arrival' } },
+                  { title: { contains: 'Attendance' } },
+                ],
+              },
+            ],
+          },
+        ],
+      };
+    } else if (filter.category === 'post_visit') {
+      categoryClause = {
+        OR: [
+          { title: { contains: 'Post-Appointment' } },
+          { title: { contains: 'Attendance & Consultation check' } },
+          { cadenceKey: { startsWith: 'appointment.post_visit' } },
+          { lead: { status: 'visited' } },
+          { case: { stage: 'aftercare_follow_up' } },
+          { type: 'aftercare_call' },
+        ],
+      };
+    }
+
+    if (categoryClause) {
+      where.AND.push(categoryClause);
+    }
+  }
+
+  // Single next step filter: restrict to earliest open task per lead or case (unless actively searching)
+  if (filter.nextStepOnly && !filter.search) {
+    const openTasksWhere: any = {
+      status: 'open',
+      NOT: {
+        title: { startsWith: 'Inquiry Call:' },
+      },
+      OR: [
+        { leadId: { not: null } },
+        { caseId: { not: null } },
+      ],
+    };
+    if (filter.priority) {
+      openTasksWhere.priority = filter.priority;
+    }
+    if (filter.ownerId) {
+      openTasksWhere.ownerId = filter.ownerId;
+    }
+    if (filter.team === 'support') {
+      openTasksWhere.leadId = { not: null };
+    } else if (filter.team === 'admission') {
+      openTasksWhere.caseId = { not: null };
+      openTasksWhere.case = { team: 'admission' };
+    } else if (filter.team === 'aftercare') {
+      openTasksWhere.caseId = { not: null };
+      openTasksWhere.case = { team: 'aftercare' };
+    } else if (filter.team === 'product') {
+      openTasksWhere.cadenceKey = { startsWith: 'product' };
+    }
+
+    if (categoryClause) {
+      if (!openTasksWhere.AND) openTasksWhere.AND = [];
+      openTasksWhere.AND.push(categoryClause);
+    }
+
+    if (filter.due === 'appointment_followups' || filter.due === 'appointments') {
+      openTasksWhere.OR = [
+        { cadenceKey: { startsWith: 'appointment' } },
+        { title: { contains: 'Appointment' } },
+        { lead: { status: 'appointment_booked' } },
+      ];
+    } else if (filter.due === 'today_visits') {
+      const startOfToday = fromZonedTime(startOfDay(zonedNow), timezone);
+      const endOfToday = fromZonedTime(endOfDay(zonedNow), timezone);
+      openTasksWhere.OR = [
+        {
+          lead: {
+            appointments: {
+              some: {
+                startsAt: { gte: startOfToday, lte: endOfToday },
+                status: { not: 'cancelled' },
+              },
+            },
+          },
+        },
+        {
+          case: {
+            appointments: {
+              some: {
+                startsAt: { gte: startOfToday, lte: endOfToday },
+                status: { not: 'cancelled' },
+              },
+            },
+          },
+        },
+      ];
+    }
+
     const openTasks = await prisma.task.findMany({
-      where: { status: 'open' },
+      where: openTasksWhere,
       select: { id: true, leadId: true, caseId: true, dueAt: true },
       orderBy: [{ dueAt: 'asc' }, { id: 'asc' }],
     });
@@ -148,7 +393,7 @@ export async function listTasks(filter: TaskFilterOptions, user: UserContext) {
       where,
       skip,
       take: pageSize,
-      orderBy: { dueAt: 'asc' },
+      orderBy: [{ dueAt: 'asc' }, { id: 'asc' }],
       include: {
         owner: { select: { id: true, name: true, email: true } },
         completedUser: { select: { id: true, name: true } },
@@ -191,6 +436,12 @@ export async function listTasks(filter: TaskFilterOptions, user: UserContext) {
                 user: { select: { id: true, name: true } },
               },
             },
+            appointments: {
+              where: { status: { not: 'cancelled' } },
+              orderBy: { startsAt: 'desc' },
+              take: 1,
+              select: { id: true, doctorName: true, startsAt: true, status: true },
+            },
           },
         },
         case: {
@@ -211,6 +462,12 @@ export async function listTasks(filter: TaskFilterOptions, user: UserContext) {
                 outcome: { select: { id: true, code: true, labelEn: true, labelMl: true } },
                 user: { select: { id: true, name: true } },
               },
+            },
+            appointments: {
+              where: { status: { not: 'cancelled' } },
+              orderBy: { startsAt: 'desc' },
+              take: 1,
+              select: { id: true, doctorName: true, startsAt: true, status: true },
             },
           },
         },
@@ -294,6 +551,42 @@ export async function completeTask(taskId: number, user: UserContext) {
       completedBy: user.id,
     },
   });
+
+  return updated;
+}
+
+/**
+ * Cancels a task.
+ */
+export async function cancelTask(taskId: number, user: UserContext, reason?: string) {
+  const task = await prisma.task.findUnique({ where: { id: taskId } });
+  if (!task) {
+    throw { statusCode: 404, code: 'NOT_FOUND', message: 'Task not found' };
+  }
+
+  const updated = await prisma.task.update({
+    where: { id: taskId },
+    data: {
+      status: 'cancelled',
+      completedAt: new Date(),
+      completedBy: user.id,
+    },
+  });
+
+  // Record an activity note if associated with a lead or case
+  if (task.leadId || task.caseId) {
+    await prisma.interaction.create({
+      data: {
+        type: 'note',
+        direction: 'inbound',
+        userId: user.id,
+        leadId: task.leadId,
+        caseId: task.caseId,
+        note: `Follow-up reminder "${task.title}" cancelled${reason ? ': ' + reason : ''}`,
+        occurredAt: new Date(),
+      },
+    });
+  }
 
   return updated;
 }

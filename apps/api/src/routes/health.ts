@@ -3,22 +3,35 @@ import { prisma } from '../database/client';
 import { resetAllTestData, clearOperationalData } from '../modules/settings/settings.service';
 
 export const healthRoutes: FastifyPluginAsync = async (fastify) => {
+  // Test data reset endpoints - STRICTLY DISABLED IN PRODUCTION
   fastify.post('/health/reset-data', async (_request, reply) => {
+    if (process.env.NODE_ENV === 'production') {
+      return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Not found' } });
+    }
     const result = await resetAllTestData();
     return reply.send(result);
   });
 
   fastify.get('/health/reset-data', async (_request, reply) => {
+    if (process.env.NODE_ENV === 'production') {
+      return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Not found' } });
+    }
     const result = await resetAllTestData();
     return reply.send(result);
   });
 
   fastify.post('/health/clear-operational-data', async (_request, reply) => {
+    if (process.env.NODE_ENV === 'production') {
+      return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Not found' } });
+    }
     const result = await clearOperationalData();
     return reply.send(result);
   });
 
   fastify.get('/health/clear-operational-data', async (_request, reply) => {
+    if (process.env.NODE_ENV === 'production') {
+      return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Not found' } });
+    }
     const result = await clearOperationalData();
     return reply.send(result);
   });

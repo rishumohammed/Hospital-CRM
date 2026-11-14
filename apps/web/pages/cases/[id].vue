@@ -291,8 +291,30 @@
                 <p class="text-sm font-semibold text-slate-800 dark:text-slate-200">
                   {{ task.title }}
                 </p>
-                <div class="text-xs text-slate-400">
-                  Assigned to: {{ task.owner?.name || 'Unassigned' }}
+                <div class="flex items-center justify-between pt-2 border-t border-slate-200/60 dark:border-slate-800 text-xs">
+                  <span class="text-slate-400">
+                    Assigned: {{ task.owner?.name || 'Unassigned' }}
+                  </span>
+                  <div v-if="canManageTasks" class="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      @click="cancelTaskItem(task)"
+                      class="px-2 py-1 rounded-md bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 dark:hover:bg-rose-900 text-rose-700 dark:text-rose-300 font-semibold text-[11px] flex items-center gap-1 transition-colors"
+                      title="Cancel reminder early"
+                    >
+                      <UIcon name="i-heroicons-x-mark" class="w-3 h-3" />
+                      <span>Cancel</span>
+                    </button>
+                    <button
+                      type="button"
+                      @click="completeTaskItem(task)"
+                      class="px-2 py-1 rounded-md bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900 text-emerald-700 dark:text-emerald-300 font-semibold text-[11px] flex items-center gap-1 transition-colors"
+                      title="Mark completed"
+                    >
+                      <UIcon name="i-heroicons-check" class="w-3 h-3" />
+                      <span>Done</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -326,7 +348,7 @@
                     <span class="text-xs font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400">
                       {{ item.type }}
                     </span>
-                    <div class="flex items-center gap-1.5">
+                    <div v-if="canManageTasks" class="flex items-center gap-1.5">
                       <span class="text-xs text-slate-400">
                         {{ new Date(item.occurredAt).toLocaleString() }}
                       </span>
@@ -1093,6 +1115,8 @@ const canRecordOutcome = computed(() => {
   );
 });
 
+const canManageTasks = computed(() => authStore.hasPermission('task.manage'));
+
 const canMarkTreatmentCompleted = computed(() => {
   if (!caseData.value) return false;
   const stage = caseData.value.stage;
@@ -1199,8 +1223,9 @@ function openAdvanceModal() {
 
 async function fetchDeclineReasons() {
   try {
-    const res = await $fetch<any>(`${config.public.apiBase}/picklists/decline_reasons`, {
-      headers: authStore.token ? { authorization: `Bearer ${authStore.token}` } : {},
+    const token = authStore.token || authStore.accessToken || (typeof window !== 'undefined' ? localStorage.getItem('hospital_crm_token') : null);
+    const res = await $fetch<any>(`${config.public.apiBase}/picklists/decline-reasons`, {
+      headers: token ? { authorization: `Bearer ${token}` } : {},
       credentials: 'include',
     });
     declineReasons.value = res.data || res || [];
@@ -1256,6 +1281,33 @@ async function fetchCaseDetails() {
     console.error('Failed to fetch case:', err);
   } finally {
     loading.value = false;
+  }
+}
+
+async function completeTaskItem(task: any) {
+  try {
+    await $fetch(`${config.public.apiBase}/tasks/${task.id}/complete`, {
+      method: 'POST',
+      headers: authStore.token ? { authorization: `Bearer ${authStore.token}` } : {},
+      credentials: 'include',
+    });
+    await fetchCaseDetails();
+  } catch (err: any) {
+    alert(err.data?.error?.message || 'Failed to complete reminder');
+  }
+}
+
+async function cancelTaskItem(task: any) {
+  if (!confirm(`Are you sure you want to cancel the reminder "${task.title}"?`)) return;
+  try {
+    await $fetch(`${config.public.apiBase}/tasks/${task.id}/cancel`, {
+      method: 'POST',
+      headers: authStore.token ? { authorization: `Bearer ${authStore.token}` } : {},
+      credentials: 'include',
+    });
+    await fetchCaseDetails();
+  } catch (err: any) {
+    alert(err.data?.error?.message || 'Failed to cancel reminder');
   }
 }
 

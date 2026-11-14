@@ -1,4 +1,13 @@
+import { defineEventHandler, createError } from 'h3';
+
 export default defineEventHandler(async (event) => {
+  if (process.env.NODE_ENV === 'production') {
+    throw createError({
+      statusCode: 404,
+      statusMessage: 'Not Found',
+    });
+  }
+
   const config = useRuntimeConfig();
   const rawApiBase = config.public.apiBase || 'http://localhost:4000/api/v1';
   const apiBase = rawApiBase.endsWith('/api/v1') ? rawApiBase : `${rawApiBase}/api/v1`;

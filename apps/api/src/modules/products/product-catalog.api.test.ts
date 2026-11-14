@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { FastifyInstance } from 'fastify';
 import { buildApp } from '../../app.js';
 import { prisma } from '../../database/client';
+import { _clearAllAttempts } from '../auth/rate-limiter';
 
 describe('Milestone P2: Products & Categories Catalog Acceptance Tests', () => {
   let app: FastifyInstance;
@@ -14,6 +15,7 @@ describe('Milestone P2: Products & Categories Catalog Acceptance Tests', () => {
   let createdProductIds: number[] = [];
 
   beforeAll(async () => {
+    _clearAllAttempts();
     app = await buildApp();
     await app.ready();
 
@@ -23,6 +25,7 @@ describe('Milestone P2: Products & Categories Catalog Acceptance Tests', () => {
       url: '/api/v1/auth/login',
       payload: { identifier: 'prod_mgr@hospital.test', password: 'HospitalCRM@2026' },
     });
+    console.log('pmLogin:', pmLogin.statusCode, pmLogin.payload);
     prodMgrToken = JSON.parse(pmLogin.payload).accessToken;
 
     // 2. Authenticate Product Sales Executive (caller)
@@ -69,14 +72,16 @@ describe('Milestone P2: Products & Categories Catalog Acceptance Tests', () => {
   });
 
   afterAll(async () => {
-    if (createdProductIds.length > 0) {
-      await prisma.productStockHistory.deleteMany({ where: { productId: { in: createdProductIds } } });
-      await prisma.productPriceHistory.deleteMany({ where: { productId: { in: createdProductIds } } });
-      await prisma.leadProductInterest.deleteMany({ where: { productId: { in: createdProductIds } } });
-      await prisma.product.deleteMany({ where: { id: { in: createdProductIds } } });
+    const validProdIds = createdProductIds.filter((id): id is number => typeof id === 'number' && !isNaN(id));
+    if (validProdIds.length > 0) {
+      await prisma.productStockHistory.deleteMany({ where: { productId: { in: validProdIds } } });
+      await prisma.productPriceHistory.deleteMany({ where: { productId: { in: validProdIds } } });
+      await prisma.leadProductInterest.deleteMany({ where: { productId: { in: validProdIds } } });
+      await prisma.product.deleteMany({ where: { id: { in: validProdIds } } });
     }
-    if (createdCategoryIds.length > 0) {
-      await prisma.productCategory.deleteMany({ where: { id: { in: createdCategoryIds } } });
+    const validCatIds = createdCategoryIds.filter((id): id is number => typeof id === 'number' && !isNaN(id));
+    if (validCatIds.length > 0) {
+      await prisma.productCategory.deleteMany({ where: { id: { in: validCatIds } } });
     }
     await app.close();
   });

@@ -426,6 +426,58 @@ export const leadRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) =
       }
     );
 
+    // Delete Invalid Lead (e.g. Wrong Number / Not a real lead)
+    authGroup.delete(
+      '/leads/:id',
+      { preHandler: [requirePermission([Permissions.LEAD_CLOSE, Permissions.LEAD_EDIT, Permissions.PRODUCT_LEAD_EDIT], 'lead')] },
+      async (req, reply) => {
+        const { id } = req.params as { id: string };
+        const leadId = parseInt(id, 10);
+        if (isNaN(leadId)) {
+          return reply.status(400).send({
+            error: { code: 'INVALID_ID', message: 'Lead ID must be an integer' },
+          });
+        }
+
+        const existing = await prisma.lead.findUnique({
+          where: { id: leadId },
+          include: { cases: true },
+        });
+
+        if (!existing) {
+          return reply.status(404).send({
+            error: { code: 'NOT_FOUND', message: 'Lead not found' },
+          });
+        }
+
+        if (existing.cases && existing.cases.length > 0) {
+          return reply.status(400).send({
+            error: { code: 'LEAD_CONVERTED', message: 'Cannot delete lead with active medical case files' },
+          });
+        }
+
+        await prisma.$transaction(async (tx) => {
+          await tx.task.deleteMany({ where: { leadId } });
+          await tx.appointment.deleteMany({ where: { leadId } });
+          await tx.interaction.deleteMany({ where: { leadId } });
+          await tx.leadProductInterest.deleteMany({ where: { leadId } });
+          await tx.leadTestimonialSend.deleteMany({ where: { leadId } });
+          await tx.lead.delete({ where: { id: leadId } });
+        });
+
+        await recordAuditLog({
+          userId: req.user!.id,
+          action: 'LEAD_DELETED',
+          entity: 'lead',
+          entityId: leadId,
+          before: { reason: 'Wrong Number / Invalid Lead Record' },
+          req,
+        });
+
+        return reply.send({ success: true, message: 'Invalid lead record deleted successfully' });
+      }
+    );
+
     // 6. Assign / Reassign Lead
     authGroup.post(
       '/leads/:id/assign',

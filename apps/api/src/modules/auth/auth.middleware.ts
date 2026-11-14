@@ -43,7 +43,7 @@ export async function authenticate(request: FastifyRequest, reply: FastifyReply)
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'strict',
-        maxAge: 15 * 60, // 15 mins
+        maxAge: 24 * 60 * 60, // 24 hours
       });
       reply.header('x-access-token', newAccessToken);
     }

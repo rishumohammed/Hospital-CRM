@@ -10,6 +10,7 @@ import {
   createProductCategory,
   updateProductCategory,
   archiveProductCategory,
+  deleteProductCategory,
   moveCategoryProducts,
 } from './product-category.service';
 import { authenticate, requirePermission } from '../auth/auth.middleware';
@@ -25,7 +26,11 @@ export const productCategoryRoutes: FastifyPluginAsync = async (fastify) => {
       async (req, reply) => {
         const { includeInactive } = req.query as { includeInactive?: string };
         const result = await listProductCategories(includeInactive === 'true');
-        return reply.send(result);
+        return reply.send({
+          data: result.categories,
+          categories: result.categories,
+          tree: result.tree,
+        });
       }
     );
 
@@ -55,62 +60,78 @@ export const productCategoryRoutes: FastifyPluginAsync = async (fastify) => {
       }
     );
 
-    // 3. Update Category
+    // 3. Update Category (supports PATCH and PUT)
+    const handleUpdateCategory = async (req: any, reply: any) => {
+      const { id } = req.params as { id: string };
+      const categoryId = parseInt(id, 10);
+      if (isNaN(categoryId)) {
+        return reply.status(400).send({
+          error: { code: 'INVALID_ID', message: 'Category ID must be an integer' },
+        });
+      }
+
+      const parseResult = updateProductCategorySchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return reply.status(400).send({
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Invalid product category update payload',
+            details: parseResult.error.format(),
+          },
+        });
+      }
+
+      const updated = await updateProductCategory(
+        categoryId,
+        parseResult.data,
+        req.user!,
+        req.ip,
+        req.headers['user-agent']
+      );
+      return reply.send(updated);
+    };
+
     authGroup.patch(
       '/product-categories/:id',
       { preHandler: [requirePermission(Permissions.PRODUCT_CATEGORY_MANAGE, 'product_category')] },
-      async (req, reply) => {
-        const { id } = req.params as { id: string };
-        const categoryId = parseInt(id, 10);
-        if (isNaN(categoryId)) {
-          return reply.status(400).send({
-            error: { code: 'INVALID_ID', message: 'Category ID must be an integer' },
-          });
-        }
-
-        const parseResult = updateProductCategorySchema.safeParse(req.body);
-        if (!parseResult.success) {
-          return reply.status(400).send({
-            error: {
-              code: 'VALIDATION_ERROR',
-              message: 'Invalid product category update payload',
-              details: parseResult.error.format(),
-            },
-          });
-        }
-
-        const updated = await updateProductCategory(
-          categoryId,
-          parseResult.data,
-          req.user!,
-          req.ip,
-          req.headers['user-agent']
-        );
-        return reply.send(updated);
-      }
+      handleUpdateCategory
     );
 
-    // 4. Archive Category
+    authGroup.put(
+      '/product-categories/:id',
+      { preHandler: [requirePermission(Permissions.PRODUCT_CATEGORY_MANAGE, 'product_category')] },
+      handleUpdateCategory
+    );
+
+    // 4. Delete / Archive Category
+    const handleDeleteCategory = async (req: any, reply: any) => {
+      const { id } = req.params as { id: string };
+      const categoryId = parseInt(id, 10);
+      if (isNaN(categoryId)) {
+        return reply.status(400).send({
+          error: { code: 'INVALID_ID', message: 'Category ID must be an integer' },
+        });
+      }
+
+      const archived = await deleteProductCategory(
+        categoryId,
+        req.user!,
+        req.ip,
+        req.headers['user-agent']
+      );
+      return reply.send({ success: true, message: 'Category deleted successfully', category: archived });
+    };
+
+    authGroup.delete(
+      '/product-categories/:id',
+      { preHandler: [requirePermission(Permissions.PRODUCT_CATEGORY_MANAGE, 'product_category')] },
+      handleDeleteCategory
+    );
+
     authGroup.post(
       '/product-categories/:id/archive',
       { preHandler: [requirePermission(Permissions.PRODUCT_CATEGORY_MANAGE, 'product_category')] },
-      async (req, reply) => {
-        const { id } = req.params as { id: string };
-        const categoryId = parseInt(id, 10);
-        if (isNaN(categoryId)) {
-          return reply.status(400).send({
-            error: { code: 'INVALID_ID', message: 'Category ID must be an integer' },
-          });
-        }
-
-        const archived = await archiveProductCategory(
-          categoryId,
-          req.user!,
-          req.ip,
-          req.headers['user-agent']
-        );
-        return reply.send(archived);
-      }
+      handleDeleteCategory
     );
 
     // 5. Move Products between Categories

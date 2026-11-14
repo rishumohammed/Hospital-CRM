@@ -10,7 +10,8 @@
     "aftercare_desk": "Aftercare Desk",
     "leads": "Leads",
     "cases": "Cases",
-    "doctor_view": "Doctor View",
+    "patients": "Patients",
+    "doctor_view": "Treatment Desk",
     "reports": "Reports",
     "exports": "Exports",
     "audit_logs": "Audit Logs",
@@ -63,7 +64,7 @@
     "snooze": "Snooze"
   },
   "cases": {
-    "title": "Patient Cases",
+    "title": "All Patients",
     "patient_code": "Patient Code",
     "stage": "Stage",
     "care_type": "Care Type",
@@ -79,7 +80,7 @@
     "mark_visited": "Mark Visited & Convert",
     "mark_visited_desc": "Convert this lead to a Patient and Case upon clinic arrival",
     "advised_admission": "Admission Advised",
-    "doctor_desk": "Doctor Desk",
+    "doctor_desk": "Treatment Desk",
     "all_stages": "All Stages",
     "stages": {
       "visited": "Visited",

@@ -7,7 +7,7 @@
           {{ t('cases.title') }}
         </h1>
         <p class="text-sm text-slate-500 dark:text-slate-400">
-          {{ t('desks.admission_desc') }}
+          List of all registered patients, their ongoing treatments, and past visit history.
         </p>
       </div>
 
@@ -31,7 +31,7 @@
         v-for="stg in stageTabs"
         :key="stg.key"
         type="button"
-        @click="selectedStage = stg.key; fetchCases()"
+        @click="selectedStage = stg.key; page = 1; fetchCases()"
         :class="[
           'px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-all min-h-[44px]',
           selectedStage === stg.key
@@ -49,14 +49,14 @@
       <div class="flex-1 relative">
         <input
           v-model="searchQuery"
-          @keyup.enter="fetchCases"
+          @keyup.enter="page = 1; fetchCases()"
           type="text"
           :placeholder="t('common.search')"
           class="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 min-h-[44px]"
         />
         <button
           v-if="searchQuery"
-          @click="searchQuery = ''; fetchCases()"
+          @click="searchQuery = ''; page = 1; fetchCases()"
           type="button"
           class="absolute right-3 top-3 text-slate-400 hover:text-slate-600"
         >
@@ -67,7 +67,7 @@
       <!-- Care Type Filter -->
       <select
         v-model="selectedCareType"
-        @change="fetchCases"
+        @change="page = 1; fetchCases()"
         class="px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 min-h-[44px]"
       >
         <option value="">{{ t('cases.care_type') }}: All</option>
@@ -78,7 +78,7 @@
       </select>
 
       <UButton
-        @click="fetchCases"
+        @click="page = 1; fetchCases()"
         color="teal"
         icon="i-heroicons-magnifying-glass"
         class="min-h-[44px] justify-center"
@@ -185,6 +185,31 @@
           </NuxtLink>
         </div>
       </div>
+
+      <!-- Pagination Footer -->
+      <div v-if="totalPages > 1" class="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-between text-xs">
+        <span class="text-slate-500 dark:text-slate-400">
+          Page {{ page }} of {{ totalPages }} ({{ total }} cases)
+        </span>
+        <div class="flex items-center space-x-1.5">
+          <button
+            type="button"
+            @click="page--; fetchCases()"
+            :disabled="page <= 1"
+            class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40 font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors cursor-pointer"
+          >
+            Previous
+          </button>
+          <button
+            type="button"
+            @click="page++; fetchCases()"
+            :disabled="page >= totalPages"
+            class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40 font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors cursor-pointer"
+          >
+            Next
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -212,6 +237,11 @@ const loading = ref(false);
 const selectedStage = ref('');
 const selectedCareType = ref('');
 const searchQuery = ref('');
+
+const page = ref(1);
+const pageSize = ref(20);
+const total = ref(0);
+const totalPages = ref(1);
 
 const stageTabs = computed(() => [
   { key: '', label: t('cases.all_stages') },
@@ -253,18 +283,24 @@ async function fetchCases() {
   loading.value = true;
   try {
     const params = new URLSearchParams();
+    params.append('page', page.value.toString());
+    params.append('pageSize', pageSize.value.toString());
     if (selectedStage.value) params.append('stage', selectedStage.value);
     if (selectedCareType.value) params.append('careType', selectedCareType.value);
     if (searchQuery.value.trim()) params.append('search', searchQuery.value.trim());
 
-    const res = await $fetch<{ cases: any[]; total: number }>(
+    const res = await $fetch<{ cases: any[]; total: number; totalPages?: number }>(
       `${config.public.apiBase}/cases?${params.toString()}`,
       {
         headers: authStore.token ? { authorization: `Bearer ${authStore.token}` } : {},
         credentials: 'include',
       }
     );
-    cases.value = res.cases || [];
+    if (res) {
+      cases.value = res.cases || [];
+      total.value = res.total ?? cases.value.length;
+      totalPages.value = res.totalPages || Math.ceil(total.value / pageSize.value) || 1;
+    }
   } catch (err) {
     console.error('Failed to load cases:', err);
   } finally {

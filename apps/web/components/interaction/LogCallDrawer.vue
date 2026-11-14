@@ -191,7 +191,10 @@
             </div>
 
             <!-- Segmented Selector between Follow-up and Close Lead -->
-            <div class="grid grid-cols-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+            <div
+              v-if="!isNotInterestedOutcome && !isWrongNumberOutcome && !isAppointmentConfirmedOutcome"
+              class="grid grid-cols-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700"
+            >
               <button
                 type="button"
                 @click="isCloseMode = false"
@@ -212,8 +215,22 @@
               </button>
             </div>
 
+            <!-- Appointment Confirmed Info Banner (No next action required) -->
+            <div
+              v-if="isAppointmentConfirmedOutcome"
+              class="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-2xl space-y-1.5 animate-fadeIn shadow-2xs"
+            >
+              <div class="flex items-center gap-2 text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+                <span class="text-base font-bold">✓</span>
+                <span>Appointment Confirmed — Ready to Attend</span>
+              </div>
+              <p class="text-[11px] text-emerald-700 dark:text-emerald-400 leading-relaxed">
+                The patient confirmed their attendance. The scheduled reminder calls (Morning 9 AM / Post-appointment check) are already active in the follow-up list, so no next action time is needed.
+              </p>
+            </div>
+
             <!-- Next Follow-up Action -->
-            <div v-if="!isCloseMode" class="p-4 bg-slate-50/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3.5 shadow-sm">
+            <div v-if="!isCloseMode && !isAppointmentConfirmedOutcome" class="p-4 bg-slate-50/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3.5 shadow-sm">
               <div class="flex items-center gap-2">
                 <span class="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></span>
                 <span class="text-xs font-semibold text-slate-900 dark:text-slate-100">{{ t('tasks.next_action') }}</span>
@@ -316,12 +333,43 @@
               </div>
             </div>
 
-            <!-- Option B: Close Lead with Reason -->
-            <div v-else class="p-4 bg-rose-50/80 dark:bg-rose-950/30 rounded-2xl border border-rose-200 dark:border-rose-900/50 space-y-3 shadow-sm">
+            <!-- Option B: Close Lead with Reason (Only when isCloseMode is true AND NOT appointment confirmed) -->
+            <div v-if="isCloseMode && !isAppointmentConfirmedOutcome" class="p-4 bg-rose-50/80 dark:bg-rose-950/30 rounded-2xl border border-rose-200 dark:border-rose-900/50 space-y-3 shadow-sm">
               <div class="flex items-center gap-2 text-rose-700 dark:text-rose-400 font-semibold text-xs">
                 <span>✕</span>
                 <span>Close Lead</span>
               </div>
+
+              <!-- Wrong Number Special Banner -->
+              <div
+                v-if="isWrongNumberOutcome"
+                class="p-3 bg-amber-50 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-800 rounded-xl space-y-2 text-xs"
+              >
+                <div class="flex items-center gap-2 font-semibold text-amber-900 dark:text-amber-200">
+                  <span>⚠️</span>
+                  <span>Invalid Lead (Wrong Number)</span>
+                </div>
+                <p class="text-amber-800 dark:text-amber-300 text-[11px] leading-relaxed">
+                  Wrong numbers are not genuine patient inquiries. You can permanently delete this record so it does not clutter your queues or skew conversion reports.
+                </p>
+                <label v-if="lead?.id" class="flex items-center gap-2 font-semibold text-rose-700 dark:text-rose-400 cursor-pointer pt-0.5">
+                  <input
+                    type="checkbox"
+                    v-model="deleteWrongNumberLead"
+                    class="rounded border-rose-300 text-rose-600 focus:ring-rose-500 w-4 h-4"
+                  />
+                  <span>Delete this invalid record on save (Requires confirmation)</span>
+                </label>
+              </div>
+
+              <!-- Not Interested Special Banner -->
+              <div
+                v-else-if="isNotInterestedOutcome"
+                class="p-3 bg-teal-50 dark:bg-teal-950/50 border border-teal-200 dark:border-teal-800 rounded-xl text-xs text-teal-800 dark:text-teal-200 leading-relaxed"
+              >
+                ℹ️ Lead will be marked as <strong>Not Interested</strong> and all active reminders will be cancelled. The record is safely retained in <strong>Leads Reports</strong> for future remarketing campaigns.
+              </div>
+
               <div class="space-y-1">
                 <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300">
                   Lost Reason <span class="text-rose-500">*</span>
@@ -407,6 +455,59 @@ const lostReasons = ref<any[]>([]);
 const outcomeId = ref<number | null>(null);
 
 const selectedOutcome = computed(() => callOutcomes.value.find((o) => o.id === outcomeId.value));
+
+const deleteWrongNumberLead = ref(false);
+
+const isWrongNumberOutcome = computed(() => {
+  const code = (selectedOutcome.value?.code || '').toUpperCase();
+  const label = (selectedOutcome.value?.labelEn || '').toLowerCase();
+  return code === 'WRONG_NUMBER' || label.includes('wrong number');
+});
+
+const isNotInterestedOutcome = computed(() => {
+  const code = (selectedOutcome.value?.code || '').toUpperCase();
+  const label = (selectedOutcome.value?.labelEn || '').toLowerCase();
+  return code === 'NOT_INTERESTED' || label.includes('not interested');
+});
+
+const isAppointmentConfirmedOutcome = computed(() => {
+  const code = (selectedOutcome.value?.code || '').toUpperCase();
+  const label = (selectedOutcome.value?.labelEn || '').toLowerCase();
+  return (
+    code === 'APPOINTMENT_CONFIRMED' ||
+    label.includes('confirmed') ||
+    label.includes('ready to visit') ||
+    label.includes('ready to come')
+  );
+});
+
+watch(selectedOutcome, (outcome) => {
+  if (!outcome) return;
+  const code = (outcome.code || '').toUpperCase();
+  const label = (outcome.labelEn || '').toLowerCase();
+
+  if (code === 'NOT_INTERESTED' || label.includes('not interested')) {
+    isCloseMode.value = true;
+    deleteWrongNumberLead.value = false;
+    const match = lostReasons.value.find(
+      (r: any) => (r.code || '').toUpperCase().includes('NOT_INTERESTED') || (r.labelEn || '').toLowerCase().includes('not interested')
+    );
+    if (match) closedReasonId.value = match.id;
+  } else if (code === 'WRONG_NUMBER' || label.includes('wrong number')) {
+    isCloseMode.value = true;
+    deleteWrongNumberLead.value = true;
+    const match = lostReasons.value.find(
+      (r: any) => (r.code || '').toUpperCase().includes('WRONG_NUMBER') || (r.labelEn || '').toLowerCase().includes('wrong number')
+    );
+    if (match) closedReasonId.value = match.id;
+  } else if (code === 'APPOINTMENT_CONFIRMED' || label.includes('confirmed') || label.includes('ready to visit') || label.includes('ready to come')) {
+    isCloseMode.value = false;
+    deleteWrongNumberLead.value = false;
+    if (!note.value || note.value.trim() === '') {
+      note.value = 'Patient confirmed they are ready to come for appointment.';
+    }
+  }
+});
 
 const reasonPresets = [
   'Callback requested by patient',
@@ -494,7 +595,20 @@ const loadPicklists = async () => {
         credentials: 'include',
       }),
     ]);
-    if (coRes.ok) callOutcomes.value = await coRes.json();
+    if (coRes.ok) {
+      const data = await coRes.json();
+      // "Appointment Booked" is handled via the dedicated Book Appointment flow outside, omit from call outcome dropdown
+      callOutcomes.value = (Array.isArray(data) ? data : []).filter(
+        (o: any) =>
+          o.code !== 'APPOINTMENT_BOOKED' &&
+          o.code !== 'appointment_booked' &&
+          !o.labelEn?.toLowerCase().includes('appointment booked') &&
+          o.code !== 'EMERGENCY_REDIRECTED' &&
+          o.code !== 'COMPLAINT' &&
+          !o.labelEn?.toLowerCase().includes('emergency') &&
+          !o.labelEn?.toLowerCase().includes('complaint')
+      );
+    }
     if (lrRes.ok) lostReasons.value = await lrRes.json();
   } catch (err) {
     console.error('Failed to load picklists', err);
@@ -568,9 +682,44 @@ const submitCall = async () => {
     return;
   }
 
-  if (!isCloseMode.value && (!nextAction.value.title || !nextAction.value.dueAt)) {
+  if (!isCloseMode.value && !isAppointmentConfirmedOutcome.value && (!nextAction.value.title || !nextAction.value.dueAt)) {
     errorMessage.value = 'Next action title and due date/time are required';
     return;
+  }
+
+  // Handle permanent deletion of invalid Wrong Number lead
+  if (deleteWrongNumberLead.value && isWrongNumberOutcome.value && props.lead?.id) {
+    if (!confirm(`Are you sure you want to permanently delete this lead? Because it is a Wrong Number, all tasks and records for this inquiry will be deleted completely.`)) {
+      return;
+    }
+    isSubmitting.value = true;
+    errorMessage.value = '';
+    try {
+      const headers: Record<string, string> = {};
+      const token = authStore.token || authStore.accessToken;
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`${apiBase}/leads/${props.lead.id}`, {
+        method: 'DELETE',
+        headers,
+        credentials: 'include',
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        errorMessage.value = data.error?.message || 'Failed to delete invalid lead';
+        isSubmitting.value = false;
+        return;
+      }
+
+      emit('call-logged', { deleted: true, leadId: props.lead.id });
+      close();
+      return;
+    } catch (err: any) {
+      errorMessage.value = err.message || 'Error deleting lead';
+      isSubmitting.value = false;
+      return;
+    }
   }
 
   isSubmitting.value = true;
@@ -590,7 +739,7 @@ const submitCall = async () => {
 
     if (isCloseMode.value) {
       payload.closedReasonId = closedReasonId.value;
-    } else {
+    } else if (!isAppointmentConfirmedOutcome.value && nextAction.value.title && nextAction.value.dueAt) {
       payload.nextAction = {
         type: nextAction.value.type,
         title: nextAction.value.title,

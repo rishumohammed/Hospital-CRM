@@ -9,6 +9,10 @@ import {
   getTreatmentFollowupReport,
   getAdherenceReport,
   getMissedReasonsReport,
+  getTelecallerPerformance,
+  getProductTelecallerPerformance,
+  getTeamPerformance,
+  getMonthlyStatusTrend,
 } from './report.service';
 import { authenticate, requirePermission } from '../auth/auth.middleware';
 
@@ -282,6 +286,128 @@ export const reportRoutes: FastifyPluginAsync = async (fastify: FastifyInstance)
       async (req, reply) => {
         const { getCatalogHealthReport } = await import('./product-report.service');
         const result = await getCatalogHealthReport();
+        return reply.send(result);
+      }
+    );
+
+    // 1. Hospital Telecaller Performance
+    authGroup.get(
+      '/reports/telecaller-performance',
+      {
+        preHandler: [
+          requirePermission(
+            [Permissions.REPORT_VIEW, Permissions.INTERACTION_CREATE, Permissions.LEAD_VIEW],
+            'report'
+          ),
+        ],
+      },
+      async (req, reply) => {
+        const query = req.query as {
+          userId?: string;
+          branchId?: string;
+          date?: string;
+          startDate?: string;
+          endDate?: string;
+        };
+        const result = await getTelecallerPerformance(
+          {
+            userId: query.userId ? parseInt(query.userId, 10) : undefined,
+            branchId: query.branchId ? parseInt(query.branchId, 10) : undefined,
+            date: query.date,
+            startDate: query.startDate,
+            endDate: query.endDate,
+          },
+          req.user!
+        );
+        return reply.send(result);
+      }
+    );
+
+    // 2. Product Telecaller Performance
+    authGroup.get(
+      '/reports/product-telecaller-performance',
+      {
+        preHandler: [
+          requirePermission(
+            [Permissions.REPORT_VIEW, Permissions.INTERACTION_CREATE, Permissions.LEAD_VIEW, Permissions.PRODUCT_LEAD_VIEW],
+            'report'
+          ),
+        ],
+      },
+      async (req, reply) => {
+        const query = req.query as {
+          userId?: string;
+          branchId?: string;
+          date?: string;
+        };
+        const result = await getProductTelecallerPerformance(
+          {
+            userId: query.userId ? parseInt(query.userId, 10) : undefined,
+            branchId: query.branchId ? parseInt(query.branchId, 10) : undefined,
+            date: query.date,
+          },
+          req.user!
+        );
+        return reply.send(result);
+      }
+    );
+
+    // 3. Team Performance (Leaderboard)
+    authGroup.get(
+      '/reports/team-performance',
+      {
+        preHandler: [
+          requirePermission(
+            [Permissions.REPORT_VIEW, Permissions.LEAD_VIEW],
+            'report'
+          ),
+        ],
+      },
+      async (req, reply) => {
+        const query = req.query as {
+          branchId?: string;
+          date?: string;
+          startDate?: string;
+          endDate?: string;
+        };
+        const result = await getTeamPerformance(
+          {
+            branchId: query.branchId ? parseInt(query.branchId, 10) : undefined,
+            date: query.date,
+            startDate: query.startDate,
+            endDate: query.endDate,
+          },
+          req.user!
+        );
+        return reply.send(result);
+      }
+    );
+
+    // 4. 6-Month Status Trend
+    authGroup.get(
+      '/reports/monthly-status-trend',
+      {
+        preHandler: [
+          requirePermission(
+            [Permissions.REPORT_VIEW, Permissions.INTERACTION_CREATE, Permissions.LEAD_VIEW],
+            'report'
+          ),
+        ],
+      },
+      async (req, reply) => {
+        const query = req.query as {
+          branchId?: string;
+          userId?: string;
+          months?: string;
+        };
+        const result = await getMonthlyStatusTrend(
+          {
+            branchId: query.branchId ? parseInt(query.branchId, 10) : undefined,
+            userId: query.userId ? parseInt(query.userId, 10) : undefined,
+            months: query.months ? parseInt(query.months, 10) : 6,
+          },
+          req.user!
+        );
         return reply.send(result);
       }
     );

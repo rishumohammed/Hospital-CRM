@@ -2,6 +2,7 @@ import Fastify from 'fastify';
 import helmet from '@fastify/helmet';
 import cors from '@fastify/cors';
 import cookie from '@fastify/cookie';
+import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
@@ -20,6 +21,7 @@ import { taskRoutes } from './modules/tasks/task.routes';
 import { interactionRoutes } from './modules/interactions/interaction.routes';
 import { notificationRoutes } from './modules/notifications/notification.routes';
 import { caseRoutes } from './modules/cases/case.routes';
+import { patientRoutes } from './modules/patients/patient.routes';
 import { reportRoutes } from './modules/reports/report.routes';
 import { escalationRoutes } from './modules/escalations/escalation.routes';
 import { exportRoutes } from './modules/exports/export.routes';
@@ -30,6 +32,9 @@ import { productRoutes } from './modules/products/product.routes';
 import { productRelationRoutes } from './modules/products/product-relation.routes';
 import { productCampaignRoutes } from './modules/products/product-campaign.routes';
 import { doctorRoutes } from './modules/doctors/doctor.routes';
+import { backupRoutes } from './modules/backup/backup.routes';
+import { orderRoutes } from './modules/orders/order.routes';
+import { productCustomerRoutes } from './modules/product-customers/product-customer.routes';
 
 export async function buildApp() {
   const isTest = process.env.NODE_ENV === 'test';
@@ -94,6 +99,14 @@ export async function buildApp() {
   await fastify.register(rateLimit, {
     max: 100,
     timeWindow: '1 minute',
+  });
+
+  // Multipart support for backup file uploads (up to 200MB)
+  await fastify.register(multipart, {
+    limits: {
+      fileSize: 200 * 1024 * 1024,
+      files: 1,
+    },
   });
 
   // OpenAPI / Swagger Documentation
@@ -171,6 +184,7 @@ export async function buildApp() {
   await fastify.register(interactionRoutes, { prefix: '/api/v1/interactions' });
   await fastify.register(notificationRoutes, { prefix: '/api/v1/notifications' });
   await fastify.register(caseRoutes, { prefix: '/api/v1' });
+  await fastify.register(patientRoutes, { prefix: '/api/v1' });
   await fastify.register(reportRoutes, { prefix: '/api/v1' });
   await fastify.register(escalationRoutes, { prefix: '/api/v1/escalations' });
   await fastify.register(exportRoutes, { prefix: '/api/v1' });
@@ -181,6 +195,9 @@ export async function buildApp() {
   await fastify.register(productRelationRoutes, { prefix: '/api/v1' });
   await fastify.register(productCampaignRoutes, { prefix: '/api/v1' });
   await fastify.register(doctorRoutes, { prefix: '/api/v1' });
+  await fastify.register(backupRoutes, { prefix: '/api/v1' });
+  await fastify.register(orderRoutes, { prefix: '/api/v1' });
+  await fastify.register(productCustomerRoutes, { prefix: '/api/v1' });
 
   return fastify;
 }

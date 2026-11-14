@@ -5,6 +5,7 @@ import {
   listTasks,
   createTask,
   completeTask,
+  cancelTask,
   snoozeTask,
   rescheduleTask,
   reassignTask,
@@ -24,8 +25,10 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
           type: 'object',
           properties: {
             team: { type: 'string', enum: ['support', 'admission', 'aftercare', 'product'] },
+            category: { type: 'string', enum: ['all', 'enquiry', 'appointment', 'today_visits', 'post_visit'] },
             status: { type: 'string', enum: ['open', 'done', 'cancelled', 'snoozed', 'all'] },
-            due: { type: 'string', enum: ['overdue', 'today', 'upcoming'] },
+            due: { type: 'string', enum: ['overdue', 'today', 'upcoming', 'appointments', 'appointment_followups', 'today_visits'] },
+            priority: { type: 'string', enum: ['hot', 'warm', 'cold'] },
             ownerId: { type: 'number' },
             leadId: { type: 'number' },
             caseId: { type: 'number' },
@@ -42,8 +45,10 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
       const result = await listTasks(
         {
           team: query.team,
+          category: query.category,
           status: query.status,
           due: query.due,
+          priority: query.priority ? String(query.priority) as any : undefined,
           ownerId: query.ownerId ? Number(query.ownerId) : undefined,
           leadId: query.leadId ? Number(query.leadId) : undefined,
           caseId: query.caseId ? Number(query.caseId) : undefined,
@@ -85,7 +90,13 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
     }
   );
 
-  // Complete a task
+  // Complete a task (supports both POST and PATCH)
+  const completeHandler = async (request: any, reply: any) => {
+    const { id } = request.params as { id: string };
+    const task = await completeTask(Number(id), request.user!);
+    return reply.send(task);
+  };
+
   fastify.post(
     '/:id/complete',
     {
@@ -102,11 +113,72 @@ export const taskRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request, reply) => {
-      const { id } = request.params as { id: string };
-      const task = await completeTask(Number(id), request.user!);
-      return reply.send(task);
-    }
+    completeHandler
+  );
+
+  fastify.patch(
+    '/:id/complete',
+    {
+      preHandler: [requirePermission(Permissions.TASK_MANAGE, 'task')],
+      schema: {
+        description: 'Mark a task as completed',
+        tags: ['Tasks'],
+        params: {
+          type: 'object',
+          properties: {
+            id: { type: 'number' },
+          },
+          required: ['id'],
+        },
+      },
+    },
+    completeHandler
+  );
+
+  // Cancel a task (supports both POST and PATCH)
+  const cancelHandler = async (request: any, reply: any) => {
+    const { id } = request.params as { id: string };
+    const body = (request.body as { reason?: string } | undefined) || {};
+    const task = await cancelTask(Number(id), request.user!, body.reason);
+    return reply.send(task);
+  };
+
+  fastify.post(
+    '/:id/cancel',
+    {
+      preHandler: [requirePermission(Permissions.TASK_MANAGE, 'task')],
+      schema: {
+        description: 'Cancel a task with an optional reason',
+        tags: ['Tasks'],
+        params: {
+          type: 'object',
+          properties: {
+            id: { type: 'number' },
+          },
+          required: ['id'],
+        },
+      },
+    },
+    cancelHandler
+  );
+
+  fastify.patch(
+    '/:id/cancel',
+    {
+      preHandler: [requirePermission(Permissions.TASK_MANAGE, 'task')],
+      schema: {
+        description: 'Cancel a task with an optional reason',
+        tags: ['Tasks'],
+        params: {
+          type: 'object',
+          properties: {
+            id: { type: 'number' },
+          },
+          required: ['id'],
+        },
+      },
+    },
+    cancelHandler
   );
 
   // Snooze a task

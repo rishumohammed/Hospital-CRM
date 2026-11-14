@@ -55,6 +55,9 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-info}
       SESSION_IDLE_TIMEOUT_MINUTES: ${SESSION_IDLE_TIMEOUT_MINUTES:-30}
       MFA_ENABLED_DEFAULT: ${MFA_ENABLED_DEFAULT:-false}
+      BACKUP_STORAGE_PATH: ${BACKUP_STORAGE_PATH:-/var/backups/hospital-crm}
+    volumes:
+      - ${BACKUP_DATA_PATH:-/var/backups/hospital-crm}:/var/backups/hospital-crm
     expose:
       - "4000"
     networks:

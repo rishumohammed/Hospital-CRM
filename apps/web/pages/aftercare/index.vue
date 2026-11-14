@@ -184,8 +184,11 @@
             >
               {{ esc.status }}
             </span>
-            <span class="text-xs text-slate-400 font-mono">
+            <span class="text-xs text-slate-400 font-mono flex items-center gap-1">
               Due: {{ new Date(esc.dueAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }}
+              <span v-if="new Date(esc.dueAt).getTime() < Date.now() && esc.status === 'pending'" class="ml-1 text-[10px] px-1.5 py-0.5 rounded bg-rose-500 text-white font-semibold">
+                OVERDUE ({{ getOverdueDuration(esc.dueAt) }})
+              </span>
             </span>
           </div>
 
@@ -216,18 +219,20 @@
       </div>
     </div>
 
+
     <!-- Cases List View -->
     <div v-else class="space-y-4">
       <div v-if="filteredCases.length === 0" class="p-12 text-center bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700">
         <p class="text-slate-400 text-sm">No cases found in this view.</p>
       </div>
 
-      <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div
-          v-for="c in filteredCases"
-          :key="c.id"
-          class="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
-        >
+      <div v-else class="space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div
+            v-for="c in paginatedCases"
+            :key="c.id"
+            class="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
+          >
           <div class="space-y-3">
             <div class="flex items-center justify-between">
               <span
@@ -303,9 +308,35 @@
           </div>
         </div>
       </div>
+
+      <!-- Pagination Footer -->
+      <div v-if="totalPages > 1" class="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-between text-xs">
+        <span class="text-slate-500 dark:text-slate-400">
+          Page {{ currentPage }} of {{ totalPages }} ({{ filteredCases.length }} cases)
+        </span>
+        <div class="flex items-center space-x-1.5">
+          <button
+            type="button"
+            @click="currentPage--"
+            :disabled="currentPage <= 1"
+            class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40 font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors cursor-pointer"
+          >
+            Previous
+          </button>
+          <button
+            type="button"
+            @click="currentPage++"
+            :disabled="currentPage >= totalPages"
+            class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40 font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors cursor-pointer"
+          >
+            Next
+          </button>
+        </div>
+      </div>
     </div>
 
-    <!-- Log Aftercare Call Modal -->
+    </div>
+  <!-- Log Aftercare Call Modal -->
     <UModal v-model="showCallModal" :ui="{ width: 'sm:max-w-xl' }">
       <div class="p-6 space-y-5 bg-white dark:bg-slate-800 rounded-3xl">
         <div class="flex items-center justify-between">
@@ -608,6 +639,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useAuthStore } from '~/stores/auth';
+import { formatDurationHuman } from '~/utils/time-format';
 
 const { t } = useI18n();
 const authStore = useAuthStore();
@@ -650,8 +682,25 @@ const filteredCases = computed(() => {
   return cases.value.filter((c: any) => c.stage === 'aftercare_follow_up');
 });
 
+const currentPage = ref(1);
+const pageSize = ref(15);
+const totalPages = computed(() => Math.ceil(filteredCases.value.length / pageSize.value) || 1);
+const paginatedCases = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value;
+  return filteredCases.value.slice(start, start + pageSize.value);
+});
+
+watch(activeTab, () => {
+  currentPage.value = 1;
+});
+
 function formatStage(stage: string) {
   return t(`cases.stages.${stage}`, stage);
+}
+
+function getOverdueDuration(dueAt: string) {
+  const diffMin = Math.round((Date.now() - new Date(dueAt).getTime()) / 60000);
+  return formatDurationHuman(diffMin);
 }
 
 function openAftercareCallModal(c: any) {
@@ -693,7 +742,7 @@ async function loadAllData() {
       $fetch<any>(`${config.public.apiBase}/reports/aftercare`, {
         headers: { authorization: `Bearer ${authStore.token}` },
       }),
-      $fetch<any>(`${config.public.apiBase}/picklists/closure_codes`, {
+      $fetch<any>(`${config.public.apiBase}/picklists/closure-codes`, {
         headers: { authorization: `Bearer ${authStore.token}` },
       }),
     ]);

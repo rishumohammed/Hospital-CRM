@@ -24,22 +24,6 @@
           <span>Categories</span>
         </NuxtLink>
 
-        <NuxtLink
-          to="/products/campaigns"
-          class="min-h-[40px] px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 font-semibold text-xs transition-all flex items-center gap-1.5 shadow-2xs"
-        >
-          <UIcon name="i-heroicons-megaphone" class="w-4 h-4 text-teal-600" />
-          <span>Campaigns</span>
-        </NuxtLink>
-
-        <NuxtLink
-          to="/reports/products"
-          class="min-h-[40px] px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 font-semibold text-xs transition-all flex items-center gap-1.5 shadow-2xs"
-        >
-          <UIcon name="i-heroicons-chart-pie" class="w-4 h-4 text-teal-600" />
-          <span>Product Analytics</span>
-        </NuxtLink>
-
         <!-- Bulk Stock Update Modal Trigger -->
         <button
           v-if="canUpdateStock"
@@ -90,7 +74,7 @@
           <select
             v-model="filters.categoryId"
             class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-850 text-slate-900 dark:text-slate-100 text-xs font-normal focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
-            @change="fetchProducts"
+            @change="pagination.page = 1; fetchProducts()"
           >
             <option :value="''">All Categories</option>
             <option v-for="cat in categories" :key="cat.id" :value="cat.id">
@@ -104,7 +88,7 @@
           <select
             v-model="filters.stockStatus"
             class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-850 text-slate-900 dark:text-slate-100 text-xs font-normal focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
-            @change="fetchProducts"
+            @change="pagination.page = 1; fetchProducts()"
           >
             <option value="">All Stock Statuses</option>
             <option value="in_stock">In Stock Only</option>
@@ -117,7 +101,7 @@
           <select
             v-model="filters.status"
             class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-850 text-slate-900 dark:text-slate-100 text-xs font-normal focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
-            @change="fetchProducts"
+            @change="pagination.page = 1; fetchProducts()"
           >
             <option value="">All Statuses (Active)</option>
             <option value="approved">Approved Only</option>
@@ -753,12 +737,19 @@ const setRxFilter = (val: string) => {
 
 const fetchCategories = async () => {
   try {
+    const token = authStore.token || authStore.accessToken || (typeof window !== 'undefined' ? localStorage.getItem('hospital_crm_token') : null);
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
     const res = await fetch(`${apiBase}/product-categories`, {
-      headers: { Authorization: `Bearer ${authStore.token}` },
+      headers,
+      credentials: 'include',
     });
     if (res.ok) {
       const data = await res.json();
-      categories.value = data.data || [];
+      categories.value = Array.isArray(data)
+        ? data
+        : (data.categories || data.data || data.tree || []);
     }
   } catch (err) {
     console.error('Failed to load categories', err);

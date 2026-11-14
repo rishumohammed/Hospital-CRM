@@ -11,6 +11,28 @@
       </div>
     </div>
 
+    <!-- 1b. Converted & Fulfilled Banner (if already confirmed) -->
+    <div
+      v-if="lead.status === 'converted'"
+      class="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between gap-4 shadow-2xs"
+    >
+      <div class="text-xs text-emerald-900 dark:text-emerald-200 space-y-0.5">
+        <div class="font-bold flex items-center gap-1.5">
+          <span>✅ Product Sale Approved & Converted</span>
+        </div>
+        <p class="text-slate-600 dark:text-slate-300">
+          Order Reference: <strong class="font-mono text-emerald-700 dark:text-emerald-300">{{ lead.orderReference || 'Recorded' }}</strong>
+          • Confirmed Value: <strong class="text-emerald-700 dark:text-emerald-300">₹{{ Number(lead.saleAmount || 0).toFixed(2) }}</strong>
+        </p>
+      </div>
+      <NuxtLink
+        to="/orders"
+        class="px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-xs transition-colors whitespace-nowrap shadow-xs flex items-center gap-1"
+      >
+        <span>📦 Fulfillment Desk →</span>
+      </NuxtLink>
+    </div>
+
     <!-- 2. Price Change Alert Banner (if catalog price changed from locked price) -->
     <div
       v-if="priceChangedItems.length > 0"
@@ -293,21 +315,35 @@
           <span>Refer to Treatment Desk</span>
         </button>
 
-        <!-- Confirm Sale -->
-        <button
-          type="button"
-          @click="openConfirmSaleModal"
-          :disabled="acceptedLines.length === 0"
-          :class="[
-            'px-5 py-2.5 rounded-xl font-semibold text-xs transition-all flex items-center gap-2 shadow-md shadow-emerald-600/20',
-            acceptedLines.length > 0
-              ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white'
-              : 'bg-slate-200 dark:bg-slate-700 text-slate-400 cursor-not-allowed opacity-60'
-          ]"
-        >
-          <span>✓</span>
-          <span>Confirm Product Sale (₹{{ acceptedTotal.toFixed(2) }})</span>
-        </button>
+        <div class="flex items-center gap-2 flex-wrap">
+          <!-- 1-Click WhatsApp Order Summary -->
+          <button
+            type="button"
+            @click="sendWhatsAppOrderSummary"
+            :disabled="acceptedLines.length === 0"
+            class="px-3.5 py-2.5 rounded-xl border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 font-semibold text-xs transition-colors flex items-center gap-1.5 shadow-2xs disabled:opacity-40"
+            title="Send order summary with pricing and payment details to customer via WhatsApp"
+          >
+            <span>💬</span>
+            <span>Send Order on WhatsApp</span>
+          </button>
+
+          <!-- Confirm Sale -->
+          <button
+            type="button"
+            @click="openConfirmSaleModal"
+            :disabled="acceptedLines.length === 0"
+            :class="[
+              'px-5 py-2.5 rounded-xl font-semibold text-xs transition-all flex items-center gap-2 shadow-md shadow-emerald-600/20',
+              acceptedLines.length > 0
+                ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white'
+                : 'bg-slate-200 dark:bg-slate-700 text-slate-400 cursor-not-allowed opacity-60'
+            ]"
+          >
+            <span>✓</span>
+            <span>Confirm Product Sale (₹{{ acceptedTotal.toFixed(2) }})</span>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -447,6 +483,62 @@
           </div>
         </div>
 
+        <!-- Payment Mode Selector -->
+        <div class="space-y-1.5">
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+            Payment Mode *
+          </label>
+          <div class="grid grid-cols-3 gap-2">
+            <label
+              :class="[
+                'p-2.5 rounded-xl border text-center cursor-pointer transition-all text-xs font-semibold flex flex-col items-center gap-1',
+                saleForm.paymentMethod === 'cod'
+                  ? 'bg-teal-50 dark:bg-teal-950 border-teal-500 text-teal-800 dark:text-teal-200 shadow-2xs'
+                  : 'bg-white dark:bg-slate-850 border-slate-200 dark:border-slate-700 text-slate-600 hover:bg-slate-50'
+              ]"
+            >
+              <input type="radio" value="cod" v-model="saleForm.paymentMethod" class="sr-only" />
+              <span>💵 Cash on Delivery</span>
+            </label>
+            <label
+              :class="[
+                'p-2.5 rounded-xl border text-center cursor-pointer transition-all text-xs font-semibold flex flex-col items-center gap-1',
+                saleForm.paymentMethod === 'upi'
+                  ? 'bg-teal-50 dark:bg-teal-950 border-teal-500 text-teal-800 dark:text-teal-200 shadow-2xs'
+                  : 'bg-white dark:bg-slate-850 border-slate-200 dark:border-slate-700 text-slate-600 hover:bg-slate-50'
+              ]"
+            >
+              <input type="radio" value="upi" v-model="saleForm.paymentMethod" class="sr-only" />
+              <span>📱 UPI / Link</span>
+            </label>
+            <label
+              :class="[
+                'p-2.5 rounded-xl border text-center cursor-pointer transition-all text-xs font-semibold flex flex-col items-center gap-1',
+                saleForm.paymentMethod === 'bank_transfer'
+                  ? 'bg-teal-50 dark:bg-teal-950 border-teal-500 text-teal-800 dark:text-teal-200 shadow-2xs'
+                  : 'bg-white dark:bg-slate-850 border-slate-200 dark:border-slate-700 text-slate-600 hover:bg-slate-50'
+              ]"
+            >
+              <input type="radio" value="bank_transfer" v-model="saleForm.paymentMethod" class="sr-only" />
+              <span>🏦 Bank Transfer</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Customer Shipping Address Input -->
+        <div class="space-y-1.5">
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+            Customer Shipping Address *
+          </label>
+          <textarea
+            v-model="saleForm.shippingAddress"
+            rows="2"
+            required
+            placeholder="Complete delivery address with street, building name, landmark, town, district..."
+            class="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-850 text-xs font-normal focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+          ></textarea>
+        </div>
+
         <!-- Order Reference Input -->
         <div class="space-y-1.5">
           <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300">
@@ -478,23 +570,33 @@
           </p>
         </div>
 
-        <div class="flex items-center justify-end space-x-2 pt-2">
+        <div class="flex items-center justify-between pt-2">
           <button
             type="button"
-            class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-            @click="showConfirmSaleModal = false"
+            @click="sendWhatsAppOrderSummary"
+            class="px-3 py-1.5 rounded-xl border border-emerald-300 text-emerald-700 hover:bg-emerald-50 text-xs font-semibold flex items-center gap-1"
           >
-            Cancel
+            <span>💬 Send WhatsApp</span>
           </button>
-          <button
-            type="button"
-            :disabled="!saleForm.orderReference || (hasRxItems && !saleForm.prescriptionVerified) || isSubmittingSale"
-            @click="submitSaleConfirmation"
-            class="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold text-xs shadow-md shadow-emerald-500/20 disabled:opacity-50 transition-all flex items-center gap-1.5"
-          >
-            <span v-if="isSubmittingSale" class="animate-spin text-xs">⟳</span>
-            <span>Finalize Order &amp; Convert Lead</span>
-          </button>
+
+          <div class="flex items-center space-x-2">
+            <button
+              type="button"
+              class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+              @click="showConfirmSaleModal = false"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              :disabled="!saleForm.orderReference || (hasRxItems && !saleForm.prescriptionVerified) || isSubmittingSale"
+              @click="submitSaleConfirmation"
+              class="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold text-xs shadow-md shadow-emerald-500/20 disabled:opacity-50 transition-all flex items-center gap-1.5"
+            >
+              <span v-if="isSubmittingSale" class="animate-spin text-xs">⟳</span>
+              <span>Finalize Order &amp; Convert Lead</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -641,6 +743,8 @@ const isSubmittingSale = ref(false);
 const saleForm = ref({
   orderReference: '',
   saleAmount: 0,
+  paymentMethod: 'cod',
+  shippingAddress: '',
   prescriptionVerified: false,
 });
 
@@ -800,12 +904,42 @@ const addSuggestedProduct = async (productId: number) => {
 };
 
 const openConfirmSaleModal = () => {
+  const autoRef = `ORD-${Date.now().toString().slice(-6)}`;
   saleForm.value = {
-    orderReference: '',
+    orderReference: autoRef,
     saleAmount: acceptedTotal.value,
+    paymentMethod: 'cod',
+    shippingAddress: props.lead?.location || '',
     prescriptionVerified: !hasRxItems.value,
   };
   showConfirmSaleModal.value = true;
+};
+
+const sendWhatsAppOrderSummary = () => {
+  const cleanPhone = (props.lead?.mobileNorm || props.lead?.mobile || '').replace(/[^0-9]/g, '');
+  if (!cleanPhone) {
+    alert('Customer phone number is missing');
+    return;
+  }
+
+  const lines = acceptedLines.value.length > 0 ? acceptedLines.value : productLines.value;
+  if (lines.length === 0) {
+    alert('Please add at least one product before sending summary');
+    return;
+  }
+
+  const linesText = lines.map((l: any, idx: number) =>
+    `${idx + 1}. ${l.quantity}x ${l.product?.name || 'Product'} — ₹${(Number(l.unitPriceAtTime) * l.quantity).toFixed(2)}`
+  ).join('\n');
+
+  const total = acceptedTotal.value > 0 ? acceptedTotal.value : lines.reduce((s: number, l: any) => s + Number(l.unitPriceAtTime) * l.quantity, 0);
+  const paymentLabel = saleForm.value.paymentMethod === 'upi' ? 'UPI / Payment Link' : saleForm.value.paymentMethod === 'bank_transfer' ? 'Bank Transfer' : 'Cash on Delivery (COD)';
+  const addressText = saleForm.value.shippingAddress || props.lead?.location || 'Address on file';
+  const refText = props.lead?.orderReference || saleForm.value.orderReference || `ORD-${Date.now().toString().slice(-6)}`;
+
+  const message = `Hello ${props.lead?.name || 'Customer'},\nThank you for choosing our Ayurvedic Wellness Pharmacy.\n\n📦 *Order Summary* (Ref: ${refText}):\n${linesText}\n\n💵 *Total Payable: ₹${total.toFixed(2)}*\n💳 *Payment Mode:* ${paymentLabel}\n📍 *Shipping Address:* ${addressText}\n\nYour order is being processed for dispatch. For any queries or updates, please reply directly to this message.`;
+
+  window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, '_blank');
 };
 
 const submitSaleConfirmation = async () => {

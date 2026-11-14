@@ -2,10 +2,12 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { FastifyInstance } from 'fastify';
 import { buildApp } from '../../app';
 import { prisma } from '../../database/client';
+import { generateAccessToken } from '../auth/token';
 
 describe('Support Desk - Leads API & Logic (Milestone 3)', () => {
   let app: FastifyInstance;
   let adminToken: string;
+  let ownerToken: string;
   let telecaller1Token: string;
   let telecaller2Token: string;
   let branchId: number;
@@ -17,6 +19,14 @@ describe('Support Desk - Leads API & Logic (Milestone 3)', () => {
   beforeAll(async () => {
     app = await buildApp();
     await app.ready();
+
+    ownerToken = generateAccessToken({
+      userId: 1,
+      email: 'md@samadelements.com',
+      roleCode: 'owner',
+      branchIds: [],
+      teamCodes: [],
+    });
 
     // Authenticate Admin
     const adminLogin = await app.inject({
@@ -130,6 +140,25 @@ describe('Support Desk - Leads API & Logic (Milestone 3)', () => {
       where: { mobileNorm: { in: testMobiles } },
     });
     await app.close();
+  });
+
+  it('allows Owner to create a lead via POST /api/v1/leads', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/leads',
+      headers: { authorization: `Bearer ${ownerToken}` },
+      payload: {
+        name: 'Owner Test Lead',
+        mobile: '9847123999',
+        leadType: 'treatment',
+        departmentId: ayurvedaDeptId,
+        sourceId: websiteSourceId,
+        branchId,
+      },
+    });
+
+    console.log('OWNER CREATE LEAD STATUS:', res.statusCode, res.payload);
+    expect(res.statusCode).toBe(201);
   });
 
   // Acceptance Test 2

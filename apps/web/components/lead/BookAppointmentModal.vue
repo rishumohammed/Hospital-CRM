@@ -18,7 +18,7 @@
             </div>
             <div>
               <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">
-                {{ t('tasks.book_appointment') }}
+                {{ hasExistingAppointment ? 'Reschedule Appointment' : t('tasks.book_appointment') }}
               </h3>
               <p v-if="lead" class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
                 {{ lead.name }} <span class="text-slate-400">&bull;</span> {{ lead.mobile }}
@@ -213,7 +213,7 @@
                 <span class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
                 <span>{{ t('common.loading') }}</span>
               </span>
-              <span v-else>{{ t('tasks.book_appointment') }}</span>
+              <span v-else>{{ hasExistingAppointment ? 'Confirm Reschedule' : t('tasks.book_appointment') }}</span>
             </button>
           </div>
         </form>
@@ -231,6 +231,8 @@ const props = defineProps<{
   isOpen: boolean;
   lead?: any;
 }>();
+
+const hasExistingAppointment = computed(() => Boolean(props.lead?.appointments && props.lead.appointments.length > 0));
 
 const emit = defineEmits<{
   (e: 'close'): void;

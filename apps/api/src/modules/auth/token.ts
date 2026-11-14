@@ -86,7 +86,7 @@ export function verifyJwt<T = Record<string, any>>(token: string, secret: string
 }
 
 export function generateAccessToken(payload: TokenPayload): string {
-  return signJwt({ ...payload, type: 'access' }, config.JWT_ACCESS_SECRET, 15 * 60); // 15 minutes
+  return signJwt({ ...payload, type: 'access' }, config.JWT_ACCESS_SECRET, 24 * 60 * 60); // 24 hours
 }
 
 export function generateRefreshToken(payload: TokenPayload): string {

@@ -12,20 +12,20 @@
       :class="[
         'fixed inset-y-0 left-0 z-50 flex flex-col bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 transition-all duration-300 ease-in-out shadow-lg lg:shadow-none',
         // Desktop sizing
-        isCollapsed ? 'lg:w-20' : 'lg:w-64',
+        isCollapsed ? 'lg:w-20' : 'lg:w-56',
         // Mobile visibility
-        isMobileMenuOpen ? 'translate-x-0 w-72' : '-translate-x-full lg:translate-x-0'
+        isMobileMenuOpen ? 'translate-x-0 w-64' : '-translate-x-full lg:translate-x-0'
       ]"
     >
       <!-- Sidebar Brand / Header -->
-      <div class="h-16 flex items-center justify-between px-4 border-b border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm">
+      <div class="h-16 flex items-center justify-between px-3.5 border-b border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm">
         <NuxtLink to="/" class="flex items-center overflow-hidden focus:outline-none py-1" @click="isMobileMenuOpen = false">
           <img
             src="/logo.webp"
             alt="Samad's Elements"
             :class="[
               'object-contain transition-all duration-200',
-              isCollapsed && !isMobileMenuOpen ? 'h-8 max-w-[44px]' : 'h-10 max-w-[170px]'
+              isCollapsed && !isMobileMenuOpen ? 'h-8 max-w-[44px]' : 'h-9 max-w-[140px]'
             ]"
           />
         </NuxtLink>
@@ -51,12 +51,12 @@
       </div>
 
       <!-- Navigation Links Groups -->
-      <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-6 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700">
+      <nav class="flex-1 overflow-y-auto px-2.5 py-3 space-y-5 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700">
         <!-- Group 1: Core Telecalling -->
         <div>
           <div
             v-if="!isCollapsed || isMobileMenuOpen"
-            class="px-3 mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500"
+            class="px-2.5 mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500"
           >
             {{ t('nav.my_work') }} &amp; {{ t('nav.leads') }}
           </div>
@@ -67,7 +67,7 @@
               :to="item.to"
               :title="isCollapsed && !isMobileMenuOpen ? item.label : undefined"
               :class="[
-                'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all group',
+                'flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-sm font-semibold transition-all group',
                 isActive(item.to)
                   ? 'bg-teal-600 text-white shadow-md shadow-teal-600/30'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-700/60'
@@ -90,7 +90,7 @@
         <div v-if="deskNavItems.length > 0">
           <div
             v-if="!isCollapsed || isMobileMenuOpen"
-            class="px-3 mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500"
+            class="px-2.5 mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500"
           >
             Clinical Desks
           </div>
@@ -101,7 +101,7 @@
               :to="item.to"
               :title="isCollapsed && !isMobileMenuOpen ? item.label : undefined"
               :class="[
-                'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all group',
+                'flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-sm font-semibold transition-all group',
                 isActive(item.to)
                   ? 'bg-teal-600 text-white shadow-md shadow-teal-600/30'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-700/60'
@@ -120,13 +120,13 @@
           </div>
         </div>
 
-        <!-- Group 3: Products & Campaigns -->
+        <!-- Group 3: Products -->
         <div v-if="productNavItems.length > 0">
           <div
             v-if="!isCollapsed || isMobileMenuOpen"
-            class="px-3 mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500"
+            class="px-2.5 mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500"
           >
-            Products &amp; Campaigns
+            Products
           </div>
           <div class="space-y-1">
             <NuxtLink
@@ -135,7 +135,7 @@
               :to="item.to"
               :title="isCollapsed && !isMobileMenuOpen ? item.label : undefined"
               :class="[
-                'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all group',
+                'flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-sm font-semibold transition-all group',
                 isActive(item.to)
                   ? 'bg-teal-600 text-white shadow-md shadow-teal-600/30'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-700/60'
@@ -158,7 +158,7 @@
         <div v-if="managementNavItems.length > 0">
           <div
             v-if="!isCollapsed || isMobileMenuOpen"
-            class="px-3 mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500"
+            class="px-2.5 mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500"
           >
             Management
           </div>
@@ -169,7 +169,7 @@
               :to="item.to"
               :title="isCollapsed && !isMobileMenuOpen ? item.label : undefined"
               :class="[
-                'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all group',
+                'flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-sm font-semibold transition-all group',
                 isActive(item.to)
                   ? 'bg-teal-600 text-white shadow-md shadow-teal-600/30'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-700/60'
@@ -209,7 +209,7 @@
     <div
       :class="[
         'flex-1 flex flex-col min-w-0 transition-all duration-300 ease-in-out',
-        isCollapsed ? 'lg:pl-20' : 'lg:pl-64'
+        isCollapsed ? 'lg:pl-20' : 'lg:pl-56'
       ]"
     >
       <!-- Top Action Bar -->
@@ -348,7 +348,7 @@
               </div>
 
               <!-- Menu Link: Settings -->
-              <div class="p-1.5 space-y-0.5">
+              <div v-if="canAccessAdmin" class="p-1.5 space-y-0.5">
                 <NuxtLink
                   to="/admin"
                   class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/80 transition-colors group"
@@ -436,11 +436,12 @@ const coreNavItems = computed(() => {
   ];
   const role = userRoleCode.value;
 
-  // Leads: For Support Telecallers, Product Callers, and Management
+  // Leads: For Support Telecallers, Product Callers, Management, and Executive Auditor
   const isLeadHandler = [
     'owner', 'admin', 'center_head', 'telecaller_manager',
     'support_telecaller', 'caller',
-    'product_sales_executive', 'product_caller', 'product_manager'
+    'product_sales_executive', 'product_caller', 'product_manager',
+    'auditor'
   ].includes(role);
   const canSeeLeads = isLeadHandler && (authStore.hasPermission('lead.view') || authStore.hasPermission('product_lead.view'));
   if (canSeeLeads) {
@@ -451,9 +452,22 @@ const coreNavItems = computed(() => {
   items.push({ to: '/follow-ups', label: t('nav.dues_followup') || 'Follow-up', icon: 'i-heroicons-clock' });
 
   // Cases: Strictly for Clinical, Inpatient, Aftercare staff, and Management
-  const isCaseHandler = ['owner', 'admin', 'center_head', 'doctor', 'admission_specialist', 'ipd_manager', 'aftercare_executive', 'treatment_followup_executive', 'auditor'].includes(role);
-  if (isCaseHandler && authStore.hasPermission('case.view')) {
-    items.push({ to: '/cases', label: t('nav.cases'), icon: 'i-heroicons-briefcase' });
+  const isCaseHandler = [
+    'owner', 'admin', 'center_head', 'doctor', 'admission_specialist',
+    'ipd_manager', 'aftercare_executive', 'treatment_followup_executive', 'telecaller_manager', 'auditor'
+  ].includes(role);
+  if (isCaseHandler || authStore.hasPermission('case.view')) {
+    items.push({ to: '/cases', label: t('nav.cases') || 'Cases', icon: 'i-heroicons-briefcase' });
+  }
+
+  // Patients (Centralized Patient Directory): MD, Branch Manager, Reception, Doctors, Case Handlers & Telecaller Support Team
+  const canSeePatients = [
+    'owner', 'admin', 'center_head', 'doctor', 'front_office',
+    'admission_specialist', 'ipd_manager', 'aftercare_executive', 'treatment_followup_executive', 'telecaller_manager', 'auditor',
+    'support_telecaller', 'caller'
+  ].includes(role);
+  if (canSeePatients && (authStore.hasPermission('case.view') || authStore.hasPermission('lead.view') || authStore.hasPermission('visit.view') || role === 'front_office')) {
+    items.push({ to: '/patients', label: t('nav.patients') || 'Patients', icon: 'i-heroicons-user-circle' });
   }
   return items;
 });
@@ -463,26 +477,26 @@ const deskNavItems = computed(() => {
   const role = userRoleCode.value;
   const teams = authStore.user?.teamCodes || [];
 
-  // Admission Desk
+  // 1. Admission Desk
   const canSeeAdmission =
-    ['owner', 'admin', 'center_head', 'telecaller_manager', 'admission_specialist'].includes(role) ||
+    ['owner', 'admin', 'center_head', 'admission_specialist', 'auditor'].includes(role) ||
     teams.includes('admission');
   if (canSeeAdmission && authStore.hasPermission('case.view')) {
     items.push({ to: '/admission', label: t('nav.admission_desk'), icon: 'i-heroicons-building-office-2' });
   }
 
-  // Aftercare Desk
+  // 2. Doctor Desk: strictly for Doctors, Medical Center Heads, Admins, Owners, and Executive Auditor
+  const canSeeDoctor = ['owner', 'admin', 'center_head', 'doctor', 'auditor'].includes(role);
+  if (canSeeDoctor) {
+    items.push({ to: '/doctor', label: t('nav.doctor_view'), icon: 'i-heroicons-academic-cap' });
+  }
+
+  // 3. Aftercare Desk
   const canSeeAftercare =
-    ['owner', 'admin', 'center_head', 'telecaller_manager', 'aftercare_executive', 'treatment_followup_executive'].includes(role) ||
+    ['owner', 'admin', 'center_head', 'aftercare_executive', 'treatment_followup_executive', 'auditor'].includes(role) ||
     teams.includes('aftercare');
   if (canSeeAftercare && authStore.hasPermission('case.view')) {
     items.push({ to: '/aftercare', label: t('nav.aftercare_desk'), icon: 'i-heroicons-heart' });
-  }
-
-  // Doctor View: strictly for Doctors, Medical Center Heads, Admins, and Owners
-  const canSeeDoctor = ['owner', 'admin', 'center_head', 'doctor'].includes(role);
-  if (canSeeDoctor) {
-    items.push({ to: '/doctor', label: t('nav.doctor_view'), icon: 'i-heroicons-academic-cap' });
   }
 
   return items;
@@ -490,27 +504,45 @@ const deskNavItems = computed(() => {
 
 const productNavItems = computed(() => {
   const items: { to: string; label: string; icon: string }[] = [];
-  if (authStore.hasPermission('product.view') || authStore.hasPermission('product_lead.view')) {
-    items.push({ to: '/products', label: 'Product Catalog', icon: 'i-heroicons-shopping-bag' });
+  if (authStore.hasPermission('product.view') || authStore.hasPermission('product_lead.view') || authStore.hasPermission('order.view')) {
+    items.push({ to: '/orders', label: 'Orders', icon: 'i-heroicons-clipboard-document-check' });
+    items.push({ to: '/customers', label: 'Customers', icon: 'i-heroicons-user-group' });
+    items.push({ to: '/products', label: 'Products', icon: 'i-heroicons-shopping-bag' });
   }
   return items;
+});
+
+const canAccessAdmin = computed(() => {
+  const role = userRoleCode.value;
+  if (['telecaller_manager', 'support_telecaller', 'caller', 'doctor', 'admission_specialist', 'aftercare_executive'].includes(role)) {
+    return false;
+  }
+  return (
+    authStore.hasPermission('settings.manage') ||
+    authStore.hasPermission('user.manage') ||
+    ['owner', 'admin', 'center_head', 'product_manager'].includes(role)
+  );
 });
 
 const managementNavItems = computed(() => {
   const items: { to: string; label: string; icon: string }[] = [];
   const role = userRoleCode.value;
 
-  // Management Reports: strictly for Owner, Admin, Center Head, Telecaller Manager, Product Manager, Auditor
-  const canSeeReports = ['owner', 'admin', 'center_head', 'telecaller_manager', 'product_manager', 'auditor'].includes(role);
+  // Operational & Management Reports: available to Telecallers, Doctors, Clinical Desk staff, and Management
+  const canSeeReports =
+    authStore.hasPermission('report.view') ||
+    authStore.hasPermission('product_report.view') ||
+    authStore.hasPermission('followup.report') ||
+    [
+      'owner', 'admin', 'center_head', 'telecaller_manager', 'product_manager', 'auditor',
+      'support_telecaller', 'caller', 'product_sales_executive', 'product_caller',
+      'doctor', 'admission_specialist', 'aftercare_executive', 'treatment_followup_executive', 'front_office'
+    ].includes(role);
   if (canSeeReports) {
     items.push({ to: '/reports', label: t('nav.reports'), icon: 'i-heroicons-chart-bar' });
   }
 
-  const canAccessAdmin =
-    authStore.hasPermission('settings.manage') ||
-    authStore.hasPermission('user.manage') ||
-    ['owner', 'admin', 'center_head', 'telecaller_manager', 'product_manager'].includes(role);
-  if (canAccessAdmin) {
+  if (canAccessAdmin.value) {
     items.push({ to: '/admin', label: t('nav.settings') || 'Settings', icon: 'i-heroicons-cog-6-tooth' });
   }
   return items;
@@ -557,7 +589,7 @@ const userRoleName = computed(() => {
       product_sales_executive: 'Product Sales Executive',
       front_office: 'Front Office / Reception',
       pharmacy_store: 'Pharmacy Store',
-      auditor: 'Auditor',
+      auditor: 'Managing Director (Read-Only)',
     };
     return roleMap[code] || code.replace(/_/g, ' ');
   }

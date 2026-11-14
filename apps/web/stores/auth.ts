@@ -45,7 +45,7 @@ export const useAuthStore = defineStore('auth', () => {
   const apiBase = config.public.apiBase;
 
   async function login(identifier: string, password: string) {
-    const res = await $fetch<{ user?: AuthUser; accessToken?: string; mfaRequired?: boolean; tempToken?: string }>(
+    const res = await $fetch<{ user?: AuthUser; accessToken?: string; refreshToken?: string; mfaRequired?: boolean; tempToken?: string }>(
       `${apiBase}/auth/login`,
       {
         method: 'POST',
@@ -63,6 +63,9 @@ export const useAuthStore = defineStore('auth', () => {
       accessToken.value = res.accessToken;
       if (typeof window !== 'undefined') {
         localStorage.setItem('hospital_crm_token', res.accessToken);
+        if (res.refreshToken) {
+          localStorage.setItem('hospital_crm_refresh_token', res.refreshToken);
+        }
         localStorage.setItem('hospital_crm_user', JSON.stringify(res.user));
       }
       return { success: true };
@@ -72,7 +75,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function verifyMfa(tempToken: string, code: string) {
-    const res = await $fetch<{ user: AuthUser; accessToken: string }>(
+    const res = await $fetch<{ user: AuthUser; accessToken: string; refreshToken?: string }>(
       `${apiBase}/auth/mfa/verify`,
       {
         method: 'POST',
@@ -85,6 +88,9 @@ export const useAuthStore = defineStore('auth', () => {
     accessToken.value = res.accessToken;
     if (typeof window !== 'undefined') {
       localStorage.setItem('hospital_crm_token', res.accessToken);
+      if (res.refreshToken) {
+        localStorage.setItem('hospital_crm_refresh_token', res.refreshToken);
+      }
       localStorage.setItem('hospital_crm_user', JSON.stringify(res.user));
     }
     return { success: true };
@@ -103,6 +109,7 @@ export const useAuthStore = defineStore('auth', () => {
     accessToken.value = null;
     if (typeof window !== 'undefined') {
       localStorage.removeItem('hospital_crm_token');
+      localStorage.removeItem('hospital_crm_refresh_token');
       localStorage.removeItem('hospital_crm_user');
     }
     navigateTo('/login');
@@ -131,10 +138,42 @@ export const useAuthStore = defineStore('auth', () => {
         }
       }
     } catch {
+      // Attempt silent refresh if refresh token is available
+      try {
+        const savedRefreshToken = typeof window !== 'undefined' ? localStorage.getItem('hospital_crm_refresh_token') : null;
+        if (savedRefreshToken) {
+          const refRes = await $fetch<{ accessToken: string }>(`${apiBase}/auth/refresh`, {
+            method: 'POST',
+            body: { refreshToken: savedRefreshToken },
+            credentials: 'include',
+          });
+          if (refRes?.accessToken) {
+            accessToken.value = refRes.accessToken;
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('hospital_crm_token', refRes.accessToken);
+            }
+            const retryRes = await $fetch<{ user: any; accessToken?: string }>(`${apiBase}/auth/me`, {
+              credentials: 'include',
+              headers: { Authorization: `Bearer ${refRes.accessToken}` },
+            });
+            if (retryRes?.user) {
+              user.value = retryRes.user;
+              if (typeof window !== 'undefined') {
+                localStorage.setItem('hospital_crm_user', JSON.stringify(retryRes.user));
+              }
+              return;
+            }
+          }
+        }
+      } catch {
+        // Refresh token also invalid or expired
+      }
+
       user.value = null;
       accessToken.value = null;
       if (typeof window !== 'undefined') {
         localStorage.removeItem('hospital_crm_token');
+        localStorage.removeItem('hospital_crm_refresh_token');
         localStorage.removeItem('hospital_crm_user');
       }
     }

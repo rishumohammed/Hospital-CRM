@@ -19,7 +19,7 @@
         </p>
       </div>
 
-      <div class="flex items-center space-x-3">
+      <div v-if="canCreateLead" class="flex items-center space-x-3">
         <!-- Quick Create Button -->
         <button
           type="button"
@@ -65,196 +65,154 @@
       </button>
     </div>
 
-    <!-- Filters & Search Toolbar -->
-    <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-3">
-      <!-- Scope & Saved Views Bar -->
-      <div class="flex items-center justify-between gap-3 overflow-x-auto pb-1 border-b border-slate-100 dark:border-slate-700/80 flex-wrap">
-        <!-- Ownership Scope Toggle (Only for telecallers; hidden for MD/Managers who have access to all leads) -->
-        <div v-if="!isManagement" class="flex items-center bg-slate-100 dark:bg-slate-900/60 p-1 rounded-xl border border-slate-200/80 dark:border-slate-700">
-          <button
-            type="button"
-            :class="[
-              'px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5',
-              activeScope === 'my'
-                ? 'bg-white dark:bg-slate-800 text-teal-700 dark:text-teal-300 shadow-2xs'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            ]"
-            @click="setScope('my')"
-          >
-            <span>👤</span>
-            <span>My Leads</span>
-          </button>
-          <button
-            type="button"
-            :class="[
-              'px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5',
-              activeScope === 'unassigned'
-                ? 'bg-white dark:bg-slate-800 text-teal-700 dark:text-teal-300 shadow-2xs'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            ]"
-            @click="setScope('unassigned')"
-          >
-            <span>📥</span>
-            <span>Unassigned Pool</span>
-          </button>
-          <button
-            v-if="canViewAllLeads"
-            type="button"
-            :class="[
-              'px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5',
-              activeScope === 'all'
-                ? 'bg-white dark:bg-slate-800 text-teal-700 dark:text-teal-300 shadow-2xs'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            ]"
-            @click="setScope('all')"
-          >
-            <span>👥</span>
-            <span>All Branch Leads</span>
-          </button>
-        </div>
-
-        <!-- Management View Overview Badge (For MD, Admins, and Managers) -->
-        <div v-else class="flex items-center gap-2">
-          <span class="px-3 py-1.5 rounded-xl bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-800/80 text-teal-800 dark:text-teal-200 text-xs font-semibold flex items-center gap-1.5 shadow-2xs">
-            <span>👥</span>
-            <span>All Leads (Management View)</span>
+    <!-- Quick Status KPI Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+      <!-- 1. Total Leads -->
+      <button
+        type="button"
+        @click="selectStatusFilter('active')"
+        :class="[
+          'p-4 rounded-2xl border text-left transition-all duration-200 relative overflow-hidden flex flex-col justify-between group cursor-pointer',
+          filters.status === 'active' || filters.status === ''
+            ? 'bg-teal-50 dark:bg-teal-950/40 border-teal-300 dark:border-teal-700 ring-2 ring-teal-500/30 shadow-xs'
+            : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-teal-200 dark:hover:border-teal-800/60'
+        ]"
+      >
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold uppercase tracking-wider text-teal-800 dark:text-teal-300">
+            Total Inquiries
           </span>
-          <span v-if="selectedStaffName" class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-700/60 text-slate-700 dark:text-slate-200 text-xs font-medium border border-slate-200 dark:border-slate-600 flex items-center gap-1.5">
-            <span>Filter:</span>
-            <strong class="text-teal-700 dark:text-teal-300 font-semibold">{{ selectedStaffName }}</strong>
-            <button
-              type="button"
-              @click="clearStaffFilter"
-              class="ml-1 text-slate-400 hover:text-rose-600 font-bold transition-colors"
-              title="Clear staff filter"
-            >
-              ✕
-            </button>
-          </span>
+          <span class="text-base">📋</span>
         </div>
+        <div class="mt-2 flex items-baseline gap-2">
+          <span class="text-2xl sm:text-3xl font-bold text-teal-700 dark:text-teal-200">
+            {{ stats.active || pagination.total }}
+          </span>
+          <span class="text-[11px] text-teal-700/70 dark:text-teal-300/70 font-medium">All active</span>
+        </div>
+      </button>
 
-        <!-- Saved Filter Views -->
-        <div class="flex items-center gap-2">
-          <button
-            type="button"
-            :class="[
-              'px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap min-h-[36px]',
-              activeSavedView === 'all'
-                ? 'bg-teal-600 text-white shadow-xs'
-                : 'bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-            ]"
-            @click="applySavedView('all')"
-          >
-            All Status
-          </button>
+      <!-- 2. New / Uncalled -->
+      <button
+        type="button"
+        @click="selectStatusFilter('new')"
+        :class="[
+          'p-4 rounded-2xl border text-left transition-all duration-200 relative overflow-hidden flex flex-col justify-between group cursor-pointer',
+          filters.status === 'new'
+            ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-300 dark:border-rose-700 ring-2 ring-rose-500/30 shadow-xs'
+            : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-rose-200 dark:hover:border-rose-800/60'
+        ]"
+      >
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold uppercase tracking-wider text-rose-700 dark:text-rose-400">
+            New (Uncalled)
+          </span>
+          <span class="flex h-2.5 w-2.5 relative" v-if="(stats.new || 0) > 0">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500"></span>
+          </span>
+          <span v-else class="text-base">🔴</span>
+        </div>
+        <div class="mt-2 flex items-baseline gap-2">
+          <span class="text-2xl sm:text-3xl font-bold text-rose-600 dark:text-rose-400">
+            {{ stats.new || 0 }}
+          </span>
+          <span class="text-[11px] text-rose-600/80 dark:text-rose-400/80 font-medium">Needs 1st call</span>
+        </div>
+      </button>
 
-        <button
-          type="button"
-          :class="[
-            'px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap min-h-[36px] flex items-center gap-1.5',
-            activeSavedView === 'not_sent'
-              ? 'bg-amber-600 text-white shadow-xs'
-              : 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 hover:bg-amber-100 dark:hover:bg-amber-900/60'
-          ]"
-          @click="applySavedView('not_sent')"
-        >
-          <span>📜</span>
-          <span>Not yet sent testimonials</span>
-        </button>
-
-        <button
-          type="button"
-          :class="[
-            'px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap min-h-[36px] flex items-center gap-1.5',
-            activeSavedView === 'sent'
-              ? 'bg-emerald-600 text-white shadow-xs'
-              : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/60'
-          ]"
-          @click="applySavedView('sent')"
-        >
-          <span>✓</span>
-          <span>Testimonials Sent</span>
-        </button>
-      </div>
+      <!-- 3. In Follow-up / Contacted -->
+      <button
+        type="button"
+        @click="selectStatusFilter('contacted')"
+        :class="[
+          'p-4 rounded-2xl border text-left transition-all duration-200 relative overflow-hidden flex flex-col justify-between group cursor-pointer',
+          filters.status === 'contacted'
+            ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-700 ring-2 ring-amber-500/30 shadow-xs'
+            : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-amber-200 dark:hover:border-amber-800/60'
+        ]"
+      >
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400">
+            In Follow-up
+          </span>
+          <span class="text-base">📞</span>
+        </div>
+        <div class="mt-2 flex items-baseline gap-2">
+          <span class="text-2xl sm:text-3xl font-bold text-amber-600 dark:text-amber-400">
+            {{ (stats.contacted || 0) + (stats.qualified || 0) }}
+          </span>
+          <span class="text-[11px] text-amber-700/80 dark:text-amber-300/80 font-medium">Active talks</span>
+        </div>
+      </button>
     </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
-        <!-- Search Input -->
-        <div class="sm:col-span-2 md:col-span-2 lg:col-span-2 xl:col-span-2 relative">
-          <input
-            v-model="filters.search"
-            @input="handleSearch"
-            type="text"
-            class="w-full h-11 pl-10 pr-4 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-teal-500 focus:bg-white dark:focus:bg-slate-800 transition-all"
-            placeholder="Search by name, phone, or concern..."
-          />
-          <span class="absolute left-3.5 top-3 text-slate-400">🔍</span>
+    <!-- Search Bar & Live Queue Switcher -->
+    <div class="bg-white dark:bg-slate-800 p-3 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-2.5">
+      <div class="relative">
+        <input
+          v-model="filters.search"
+          @input="handleSearch"
+          type="text"
+          class="w-full h-11 pl-10 pr-10 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-teal-500 focus:bg-white dark:focus:bg-slate-800 transition-all"
+          placeholder="Search leads by patient name, phone number, or clinical concern..."
+        />
+        <span class="absolute left-3.5 top-3 text-slate-400">🔍</span>
+        <button
+          v-if="filters.search"
+          type="button"
+          @click="filters.search = ''; handleSearch()"
+          class="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 w-6 h-6 flex items-center justify-center rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-sm cursor-pointer"
+          title="Clear search"
+        >
+          ✕
+        </button>
+      </div>
+
+      <!-- Live Pipeline Scope Indicator -->
+      <div class="flex flex-wrap items-center justify-between gap-2 pt-0.5 text-xs text-slate-500">
+        <div class="flex items-center gap-1.5">
+          <span
+            :class="[
+              'inline-block w-2 h-2 rounded-full',
+              filters.status === 'not_interested' ? 'bg-rose-500' : filters.status === 'all' ? 'bg-slate-400' : 'bg-emerald-500 animate-pulse'
+            ]"
+          ></span>
+          <span class="font-semibold text-slate-700 dark:text-slate-300">
+            {{ filters.status === 'not_interested' ? 'Closed / Lost Inquiries' : filters.status === 'all' ? 'All Inquiries Archive' : 'Live Active Pipeline' }}
+          </span>
+          <span class="hidden sm:inline text-slate-400">
+            &bull; {{ filters.status === 'not_interested' ? 'Showing leads closed from call logs and their recorded lost reasons' : filters.status === 'all' ? 'Showing all historical records including closed/converted' : 'Excludes converted (patients in consultation) & closed' }}
+          </span>
         </div>
 
-        <!-- Employee / Telecaller Filter (Visible to Admin, MD, Center Head, and Managers) -->
-        <div v-if="canViewAllLeads" class="sm:col-span-1 md:col-span-1 lg:col-span-1 xl:col-span-1">
-          <select
-            v-model="filters.ownerId"
-            @change="onEmployeeFilterChange"
-            class="w-full h-11 px-3 rounded-xl border border-teal-200 dark:border-teal-700/70 bg-teal-50/50 dark:bg-teal-950/30 text-teal-950 dark:text-teal-200 text-xs font-semibold focus:ring-2 focus:ring-teal-500"
-            title="Filter by assigned staff or telecaller"
+        <div class="flex items-center gap-2">
+          <!-- Quick Filter for Closed / Lost Leads -->
+          <button
+            type="button"
+            @click="selectStatusFilter(filters.status === 'not_interested' ? 'active' : 'not_interested')"
+            :class="[
+              'px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer flex items-center gap-1.5',
+              filters.status === 'not_interested'
+                ? 'bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800 shadow-2xs'
+                : 'text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-transparent'
+            ]"
           >
-            <option value="">👥 All Employees</option>
-            <option value="unassigned">⚠️ Unassigned Leads</option>
-            <optgroup label="Telecallers & Staff">
-              <option
-                v-for="emp in staffMembers"
-                :key="emp.id"
-                :value="emp.id.toString()"
-              >
-                👤 {{ emp.name }} ({{ emp.role?.name || emp.role?.code }})
-              </option>
-            </optgroup>
-          </select>
-        </div>
+            <span>✕ Closed / Lost</span>
+            <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-rose-200/70 dark:bg-rose-900/60 font-mono">
+              {{ stats.not_interested || 0 }}
+            </span>
+          </button>
 
-        <!-- Status Filter -->
-        <div>
-          <select
-            v-model="filters.status"
-            @change="fetchLeads"
-            class="w-full h-11 px-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-xs font-medium focus:ring-2 focus:ring-teal-500"
-          >
-            <option value="">All Statuses</option>
-            <option value="new">New</option>
-            <option value="contacted">Contacted</option>
-            <option value="qualified">Qualified</option>
-            <option value="appointment_booked">Appointment Booked</option>
-            <option value="not_reachable">Not Reachable</option>
-            <option value="not_interested">Not Interested</option>
-          </select>
-        </div>
+          <span class="text-slate-300 dark:text-slate-700">|</span>
 
-        <!-- Priority Filter -->
-        <div>
-          <select
-            v-model="filters.priority"
-            @change="fetchLeads"
-            class="w-full h-11 px-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-xs font-medium focus:ring-2 focus:ring-teal-500"
+          <button
+            type="button"
+            @click="selectStatusFilter(filters.status === 'all' ? 'active' : 'all')"
+            class="text-[11px] font-semibold text-teal-600 dark:text-teal-400 hover:underline cursor-pointer"
           >
-            <option value="">All Priorities</option>
-            <option value="hot">🔥 Hot (Urgent / Paid Ad)</option>
-            <option value="warm">⚡ Warm (Standard)</option>
-            <option value="cold">❄️ Cold</option>
-          </select>
-        </div>
-
-        <!-- Testimonials Filter -->
-        <div>
-          <select
-            v-model="filters.testimonials"
-            @change="activeSavedView = filters.testimonials === 'not_sent' ? 'not_sent' : (filters.testimonials === 'sent' ? 'sent' : 'all'); fetchLeads()"
-            class="w-full h-11 px-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-xs font-medium focus:ring-2 focus:ring-teal-500"
-          >
-            <option value="">Testimonials: All</option>
-            <option value="sent">Testimonials: Sent</option>
-            <option value="not_sent">Testimonials: Not sent</option>
-          </select>
+            {{ filters.status === 'all' ? '← Switch to Live Active Pipeline' : 'View All Inquiries (Archive)' }}
+          </button>
         </div>
       </div>
     </div>
@@ -279,6 +237,7 @@
           Try adjusting your search criteria or create a new inquiry
         </p>
         <button
+          v-if="canCreateLead"
           type="button"
           @click="showQuickCreate = true"
           class="min-h-[44px] px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold"
@@ -287,19 +246,19 @@
         </button>
       </div>
 
-      <!-- Leads Grid / Table -->
-      <div v-else class="divide-y divide-slate-100 dark:divide-slate-700/60">
+      <!-- Leads List Cards -->
+      <div v-else class="divide-y divide-slate-100 dark:divide-slate-800">
         <div
           v-for="lead in leads"
           :key="lead.id"
-          class="p-5 hover:bg-slate-50/80 dark:hover:bg-slate-750 transition-colors flex flex-col md:flex-row md:items-center md:justify-between gap-4"
+          class="p-4 sm:p-5 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors space-y-2.5"
         >
-          <!-- Left: Patient Info & Badges -->
-          <div class="space-y-2 flex-1 min-w-0">
-            <div class="flex items-center space-x-2 flex-wrap gap-y-1">
+          <!-- Top Row: Name, Priority, Status, Testimonials, Demographics, and SLA Countdown -->
+          <div class="flex items-center justify-between gap-3 flex-wrap">
+            <div class="flex items-center gap-2 flex-wrap">
               <NuxtLink
                 :to="`/leads/${lead.id}`"
-                class="font-semibold text-base text-slate-900 dark:text-slate-100 hover:text-teal-600 dark:hover:text-teal-400 truncate"
+                class="font-semibold text-base text-slate-900 dark:text-slate-100 hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
               >
                 {{ lead.name }}
               </NuxtLink>
@@ -307,29 +266,60 @@
               <!-- Priority Badge -->
               <span
                 :class="[
-                  'px-2 py-0.5 text-[11px] font-semibold uppercase rounded-md tracking-wider',
+                  'px-2 py-0.5 text-[10px] font-bold uppercase rounded-md tracking-wider',
                   lead.priority === 'hot'
                     ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800'
                     : lead.priority === 'warm'
-                    ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300'
-                    : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'
+                    ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+                    : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-600'
                 ]"
               >
-                {{ lead.priority }}
+                {{ lead.priority === 'hot' ? '🔥 HOT' : lead.priority === 'warm' ? '⚡ WARM' : '❄️ COLD' }}
               </span>
 
-              <!-- Status Badge -->
-              <span class="px-2 py-0.5 text-[11px] font-semibold rounded-md bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800">
-                {{ formatStatus(lead.status) }}
+              <!-- Status Badge (Color-coded for quick recognition) -->
+              <span
+                :class="[
+                  'px-2 py-0.5 text-[10px] font-semibold rounded-md border flex items-center gap-1.5',
+                  lead.status === 'new'
+                    ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-800'
+                    : lead.status === 'contacted'
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800'
+                    : lead.status === 'not_reachable'
+                    ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800'
+                    : lead.status === 'appointment_booked'
+                    ? 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/50 dark:text-sky-300 dark:border-sky-800'
+                    : lead.status === 'converted'
+                    ? 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/50 dark:text-teal-300 dark:border-teal-800'
+                    : 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
+                ]"
+              >
+                <span v-if="lead.status === 'new'" class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                <span>{{ formatStatus(lead.status) }}</span>
               </span>
 
-              <!-- Manual Testimonials Sent Checkbox -->
+              <!-- Call Count Pill (Shows call attempts) -->
+              <span
+                v-if="(lead._count?.interactions || 0) > 0"
+                class="px-2 py-0.5 text-[10px] font-medium rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+                title="Number of call interactions logged"
+              >
+                📞 {{ lead._count.interactions }} {{ lead._count.interactions === 1 ? 'call' : 'calls' }}
+              </span>
+              <span
+                v-else-if="lead.status === 'new'"
+                class="px-1.5 py-0.5 text-[10px] font-medium rounded-md bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200/60 dark:border-rose-800/60"
+              >
+                Not Called Yet
+              </span>
+
+              <!-- Testimonials Status Toggle -->
               <label
-                class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-semibold cursor-pointer select-none transition-colors"
+                class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[11px] font-medium cursor-pointer select-none transition-colors"
                 :class="[
                   (lead.testimonialsSentCount || 0) > 0
-                    ? 'bg-teal-50 border-teal-200 text-teal-800 dark:bg-teal-950/40 dark:border-teal-800 dark:text-teal-300'
-                    : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-slate-300 dark:bg-slate-900/50 dark:border-slate-700 dark:text-slate-400'
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-300'
+                    : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-slate-300 dark:bg-slate-900/50 dark:border-slate-750 dark:text-slate-400'
                 ]"
                 @click.stop
               >
@@ -337,116 +327,132 @@
                   type="checkbox"
                   :checked="(lead.testimonialsSentCount || 0) > 0"
                   :disabled="isUpdatingTestimonial[lead.id]"
-                  class="w-3.5 h-3.5 rounded text-teal-600 focus:ring-teal-500 border-slate-300 dark:border-slate-600"
+                  class="w-3 h-3 rounded text-teal-600 focus:ring-teal-500 border-slate-300 dark:border-slate-600"
                   @change="toggleTestimonialsSent(lead, $event)"
                 />
-                <span>{{ (lead.testimonialsSentCount || 0) > 0 ? 'Testimonials Sent' : 'Testimonials' }}</span>
+                <span>{{ (lead.testimonialsSentCount || 0) > 0 ? '✓ Testimonials Sent' : 'Testimonials' }}</span>
               </label>
 
-              <!-- Age & Location Badges -->
-              <span v-if="lead.age" class="px-2 py-0.5 text-[10px] font-semibold rounded-md bg-slate-100 dark:bg-slate-750 text-slate-700 dark:text-slate-300">
-                {{ lead.age }} yrs
+              <!-- Demographics (Age & Location) -->
+              <span v-if="lead.age" class="text-xs text-slate-400">
+                • <strong class="text-slate-600 dark:text-slate-300 font-medium">{{ lead.age }} yrs</strong>
               </span>
-              <span v-if="lead.location" class="px-2 py-0.5 text-[10px] font-semibold rounded-md bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border border-teal-200/80 dark:border-teal-800">
-                📍 {{ lead.location }}
-              </span>
-            </div>
-
-            <!-- Medical Concern (Malayalam / English) -->
-            <p v-if="lead.concern" class="text-xs text-slate-600 dark:text-slate-300 line-clamp-2 leading-relaxed">
-              {{ lead.concern }}
-            </p>
-
-            <!-- Product Inquiries Row (when product lead) -->
-            <div v-if="lead.leadType === 'product' || (lead.productInterests && lead.productInterests.length > 0)" class="flex items-center gap-1.5 flex-wrap pt-0.5">
-              <span v-if="lead.campaign" class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
-                📢 {{ lead.campaign.name }}
-              </span>
-              <span
-                v-for="pi in lead.productInterests"
-                :key="pi.id"
-                :class="[
-                  'px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 border',
-                  pi.product?.stockStatus === 'out_of_stock'
-                    ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:border-rose-800'
-                    : 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-750 dark:border-slate-700'
-                ]"
-              >
-                <span>{{ pi.product?.name }}</span>
-                <span v-if="pi.product?.stockStatus === 'out_of_stock'" class="text-[9px] text-rose-600 font-bold">(OOS)</span>
+              <span v-if="lead.location" class="text-xs text-slate-400">
+                • <strong class="text-slate-600 dark:text-slate-300 font-medium">📍 {{ lead.location }}</strong>
               </span>
             </div>
 
-            <!-- Metadata Row -->
-            <div class="flex items-center space-x-3 text-xs text-slate-500 dark:text-slate-400 flex-wrap gap-y-1">
-              <span class="font-mono font-semibold text-slate-700 dark:text-slate-300">
-                📞 {{ lead.mobile }}
-              </span>
-              <span>•</span>
-              <span>🏥 {{ lead.department?.labelEn }}</span>
-              <span>•</span>
-              <span>📡 {{ lead.source?.labelEn }}</span>
-              <span>•</span>
-              <span>👤 {{ lead.owner?.name || 'Unassigned' }}</span>
-            </div>
-          </div>
-
-          <!-- Right: SLA Timer & Quick Channel Actions -->
-          <div class="flex items-center space-x-2 shrink-0">
-            <!-- First-Response SLA Countdown Badge -->
+            <!-- First-Response SLA Countdown Badge (Pinned to Right) -->
             <div
               v-if="lead.status === 'new' && lead.firstResponseDueAt"
               :class="[
-                'px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center space-x-1.5 border',
+                'px-2.5 py-1 rounded-xl text-xs font-semibold flex items-center space-x-1.5 border shrink-0',
                 isBreached(lead.firstResponseDueAt)
                   ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-800'
                   : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
               ]"
             >
               <span>⏱️</span>
-              <span>{{ formatSlaTimer(lead.firstResponseDueAt) }}</span>
+              <span>{{ formatSlaTimer(lead.firstResponseDueAt) }} SLA</span>
+            </div>
+          </div>
+
+          <!-- Middle Row: Contact & Attribution Metadata -->
+          <div class="flex items-center gap-2.5 text-xs text-slate-500 dark:text-slate-400 flex-wrap">
+            <span class="font-mono font-semibold text-slate-800 dark:text-slate-200">
+              📞 {{ lead.mobile }}
+            </span>
+            <span v-if="lead.department?.labelEn" class="text-slate-300 dark:text-slate-600">•</span>
+            <span v-if="lead.department?.labelEn" class="text-slate-600 dark:text-slate-300">
+              🏥 {{ lead.department.labelEn }}
+            </span>
+            <span v-if="lead.source?.labelEn" class="text-slate-300 dark:text-slate-600">•</span>
+            <span v-if="lead.source?.labelEn" class="text-slate-600 dark:text-slate-300">
+              📡 {{ lead.source.labelEn }}
+            </span>
+            <span class="text-slate-300 dark:text-slate-600">•</span>
+
+            <!-- Assignee Pill -->
+            <button
+              v-if="canReassignLead"
+              type="button"
+              @click.stop="openReassignModal(lead)"
+              class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg border text-xs font-semibold transition-colors cursor-pointer"
+              :class="lead.owner ? 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 hover:border-teal-500 hover:text-teal-600' : 'border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 hover:bg-amber-100'"
+              :title="lead.owner ? 'Click to reassign lead' : 'Click to assign lead'"
+            >
+              <span>👤 {{ lead.owner?.name || 'Unassigned' }}</span>
+              <span class="text-[10px] text-teal-600 dark:text-teal-400 font-bold">{{ lead.owner ? '⇄' : '+ Assign' }}</span>
+            </button>
+            <span v-else class="text-slate-600 dark:text-slate-400">
+              👤 {{ lead.owner?.name || 'Unassigned' }}
+            </span>
+          </div>
+
+          <!-- Bottom Row: Concern Callout Bubble & Action Buttons -->
+          <div class="flex items-center justify-between gap-3 pt-1 flex-wrap">
+            <!-- Left: Clinical Concern or Product Tags -->
+            <div class="flex items-center gap-2 flex-1 min-w-0 flex-wrap">
+              <div v-if="lead.concern" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100/80 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-300 max-w-xl truncate">
+                <span class="text-slate-400">📝</span>
+                <span class="truncate italic">"{{ lead.concern }}"</span>
+              </div>
+              <span v-if="lead.campaign" class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                📢 {{ lead.campaign.name }}
+              </span>
+              <span
+                v-for="pi in (lead.productInterests || [])"
+                :key="pi.id"
+                class="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200 dark:bg-slate-750 dark:border-slate-700"
+              >
+                {{ pi.product?.name }}
+              </span>
             </div>
 
-            <!-- Call Button (tel:) -->
-            <a
-              :href="`tel:${lead.mobileNorm || lead.mobile}`"
-              class="min-h-[44px] min-w-[44px] px-3 py-2 rounded-xl bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/50 dark:hover:bg-teal-900 text-teal-700 dark:text-teal-300 font-semibold text-xs flex items-center space-x-1.5 transition-colors"
-              title="Call via tel: link"
-            >
-              <span>📞</span>
-              <span class="hidden sm:inline">Call</span>
-            </a>
+            <!-- Right: 4 Clean, Unified Action Buttons -->
+            <div class="flex items-center gap-2 shrink-0 ml-auto">
+              <!-- Direct Call -->
+              <a
+                :href="`tel:${lead.mobileNorm || lead.mobile}`"
+                class="h-9 px-3 rounded-xl bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/50 dark:hover:bg-teal-900 border border-teal-200 dark:border-teal-800 text-teal-700 dark:text-teal-300 font-semibold text-xs flex items-center gap-1.5 transition-colors"
+                title="Call Patient"
+              >
+                <span>📞</span>
+                <span>Call</span>
+              </a>
 
-            <!-- WhatsApp Button (wa.me) -->
-            <a
-              :href="getWhatsAppLink(lead)"
-              target="_blank"
-              class="min-h-[44px] min-w-[44px] px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:hover:bg-emerald-900 text-emerald-700 dark:text-emerald-300 font-semibold text-xs flex items-center space-x-1.5 transition-colors"
-              title="Chat on WhatsApp"
-            >
-              <span>💬</span>
-              <span class="hidden sm:inline">WhatsApp</span>
-            </a>
+              <!-- WhatsApp -->
+              <a
+                :href="getWhatsAppLink(lead)"
+                target="_blank"
+                class="h-9 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:hover:bg-emerald-900 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 font-semibold text-xs flex items-center gap-1.5 transition-colors"
+                title="Chat on WhatsApp"
+              >
+                <span>💬</span>
+                <span>WhatsApp</span>
+              </a>
 
-            <!-- Edit Button -->
-            <button
-              type="button"
-              @click.stop="openEditModal(lead)"
-              class="min-h-[44px] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs flex items-center space-x-1 transition-colors"
-              title="Edit Lead"
-            >
-              <span>✏️</span>
-              <span class="hidden sm:inline">Edit</span>
-            </button>
+              <!-- Edit -->
+              <button
+                type="button"
+                @click.stop="openEditModal(lead)"
+                class="h-9 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs flex items-center gap-1.5 transition-colors"
+                title="Edit Lead Details"
+              >
+                <span>✏️</span>
+                <span>Edit</span>
+              </button>
 
-            <!-- View Details Button -->
-            <NuxtLink
-              :to="`/leads/${lead.id}`"
-              class="min-h-[44px] min-w-[44px] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs flex items-center space-x-1 transition-colors"
-            >
-              <span>View</span>
-              <span>→</span>
-            </NuxtLink>
+              <!-- View Details -->
+              <NuxtLink
+                :to="`/leads/${lead.id}`"
+                class="h-9 px-3.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-xs flex items-center gap-1.5 transition-colors shadow-sm shadow-teal-600/20"
+                title="View Full Lead File"
+              >
+                <span>View</span>
+                <span>→</span>
+              </NuxtLink>
+            </div>
           </div>
         </div>
       </div>
@@ -493,13 +499,25 @@
       @close="showEditModal = false"
       @updated="fetchLeads"
     />
+
+    <!-- Reassign Lead Modal -->
+    <ReassignLeadModal
+      :is-open="showReassignModal"
+      :lead="selectedLeadToReassign"
+      @close="showReassignModal = false"
+      @reassigned="onLeadReassigned"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, watch, onMounted } from 'vue';
-import TestimonialChip from '~/components/testimonials/TestimonialChip.vue';
+import { useRoute } from 'vue-router';
+import LeadQuickCreateDrawer from '~/components/lead/QuickCreateDrawer.vue';
 import EditLeadModal from '~/components/lead/EditLeadModal.vue';
+import ReassignLeadModal from '~/components/lead/ReassignLeadModal.vue';
+import TestimonialChip from '~/components/testimonials/TestimonialChip.vue';
+import { formatSlaTimer } from '~/utils/time-format';
 import { useAuthStore } from '~/stores/auth';
 
 const authStore = useAuthStore();
@@ -512,6 +530,40 @@ const isLoading = ref(true);
 const showQuickCreate = ref(false);
 const showEditModal = ref(false);
 const selectedLeadToEdit = ref<any | null>(null);
+
+const stats = reactive({
+  all: 0,
+  active: 0,
+  new: 0,
+  contacted: 0,
+  qualified: 0,
+  appointment_booked: 0,
+  converted: 0,
+  not_reachable: 0,
+  not_interested: 0,
+});
+
+const selectStatusFilter = (status: string) => {
+  if (filters.status === status) {
+    filters.status = 'active';
+  } else {
+    filters.status = status;
+  }
+  pagination.page = 1;
+  fetchLeads();
+};
+
+const showReassignModal = ref(false);
+const selectedLeadToReassign = ref<any | null>(null);
+
+const openReassignModal = (lead: any) => {
+  selectedLeadToReassign.value = lead;
+  showReassignModal.value = true;
+};
+
+const onLeadReassigned = () => {
+  fetchLeads();
+};
 
 const openEditModal = (lead: any) => {
   selectedLeadToEdit.value = lead;
@@ -564,7 +616,7 @@ const toggleTestimonialsSent = async (lead: any, event: Event) => {
 
 const filters = reactive({
   search: '',
-  status: '',
+  status: 'active',
   priority: '',
   language: '',
   testimonials: '',
@@ -602,12 +654,21 @@ const canViewAllLeads = computed(() => {
   return role === 'owner' || role === 'admin' || role === 'center_head' || role === 'telecaller_manager' || role === 'product_manager';
 });
 
+const canReassignLead = computed(() => {
+  const role = userRoleCode.value;
+  return (
+    ['owner', 'admin', 'center_head', 'telecaller_manager'].includes(role) ||
+    authStore.hasPermission('lead.reassign')
+  );
+});
+
 const staffMembers = ref<any[]>([]);
 
 const fetchStaffMembers = async () => {
   try {
+    const token = authStore.token || authStore.accessToken || (typeof window !== 'undefined' ? localStorage.getItem('hospital_crm_token') : null);
     const headers: Record<string, string> = {};
-    if (authStore.token) headers['authorization'] = `Bearer ${authStore.token}`;
+    if (token) headers['Authorization'] = `Bearer ${token}`;
 
     const res = await fetch(`${apiBase}/users/staff`, {
       headers,
@@ -666,6 +727,14 @@ const canViewProductLeads = computed(() => {
   return isProductStaff.value || authStore.hasPermission('product_lead.view');
 });
 
+const canCreateLead = computed(() => {
+  const role = userRoleCode.value;
+  if (['owner', 'admin', 'super_admin', 'center_head', 'telecaller_manager', 'support_telecaller', 'caller', 'product_sales_executive', 'product_caller', 'product_manager'].includes(role)) {
+    return true;
+  }
+  return authStore.hasPermission('lead.create') || authStore.hasPermission('product_lead.create');
+});
+
 const activeLeadType = ref<'treatment' | 'product'>('treatment');
 
 const setLeadType = (type: 'treatment' | 'product') => {
@@ -687,6 +756,8 @@ const fetchLeads = async () => {
       page: pagination.page.toString(),
       pageSize: pagination.pageSize.toString(),
       leadType: activeLeadType.value,
+      sortBy: 'created_at',
+      sortOrder: 'desc',
     });
 
     if (!isManagement.value) {
@@ -714,8 +785,9 @@ const fetchLeads = async () => {
       params.append('sortOrder', 'asc');
     }
 
+    const token = authStore.token || authStore.accessToken || (typeof window !== 'undefined' ? localStorage.getItem('hospital_crm_token') : null);
     const headers: Record<string, string> = {};
-    if (authStore.token) headers['authorization'] = `Bearer ${authStore.token}`;
+    if (token) headers['Authorization'] = `Bearer ${token}`;
 
     const res = await fetch(`${apiBase}/leads?${params.toString()}`, {
       headers,
@@ -727,6 +799,9 @@ const fetchLeads = async () => {
       leads.value = data.leads || [];
       pagination.total = data.pagination?.total || 0;
       pagination.totalPages = data.pagination?.totalPages || 1;
+      if (data.stats) {
+        Object.assign(stats, data.stats);
+      }
     }
   } catch (err) {
     console.error('Failed to load leads', err);
@@ -736,6 +811,10 @@ const fetchLeads = async () => {
 };
 
 onMounted(async () => {
+  const route = useRoute();
+  if (route.query.status && typeof route.query.status === 'string') {
+    filters.status = route.query.status;
+  }
   if (!authStore.token && !authStore.user) {
     await authStore.fetchMe();
   }
@@ -815,13 +894,6 @@ const formatStatus = (status: string) => {
 
 const isBreached = (dueAtStr: string) => {
   return new Date(dueAtStr).getTime() < Date.now();
-};
-
-const formatSlaTimer = (dueAtStr: string) => {
-  const diffMs = new Date(dueAtStr).getTime() - Date.now();
-  const diffMin = Math.round(diffMs / 60000);
-  if (diffMin <= 0) return `Breached by ${Math.abs(diffMin)}m`;
-  return `${diffMin}m SLA`;
 };
 
 const getWhatsAppLink = (lead: any) => {

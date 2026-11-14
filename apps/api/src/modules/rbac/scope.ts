@@ -37,7 +37,9 @@ export type ResourceType =
   | 'schedule'
   | 'visit'
   | 'checkin'
-  | 'handover';
+  | 'handover'
+  | 'order'
+  | 'product_customer';
 
 const SCOPE_HIERARCHY: Record<string, number> = {
   none: 0,
@@ -52,6 +54,11 @@ const SCOPE_HIERARCHY: Record<string, number> = {
  * role permissions and active temporary permission grants.
  */
 export function getEffectiveScope(user: UserContext, permission: string): string {
+  const roleCode = String(user.roleCode || (user as any).role?.code || (user as any).role || '').toLowerCase();
+  if (roleCode === 'owner' || roleCode === 'super_admin') {
+    return 'all';
+  }
+
   let baseScope = user.permissions[permission] || 'none';
   let bestLevel = SCOPE_HIERARCHY[baseScope] || 0;
 
@@ -142,12 +149,18 @@ export function scopeWhere(
       case 'handover':
         permission = Permissions.CASE_VIEW;
         break;
+      case 'order':
+        permission = Permissions.ORDER_VIEW;
+        break;
+      case 'product_customer':
+        permission = Permissions.CUSTOMER_VIEW;
+        break;
       default:
         permission = `${resource}.view`;
     }
   }
 
-  const scope = getEffectiveScope(user, permission);
+  const scope = getEffectiveScope(user, permission || `${resource}.view`);
 
   // If no permission or scope is none, match nothing
   if (!scope || scope === 'none') {
@@ -165,6 +178,9 @@ export function scopeWhere(
     }
     if (resource === 'product_lead') {
       return { leadType: 'product', archivedAt: null };
+    }
+    if (resource === 'order' || resource === 'product_customer') {
+      return {};
     }
     return resource === 'audit' || resource === 'handover' ? {} : { archivedAt: null };
   }
@@ -221,6 +237,17 @@ export function scopeWhere(
         leadType: 'product',
         archivedAt: null,
       };
+    }
+    if (resource === 'order') {
+      return {
+        OR: [
+          { lead: { branchId: { in: branches } } },
+          { createdBy: { userBranches: { some: { branchId: { in: branches } } } } },
+        ],
+      };
+    }
+    if (resource === 'product_customer') {
+      return {};
     }
     return {
       branchId: { in: branches },
@@ -332,6 +359,19 @@ export function scopeWhere(
       };
     }
 
+    if (resource === 'order') {
+      return {
+        OR: [
+          { createdBy: { userTeams: { some: { team: { code: { in: teams } } } } } },
+          { lead: { owner: { userTeams: { some: { team: { code: { in: teams } } } } } } },
+        ],
+      };
+    }
+
+    if (resource === 'product_customer') {
+      return {};
+    }
+
     return { id: -1 };
   }
 
@@ -431,6 +471,16 @@ export function scopeWhere(
       return {
         OR: [{ fromUserId: user.id }, { toUserId: user.id }, { case: { ownerId: user.id } }],
       };
+    }
+
+    if (resource === 'order') {
+      return {
+        OR: [{ createdById: user.id }, { lead: { ownerId: user.id } }],
+      };
+    }
+
+    if (resource === 'product_customer') {
+      return {};
     }
 
     return { id: -1 };

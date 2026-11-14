@@ -3,6 +3,7 @@ import { hashPassword } from '../modules/auth/password';
 import { Roles, Teams, Scopes, Permissions } from '@hospital-crm/shared';
 import { ensureDefaultCadences } from '../modules/cadences/cadence.service';
 import { seedProductModule } from './seed-products';
+import { seedFulfillmentModule } from './seed-fulfillment';
 
 export async function seedDatabase() {
   console.log('--- Starting Database Seed ---');
@@ -56,7 +57,7 @@ export async function seedDatabase() {
     { code: Roles.TREATMENT_FOLLOWUP_EXECUTIVE, name: 'Treatment Follow-up Executive', maskPhone: false },
     { code: Roles.FRONT_OFFICE, name: 'Front Office / Reception', maskPhone: false },
     { code: Roles.DOCTOR, name: 'Treating Doctor', maskPhone: false },
-    { code: Roles.AUDITOR, name: 'Quality / External Auditor', maskPhone: false },
+    { code: Roles.AUDITOR, name: 'Managing Director (Read-Only)', maskPhone: false },
     { code: Roles.PRODUCT_SALES_EXECUTIVE, name: 'Product Sales Executive', maskPhone: false },
     { code: Roles.PRODUCT_MANAGER, name: 'Product Manager', maskPhone: false },
     { code: Roles.PHARMACY_STORE, name: 'Pharmacy Store', maskPhone: false },
@@ -144,6 +145,12 @@ export async function seedDatabase() {
         { permission: Permissions.PRODUCT_LEAD_EDIT, scope: Scopes.BRANCH },
         { permission: Permissions.PRODUCT_LEAD_REASSIGN, scope: Scopes.BRANCH },
         { permission: Permissions.PRODUCT_REPORT_VIEW, scope: Scopes.BRANCH },
+        { permission: Permissions.ORDER_VIEW, scope: Scopes.BRANCH },
+        { permission: Permissions.ORDER_CREATE, scope: Scopes.BRANCH },
+        { permission: Permissions.ORDER_EDIT, scope: Scopes.BRANCH },
+        { permission: Permissions.ORDER_FULFILL, scope: Scopes.BRANCH },
+        { permission: Permissions.CUSTOMER_VIEW, scope: Scopes.BRANCH },
+        { permission: Permissions.CUSTOMER_EDIT, scope: Scopes.BRANCH },
       ],
     },
     // 4. Telecaller Manager: branch-level for leads & cases, report: branch
@@ -259,6 +266,7 @@ export async function seedDatabase() {
         { permission: Permissions.SCHEDULE_VIEW, scope: Scopes.BRANCH },
         { permission: Permissions.VISIT_VIEW, scope: Scopes.BRANCH },
         { permission: Permissions.VISIT_MARK, scope: Scopes.BRANCH },
+        { permission: Permissions.CASE_VIEW, scope: Scopes.BRANCH },
       ],
     },
     // 10. Doctor: own patients' cases, schedules, extensions, escalations
@@ -281,7 +289,7 @@ export async function seedDatabase() {
         { permission: Permissions.TESTIMONIAL_VIEW, scope: Scopes.BRANCH },
       ],
     },
-    // 11. Auditor: read-only all
+    // 11. Auditor / Managing Director (Read-Only): read-only all with report export generation
     {
       roleCode: Roles.AUDITOR,
       permissions: [
@@ -291,6 +299,7 @@ export async function seedDatabase() {
         { permission: Permissions.REPORT_VIEW, scope: Scopes.ALL },
         { permission: Permissions.AUDIT_VIEW, scope: Scopes.ALL },
         { permission: Permissions.EXPORT_REQUEST, scope: Scopes.ALL },
+        { permission: Permissions.EXPORT_APPROVE, scope: Scopes.ALL },
         { permission: Permissions.TESTIMONIAL_VIEW, scope: Scopes.ALL },
         { permission: Permissions.SCHEDULE_VIEW, scope: Scopes.ALL },
         { permission: Permissions.VISIT_VIEW, scope: Scopes.ALL },
@@ -324,6 +333,12 @@ export async function seedDatabase() {
         { permission: Permissions.TASK_MANAGE, scope: Scopes.ALL },
         { permission: Permissions.INTERACTION_CREATE, scope: Scopes.ALL },
         { permission: Permissions.EXPORT_REQUEST, scope: Scopes.ALL },
+        { permission: Permissions.ORDER_VIEW, scope: Scopes.ALL },
+        { permission: Permissions.ORDER_CREATE, scope: Scopes.ALL },
+        { permission: Permissions.ORDER_EDIT, scope: Scopes.ALL },
+        { permission: Permissions.ORDER_FULFILL, scope: Scopes.ALL },
+        { permission: Permissions.CUSTOMER_VIEW, scope: Scopes.ALL },
+        { permission: Permissions.CUSTOMER_EDIT, scope: Scopes.ALL },
       ],
     },
     // 13. Product Sales Executive: calls product leads
@@ -339,14 +354,21 @@ export async function seedDatabase() {
         { permission: Permissions.TASK_MANAGE, scope: Scopes.OWN },
         { permission: Permissions.INTERACTION_CREATE, scope: Scopes.OWN },
         { permission: Permissions.EXPORT_REQUEST, scope: Scopes.OWN },
+        { permission: Permissions.ORDER_VIEW, scope: Scopes.ALL },
+        { permission: Permissions.ORDER_CREATE, scope: Scopes.OWN },
+        { permission: Permissions.ORDER_EDIT, scope: Scopes.OWN },
+        { permission: Permissions.CUSTOMER_VIEW, scope: Scopes.ALL },
+        { permission: Permissions.CUSTOMER_EDIT, scope: Scopes.OWN },
       ],
     },
-    // 14. Pharmacy Store: stock updates only
+    // 14. Pharmacy Store: stock updates and order fulfillment
     {
       roleCode: Roles.PHARMACY_STORE,
       permissions: [
         { permission: Permissions.PRODUCT_VIEW, scope: Scopes.ALL },
         { permission: Permissions.PRODUCT_STOCK_UPDATE, scope: Scopes.ALL },
+        { permission: Permissions.ORDER_VIEW, scope: Scopes.ALL },
+        { permission: Permissions.ORDER_FULFILL, scope: Scopes.ALL },
       ],
     },
   ];
@@ -1652,6 +1674,9 @@ export async function seedDatabase() {
 
   // 17. Seed Product Module (Catalog, Relations, Campaigns, Product Leads, Waitlist)
   await seedProductModule();
+
+  // 18. Seed Fulfillment Module (Courier Partners)
+  await seedFulfillmentModule();
 
   console.log('--- Database Seed Complete ---');
 }

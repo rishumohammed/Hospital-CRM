@@ -23,3 +23,9 @@ pnpm-debug.log*
 # OS Files
 .DS_Store
 Thumbs.db
+
+# Database Backups
+backups/
+*.sql
+*.sql.gz
+*.sql.gz.sha256

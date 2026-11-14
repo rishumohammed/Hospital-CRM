@@ -42,6 +42,23 @@
         >
           {{ savingSettings ? 'Saving...' : 'Save Settings' }}
         </button>
+        <button
+          v-if="activeTab === 'couriers' && canManageSettings"
+          @click="openCreateCourierModal"
+          class="inline-flex items-center justify-center min-h-[44px] px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm shadow-sm transition-all shadow-teal-600/20 active:scale-95"
+        >
+          + Add Courier Partner
+        </button>
+        <button
+          v-if="activeTab === 'backups' && canManageBackups"
+          @click="triggerBackup"
+          :disabled="creatingBackup"
+          class="inline-flex items-center justify-center min-h-[44px] px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm shadow-sm transition-all shadow-teal-600/20 active:scale-95 disabled:opacity-50"
+        >
+          <span v-if="creatingBackup" class="inline-block animate-spin mr-1.5">⟳</span>
+          <span v-else class="mr-1.5">💾</span>
+          {{ creatingBackup ? 'Creating Snapshot...' : 'Create Backup Now' }}
+        </button>
       </div>
     </div>
 
@@ -141,9 +158,15 @@
                     <button
                       v-if="u.status === 'active'"
                       type="button"
+                      :disabled="isSoleManagingDirector(u)"
                       @click="initiateDeactivation(u)"
-                      class="p-1.5 rounded-lg text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50 transition-colors"
-                      title="Deactivate with Reassignment"
+                      :class="[
+                        'p-1.5 rounded-lg transition-colors',
+                        isSoleManagingDirector(u)
+                          ? 'text-slate-300 dark:text-slate-600 cursor-not-allowed'
+                          : 'text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50'
+                      ]"
+                      :title="isSoleManagingDirector(u) ? 'Required: Organization must retain at least one active Managing Director' : 'Deactivate with Reassignment'"
                     >
                       <UIcon name="i-heroicons-pause-circle" class="w-4 h-4" />
                     </button>
@@ -160,9 +183,15 @@
                     <!-- Soft Delete Button -->
                     <button
                       type="button"
+                      :disabled="isSoleManagingDirector(u)"
                       @click="initiateSoftDelete(u)"
-                      class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors"
-                      title="Soft Delete User"
+                      :class="[
+                        'p-1.5 rounded-lg transition-colors',
+                        isSoleManagingDirector(u)
+                          ? 'text-slate-300 dark:text-slate-600 cursor-not-allowed'
+                          : 'text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50'
+                      ]"
+                      :title="isSoleManagingDirector(u) ? 'Required: Organization must retain at least one active Managing Director' : 'Soft Delete User'"
                     >
                       <UIcon name="i-heroicons-trash" class="w-4 h-4" />
                     </button>
@@ -572,6 +601,113 @@
       </div>
     </div>
 
+    <!-- TAB: COURIER PARTNERS -->
+    <div v-if="activeTab === 'couriers' && canManageSettings" class="space-y-4">
+      <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+        <div class="p-4 border-b border-slate-100 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">
+              Courier Delivery Partners
+            </h2>
+            <p class="text-xs text-slate-500">
+              Manage fulfillment carriers and live package tracking templates
+            </p>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2.5">
+            <div class="relative">
+              <input
+                v-model="courierSearch"
+                type="text"
+                placeholder="Search couriers..."
+                class="min-h-[38px] pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs text-slate-800 dark:text-slate-200 w-44 sm:w-56 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              />
+              <UIcon name="i-heroicons-magnifying-glass" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-3" />
+            </div>
+
+            <button
+              @click="openCreateCourierModal"
+              class="inline-flex items-center gap-1 min-h-[38px] px-3.5 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-xs shadow-xs transition-colors active:scale-95"
+            >
+              <UIcon name="i-heroicons-plus" class="w-3.5 h-3.5" />
+              <span>Add Courier</span>
+            </button>
+            <span class="text-xs text-slate-400 font-mono hidden md:inline">{{ filteredCouriers.length }} partners</span>
+          </div>
+        </div>
+
+        <!-- Table Loading State -->
+        <div v-if="couriersLoading" class="py-12 flex justify-center items-center">
+          <UIcon name="i-heroicons-arrow-path" class="w-7 h-7 text-teal-600 animate-spin" />
+        </div>
+
+        <!-- Couriers Table -->
+        <div v-else class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-sm">
+            <thead>
+              <tr class="bg-slate-50/80 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 text-xs uppercase tracking-wider font-semibold border-b border-slate-100 dark:border-slate-700">
+                <th class="py-3 px-4">Courier Name & Code</th>
+                <th class="py-3 px-4">Tracking URL Template</th>
+                <th class="py-3 px-4">Display Order</th>
+                <th class="py-3 px-4">Status</th>
+                <th class="py-3 px-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+              <tr v-for="c in filteredCouriers" :key="c.id" class="hover:bg-slate-50/60 dark:hover:bg-slate-700/30 transition-colors">
+                <td class="py-3.5 px-4">
+                  <div class="font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                    <span>{{ c.name }}</span>
+                    <span class="text-[10px] font-mono px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                      {{ c.code }}
+                    </span>
+                  </div>
+                </td>
+                <td class="py-3.5 px-4 max-w-md">
+                  <div v-if="c.trackingUrlTemplate" class="text-xs text-slate-600 dark:text-slate-300 truncate font-mono bg-slate-50 dark:bg-slate-900 px-2 py-1 rounded border border-slate-200 dark:border-slate-700">
+                    {{ c.trackingUrlTemplate }}
+                  </div>
+                  <span v-else class="text-xs text-slate-400 italic">No tracking template configured</span>
+                </td>
+                <td class="py-3.5 px-4 text-xs font-mono text-slate-500">
+                  {{ c.sort ?? 0 }}
+                </td>
+                <td class="py-3.5 px-4">
+                  <button
+                    type="button"
+                    @click="toggleCourierActive(c)"
+                    :class="[
+                      'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all cursor-pointer hover:shadow-xs active:scale-95',
+                      c.active
+                        ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200/60'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-400 border border-slate-200'
+                    ]"
+                  >
+                    <span class="w-1.5 h-1.5 rounded-full" :class="c.active ? 'bg-emerald-500' : 'bg-slate-400'" />
+                    <span>{{ c.active ? 'Active' : 'Inactive' }}</span>
+                  </button>
+                </td>
+                <td class="py-3.5 px-4 text-right">
+                  <button
+                    type="button"
+                    @click="openEditCourierModal(c)"
+                    class="px-2.5 py-1 rounded-lg text-xs font-semibold text-teal-600 hover:text-teal-700 hover:bg-teal-50 dark:text-teal-400 dark:hover:bg-teal-950/40 transition-colors"
+                  >
+                    Edit
+                  </button>
+                </td>
+              </tr>
+              <tr v-if="filteredCouriers.length === 0">
+                <td colspan="5" class="py-12 text-center text-sm text-slate-400">
+                  No courier partners found.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <!-- TAB 3: SYSTEM SETTINGS -->
     <div v-if="activeTab === 'settings' && canManageSettings" class="space-y-6">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -951,6 +1087,266 @@
       </div>
     </div>
 
+    <!-- TAB: DATABASE & BACKUPS -->
+    <div v-if="activeTab === 'backups' && canManageBackups" class="space-y-6">
+      <!-- Database Health & Overview Banner -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- Live Records Count -->
+        <div class="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xs space-y-1">
+          <div class="flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <span>Operational Data</span>
+            <span class="text-base">🏥</span>
+          </div>
+          <div class="text-2xl font-bold text-slate-900 dark:text-slate-100">
+            {{ backupStats ? (backupStats.patientsCount + backupStats.casesCount + backupStats.leadsCount + backupStats.interactionsCount + backupStats.productsCount) : '...' }}
+          </div>
+          <p class="text-[11px] text-slate-400">
+            {{ backupStats ? `${backupStats.patientsCount} patients · ${backupStats.casesCount} cases · ${backupStats.leadsCount} leads · ${backupStats.productsCount} products` : 'Loading statistics...' }}
+          </p>
+        </div>
+
+        <!-- Database Storage Size -->
+        <div class="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xs space-y-1">
+          <div class="flex items-center justify-between text-xs font-semibold text-teal-600 dark:text-teal-400 uppercase tracking-wider">
+            <span>Database Size</span>
+            <span class="text-base">💽</span>
+          </div>
+          <div class="text-2xl font-bold text-teal-700 dark:text-teal-300">
+            {{ backupStats?.estimatedSizeFormatted || '...' }}
+          </div>
+          <p class="text-[11px] text-slate-400">
+            Across {{ backupStats?.totalTables || 35 }} relational schema tables
+          </p>
+        </div>
+
+        <!-- Last Backup Status -->
+        <div class="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xs space-y-1">
+          <div class="flex items-center justify-between text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
+            <span>Last Snapshot</span>
+            <span class="text-base">🕒</span>
+          </div>
+          <div class="text-base font-bold text-slate-900 dark:text-slate-100 truncate">
+            {{ backupStats?.lastBackupAt ? new Date(backupStats.lastBackupAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'short', timeStyle: 'short' }) : 'No backups yet' }}
+          </div>
+          <p class="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+            {{ backupsList.length }} protected archives available
+          </p>
+        </div>
+
+        <!-- Automated Protection Schedule -->
+        <div class="p-4 rounded-2xl bg-gradient-to-br from-teal-500/10 to-emerald-500/10 border border-teal-200 dark:border-teal-800/60 shadow-2xs space-y-1">
+          <div class="flex items-center justify-between text-xs font-semibold text-teal-800 dark:text-teal-300 uppercase tracking-wider">
+            <span>Auto Protection</span>
+            <span class="text-base">🛡️</span>
+          </div>
+          <div class="text-base font-bold text-teal-900 dark:text-teal-100">
+            Daily @ 02:00 AM IST
+          </div>
+          <p class="text-[11px] text-teal-700/80 dark:text-teal-300/80 font-medium">
+            7-day retention with auto-purge
+          </p>
+        </div>
+      </div>
+
+      <!-- Backups Table Card -->
+      <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+        <div class="p-4 border-b border-slate-100 dark:border-slate-700 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <span>Disaster Recovery &amp; Backup Archives</span>
+              <span class="text-xs px-2.5 py-0.5 rounded-full bg-teal-100 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 font-semibold">
+                {{ backupsList.length }} archives
+              </span>
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">
+              Compressed with gzip (.sql.gz) and verified with SHA-256 cryptographic signatures.
+            </p>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <!-- Hidden file input for uploading backup -->
+            <input
+              type="file"
+              ref="backupFileInput"
+              accept=".sql.gz,.gz"
+              class="hidden"
+              @change="handleBackupUpload"
+            />
+
+            <button
+              type="button"
+              @click="fetchBackups"
+              :disabled="backupsLoading"
+              class="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+              title="Refresh backups list"
+            >
+              <span :class="{'animate-spin': backupsLoading}">⟳</span>
+              <span>Refresh</span>
+            </button>
+
+            <!-- Upload Backup Button -->
+            <button
+              type="button"
+              @click="triggerFileInput"
+              :disabled="isUploadingBackup || backupsLoading"
+              class="px-3.5 py-1.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors disabled:opacity-50"
+              title="Upload a downloaded backup file (.sql.gz) from your computer"
+            >
+              <span v-if="isUploadingBackup" class="animate-spin">⟳</span>
+              <span v-else>📤</span>
+              <span>{{ isUploadingBackup ? 'Uploading File...' : 'Upload Backup' }}</span>
+            </button>
+
+            <button
+              type="button"
+              @click="triggerBackup"
+              :disabled="creatingBackup"
+              class="px-3.5 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors disabled:opacity-50"
+            >
+              <span v-if="creatingBackup" class="animate-spin">⟳</span>
+              <span v-else>+</span>
+              <span>Create Snapshot Now</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Loading spinner -->
+        <div v-if="backupsLoading" class="py-16 flex flex-col justify-center items-center gap-2">
+          <UIcon name="i-heroicons-arrow-path" class="w-8 h-8 text-teal-600 animate-spin" />
+          <span class="text-xs text-slate-400">Loading backup archives...</span>
+        </div>
+
+        <!-- Empty state -->
+        <div v-else-if="backupsList.length === 0" class="p-12 text-center text-slate-400 space-y-3">
+          <div class="w-14 h-14 mx-auto rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-2xl">
+            💾
+          </div>
+          <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-200">No backup archives found</h3>
+          <p class="text-xs text-slate-400 max-w-sm mx-auto">
+            Click "Create Snapshot Now" to generate an immediate backup of the live database, or upload an existing .sql.gz backup file.
+          </p>
+          <div class="flex items-center justify-center gap-3">
+            <button
+              type="button"
+              @click="triggerBackup"
+              :disabled="creatingBackup"
+              class="min-h-[44px] px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold shadow-xs transition-colors"
+            >
+              Create First Backup
+            </button>
+            <button
+              type="button"
+              @click="triggerFileInput"
+              :disabled="isUploadingBackup"
+              class="min-h-[44px] px-5 py-2.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 text-xs font-semibold shadow-xs transition-colors"
+            >
+              Upload Backup File
+            </button>
+          </div>
+        </div>
+
+        <!-- Table -->
+        <div v-else class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 uppercase tracking-wider font-semibold border-b border-slate-100 dark:border-slate-700">
+                <th class="py-3 px-4">Backup Archive</th>
+                <th class="py-3 px-4">Type</th>
+                <th class="py-3 px-4">Size</th>
+                <th class="py-3 px-4">Created Date (IST)</th>
+                <th class="py-3 px-4">SHA-256 Checksum</th>
+                <th class="py-3 px-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 dark:divide-slate-700/60">
+              <tr
+                v-for="b in backupsList"
+                :key="b.filename"
+                class="hover:bg-slate-50/80 dark:hover:bg-slate-750 transition-colors"
+              >
+                <td class="py-3.5 px-4 font-mono font-medium text-slate-900 dark:text-slate-100">
+                  <div class="flex items-center gap-2">
+                    <span class="text-base">📦</span>
+                    <span>{{ b.filename }}</span>
+                  </div>
+                </td>
+                <td class="py-3.5 px-4">
+                  <span
+                    v-if="b.type === 'automated'"
+                    class="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60"
+                  >
+                    🤖 Automated (02:00)
+                  </span>
+                  <span
+                    v-else-if="b.type === 'rollback'"
+                    class="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60"
+                  >
+                    🛡️ Pre-Restore Rollback
+                  </span>
+                  <span
+                    v-else-if="b.type === 'uploaded'"
+                    class="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60"
+                  >
+                    📤 Uploaded Backup
+                  </span>
+                  <span
+                    v-else
+                    class="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-teal-50 text-teal-700 dark:bg-teal-950/60 dark:text-teal-300 border border-teal-200 dark:border-teal-800/60"
+                  >
+                    👤 Manual Snapshot
+                  </span>
+                </td>
+                <td class="py-3.5 px-4 font-semibold text-slate-700 dark:text-slate-300">
+                  {{ b.sizeFormatted }}
+                </td>
+                <td class="py-3.5 px-4 text-slate-600 dark:text-slate-400">
+                  {{ new Date(b.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'medium' }) }}
+                </td>
+                <td class="py-3.5 px-4 font-mono text-[11px] text-slate-400 max-w-[140px] truncate" :title="b.sha256">
+                  {{ b.sha256 ? b.sha256.slice(0, 16) + '...' : 'Verified' }}
+                </td>
+                <td class="py-3.5 px-4 text-right">
+                  <div class="flex items-center justify-end gap-2">
+                    <!-- Download Button -->
+                    <button
+                      type="button"
+                      @click="downloadBackup(b.filename)"
+                      class="min-h-[36px] px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs flex items-center gap-1 transition-colors"
+                      title="Download backup file to local computer"
+                    >
+                      <span>⬇️</span>
+                      <span>Download</span>
+                    </button>
+
+                    <!-- Restore Button -->
+                    <button
+                      type="button"
+                      @click="openRestoreModal(b)"
+                      class="min-h-[36px] px-3 py-1.5 rounded-lg border border-rose-200 dark:border-rose-800 bg-rose-50/50 hover:bg-rose-100 dark:bg-rose-950/30 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 font-semibold text-xs flex items-center gap-1 transition-colors"
+                      title="Safely restore database from this backup"
+                    >
+                      <span>🔄</span>
+                      <span>Restore</span>
+                    </button>
+
+                    <!-- Delete Button -->
+                    <button
+                      type="button"
+                      @click="deleteBackupArchive(b)"
+                      class="min-h-[36px] px-2.5 py-1.5 rounded-lg hover:bg-rose-100 dark:hover:bg-rose-900/40 text-slate-400 hover:text-rose-600 transition-colors"
+                      title="Permanently delete this backup archive"
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <!-- MODAL: ADD / EDIT PICKLIST OPTION -->
     <div
       v-if="showPicklistModal"
@@ -1290,13 +1686,18 @@
               <select
                 v-model="userForm.roleId"
                 required
-                class="w-full min-h-[40px] px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-teal-500"
+                :disabled="isEditingUser && isSoleManagingDirector(editingUser)"
+                class="w-full min-h-[40px] px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-teal-500 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <option :value="null" disabled>Select a role...</option>
                 <option v-for="r in roles" :key="r.id" :value="r.id">
                   {{ r.name || r.code }}
                 </option>
               </select>
+              <p v-if="isEditingUser && isSoleManagingDirector(editingUser)" class="text-[11px] text-amber-600 dark:text-amber-400 mt-1 flex items-center gap-1 font-medium">
+                <UIcon name="i-heroicons-shield-check" class="w-3.5 h-3.5 flex-shrink-0" />
+                <span>Primary Managing Director: System requires at least one active Managing Director.</span>
+              </p>
             </div>
           </div>
 
@@ -1821,6 +2222,176 @@
       </form>
     </div>
   </div>
+
+  <!-- MODAL: SAFE DATABASE RESTORATION -->
+  <div
+    v-if="showRestoreModal"
+    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs"
+  >
+    <div class="bg-white dark:bg-slate-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-rose-200 dark:border-rose-900/60 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700">
+        <div class="flex items-center gap-2 text-rose-600 dark:text-rose-400">
+          <span class="text-xl">⚠️</span>
+          <h3 class="text-lg font-bold text-slate-900 dark:text-slate-100">
+            Restore Database Snapshot
+          </h3>
+        </div>
+        <button
+          type="button"
+          @click="showRestoreModal = false"
+          class="text-slate-400 hover:text-slate-600 font-bold"
+        >
+          ✕
+        </button>
+      </div>
+
+      <div class="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/80 text-rose-800 dark:text-rose-300 text-xs space-y-2">
+        <p class="font-semibold">
+          Warning: This action will replace all current operational data with the snapshot below!
+        </p>
+        <div class="font-mono text-[11px] bg-white/70 dark:bg-slate-900/70 p-2 rounded-lg border border-rose-200/60 dark:border-rose-800/40 space-y-0.5">
+          <div>Target: <strong>{{ selectedBackupForRestore?.filename }}</strong></div>
+          <div>Size: <strong>{{ selectedBackupForRestore?.sizeFormatted }}</strong></div>
+          <div>Created: <strong>{{ selectedBackupForRestore?.createdAt ? new Date(selectedBackupForRestore.createdAt).toLocaleString() : '' }}</strong></div>
+        </div>
+        <p class="text-[11px] text-rose-700 dark:text-rose-300">
+          ✓ <strong>Automatic Safety Net:</strong> The system will automatically generate a complete rollback snapshot of your live database right before applying the restore.
+        </p>
+      </div>
+
+      <div v-if="restoreSuccessMessage" class="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 text-xs border border-emerald-200">
+        {{ restoreSuccessMessage }}
+      </div>
+      <div v-if="restoreErrorMessage" class="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 text-xs border border-rose-200">
+        {{ restoreErrorMessage }}
+      </div>
+
+      <div v-if="!restoreSuccessMessage" class="space-y-2">
+        <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+          To proceed, type <span class="font-mono font-bold text-rose-600 dark:text-rose-400">RESTORE</span> below:
+        </label>
+        <input
+          v-model="restoreConfirmText"
+          type="text"
+          placeholder="RESTORE"
+          class="w-full min-h-[44px] px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-mono font-bold text-sm tracking-wider focus:outline-none focus:ring-2 focus:ring-rose-500"
+        />
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-700">
+        <button
+          type="button"
+          @click="showRestoreModal = false"
+          class="px-4 py-2 min-h-[44px] rounded-xl text-slate-600 dark:text-slate-400 font-semibold text-xs hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+        >
+          {{ restoreSuccessMessage ? 'Close' : 'Cancel' }}
+        </button>
+        <button
+          v-if="!restoreSuccessMessage"
+          type="button"
+          @click="executeRestore"
+          :disabled="restoreConfirmText !== 'RESTORE' || isRestoring"
+          class="min-h-[44px] px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs transition-colors shadow-sm disabled:opacity-40 flex items-center gap-1.5"
+        >
+          <span v-if="isRestoring" class="animate-spin">⟳</span>
+          <span>{{ isRestoring ? 'Restoring Database...' : 'Confirm & Restore' }}</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- MODAL: ADD / EDIT COURIER PARTNER -->
+    <div
+      v-if="showCourierModal"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs"
+    >
+      <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-xl space-y-4 border border-slate-200 dark:border-slate-700">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700">
+          <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">
+            {{ isEditingCourier ? 'Edit Courier Partner' : 'Add Courier Partner' }}
+          </h3>
+          <button @click="showCourierModal = false" class="text-slate-400 hover:text-slate-600 text-lg">✕</button>
+        </div>
+
+        <div v-if="courierFormError" class="p-3 rounded-xl bg-rose-50 text-rose-700 text-xs border border-rose-200">
+          {{ courierFormError }}
+        </div>
+
+        <div class="space-y-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Partner Code</label>
+            <input
+              v-model="courierForm.code"
+              type="text"
+              placeholder="e.g. DTDC, BLUEDART, INDIA_POST"
+              :disabled="isEditingCourier"
+              class="w-full min-h-[40px] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs font-mono uppercase focus:ring-2 focus:ring-teal-500 disabled:opacity-50"
+            />
+            <p class="text-[11px] text-slate-400 mt-0.5">Unique system code (uppercase, letters & underscores)</p>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Partner Display Name</label>
+            <input
+              v-model="courierForm.name"
+              type="text"
+              placeholder="e.g. DTDC Express, Blue Dart"
+              class="w-full min-h-[40px] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs focus:ring-2 focus:ring-teal-500"
+            />
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Tracking URL Template</label>
+            <input
+              v-model="courierForm.trackingUrlTemplate"
+              type="text"
+              placeholder="https://carrier.com/track?awb={TRACKING_NUMBER}"
+              class="w-full min-h-[40px] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs font-mono focus:ring-2 focus:ring-teal-500"
+            />
+            <p class="text-[11px] text-slate-400 mt-0.5">
+              Use <code class="text-teal-600 font-bold">{TRACKING_NUMBER}</code> as the placeholder for customer AWB
+            </p>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Sort Order</label>
+              <input
+                v-model.number="courierForm.sort"
+                type="number"
+                class="w-full min-h-[40px] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs focus:ring-2 focus:ring-teal-500"
+              />
+            </div>
+            <div class="flex items-center pt-5">
+              <label class="flex items-center space-x-2 cursor-pointer">
+                <input
+                  v-model="courierForm.active"
+                  type="checkbox"
+                  class="w-4 h-4 text-teal-600 rounded focus:ring-teal-500"
+                />
+                <span class="text-xs font-semibold text-slate-700 dark:text-slate-300">Active</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100 dark:border-slate-700">
+          <button
+            @click="showCourierModal = false"
+            class="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold"
+          >
+            Cancel
+          </button>
+          <button
+            @click="saveCourier"
+            :disabled="savingCourier"
+            class="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold disabled:opacity-50"
+          >
+            {{ savingCourier ? 'Saving...' : (isEditingCourier ? 'Update Partner' : 'Create Partner') }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -1846,8 +2417,11 @@ const userRoleCode = computed(() => {
 
 const canManagePicklists = computed(() => {
   const role = userRoleCode.value;
+  if (['telecaller_manager', 'support_telecaller', 'caller', 'doctor', 'admission_specialist', 'aftercare_executive'].includes(role)) {
+    return false;
+  }
   return (
-    ['owner', 'admin', 'center_head', 'telecaller_manager', 'product_manager'].includes(role) ||
+    ['owner', 'admin', 'center_head', 'product_manager'].includes(role) ||
     authStore.hasPermission('settings.manage')
   );
 });
@@ -1867,7 +2441,16 @@ const canViewAudit = computed(() => {
   return ['owner', 'admin', 'center_head'].includes(role) || authStore.hasPermission('audit.view');
 });
 
-const validTabs = ['users', 'doctors', 'branches', 'picklists', 'settings', 'audit'] as const;
+const canManageBackups = computed(() => {
+  const role = userRoleCode.value;
+  return (
+    ['owner', 'admin', 'super_admin'].includes(role) ||
+    authStore.hasPermission('settings.manage') ||
+    authStore.hasPermission('backup.manage')
+  );
+});
+
+const validTabs = ['users', 'doctors', 'branches', 'picklists', 'couriers', 'settings', 'audit', 'backups'] as const;
 type TabType = typeof validTabs[number];
 
 const tabList = computed(() => {
@@ -1876,8 +2459,10 @@ const tabList = computed(() => {
   if (canManageSettings.value) list.push({ id: 'doctors', label: 'Doctors Directory' });
   if (canManageSettings.value) list.push({ id: 'branches', label: 'Hospital Branches' });
   if (canManagePicklists.value) list.push({ id: 'picklists', label: 'Master Picklists' });
+  if (canManageSettings.value) list.push({ id: 'couriers', label: 'Courier Partners' });
   if (canManageSettings.value) list.push({ id: 'settings', label: 'System Settings' });
   if (canViewAudit.value) list.push({ id: 'audit', label: 'Audit Logs' });
+  if (canManageBackups.value) list.push({ id: 'backups', label: 'Database & Backups' });
   if (list.length === 0) list.push({ id: 'picklists', label: 'Master Picklists' });
   return list;
 });
@@ -1894,6 +2479,10 @@ function switchTab(tabId: TabType) {
     fetchAuditLogs();
   } else if (tabId === 'doctors') {
     fetchDoctors();
+  } else if (tabId === 'couriers') {
+    fetchCouriers();
+  } else if (tabId === 'backups') {
+    fetchBackups();
   }
 }
 
@@ -1904,6 +2493,10 @@ watch(
       activeTab.value = newTab as TabType;
       if (newTab === 'audit') {
         fetchAuditLogs();
+      } else if (newTab === 'couriers') {
+        fetchCouriers();
+      } else if (newTab === 'backups') {
+        fetchBackups();
       }
     }
   }
@@ -2178,8 +2771,19 @@ const settingsForm = ref({
 
 const showUserModal = ref(false);
 const isEditingUser = ref(false);
+const editingUser = ref<any>(null);
 const savingUser = ref(false);
 const userModalError = ref<string | null>(null);
+
+function isSoleManagingDirector(u: any): boolean {
+  if (!u) return false;
+  const roleCode = u.role?.code || u.roleCode;
+  if (roleCode !== 'owner') return false;
+  const activeOwners = (users.value || []).filter(
+    (item) => (item.role?.code === 'owner' || item.roleCode === 'owner') && item.status === 'active'
+  );
+  return activeOwners.length <= 1;
+}
 
 const userForm = ref({
   id: 0,
@@ -2479,6 +3083,10 @@ async function saveSettings() {
 }
 
 function initiateDeactivation(user: any) {
+  if (isSoleManagingDirector(user)) {
+    alert('The hospital organization must have at least one active Managing Director account. You cannot deactivate the only active Managing Director.');
+    return;
+  }
   deactivatingUser.value = user;
   reassignTargetUserId.value = null;
   deactivationReason.value = '';
@@ -2510,6 +3118,7 @@ async function confirmDeactivation() {
 
 function openCreateUserModal() {
   isEditingUser.value = false;
+  editingUser.value = null;
   userModalError.value = null;
   const defaultBranchId = branches.value[0]?.id ? [branches.value[0].id] : [];
   userForm.value = {
@@ -2531,6 +3140,7 @@ function openCreateUserModal() {
 
 function openEditUserModal(user: any) {
   isEditingUser.value = true;
+  editingUser.value = user;
   userModalError.value = null;
   userForm.value = {
     id: user.id,
@@ -2561,6 +3171,21 @@ async function saveUser() {
       userModalError.value = 'Please select at least one branch';
       savingUser.value = false;
       return;
+    }
+
+    // Condition: Prevent demoting or deactivating the sole Managing Director
+    if (isEditingUser.value && editingUser.value && isSoleManagingDirector(editingUser.value)) {
+      const selectedRole = roles.value.find((r) => r.id === userForm.value.roleId);
+      if (selectedRole && selectedRole.code !== 'owner') {
+        userModalError.value = 'The hospital organization must have at least one active Managing Director account. You cannot change the role of the only active Managing Director.';
+        savingUser.value = false;
+        return;
+      }
+      if (userForm.value.status === 'inactive') {
+        userModalError.value = 'The hospital organization must have at least one active Managing Director account. You cannot deactivate this account.';
+        savingUser.value = false;
+        return;
+      }
     }
 
     if (isEditingUser.value) {
@@ -2618,6 +3243,10 @@ async function saveUser() {
 }
 
 function initiateSoftDelete(user: any) {
+  if (isSoleManagingDirector(user)) {
+    alert('The hospital organization must have at least one active Managing Director account. You cannot delete the only active Managing Director.');
+    return;
+  }
   deletingUser.value = user;
   deleteReassignTargetUserId.value = null;
   deleteReason.value = '';
@@ -2903,10 +3532,325 @@ async function fetchDoctors() {
   }
 }
 
+// Database & Backups Management State
+const backupsLoading = ref(false);
+const creatingBackup = ref(false);
+const backupStats = ref<any>(null);
+const backupsList = ref<any[]>([]);
+
+// Restore modal state
+const showRestoreModal = ref(false);
+const selectedBackupForRestore = ref<any>(null);
+const restoreConfirmText = ref('');
+const isRestoring = ref(false);
+const restoreSuccessMessage = ref('');
+const restoreErrorMessage = ref('');
+
+const getBackupAuthHeaders = (): Record<string, string> => {
+  const token = authStore.token || authStore.accessToken || (typeof window !== 'undefined' ? localStorage.getItem('hospital_crm_token') : null);
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+};
+
+const fetchBackups = async () => {
+  if (!canManageBackups.value) return;
+  backupsLoading.value = true;
+  try {
+    const res = await $fetch<any>(`${apiBase}/admin/backups`, {
+      headers: getBackupAuthHeaders(),
+      credentials: 'include',
+    });
+    backupStats.value = res.stats;
+    backupsList.value = res.backups || [];
+  } catch (err) {
+    console.error('Failed to load backups data', err);
+  } finally {
+    backupsLoading.value = false;
+  }
+};
+
+const triggerBackup = async () => {
+  creatingBackup.value = true;
+  try {
+    const res = await $fetch<any>(`${apiBase}/admin/backups`, {
+      method: 'POST',
+      headers: getBackupAuthHeaders(),
+      credentials: 'include',
+    });
+    alert(`Backup created successfully! (${res.backup?.sizeFormatted || 'Saved'})`);
+    await fetchBackups();
+  } catch (err: any) {
+    alert(err.data?.error?.message || 'Failed to create database backup');
+  } finally {
+    creatingBackup.value = false;
+  }
+};
+
+const downloadBackup = async (filename: string) => {
+  try {
+    const res = await fetch(`${apiBase}/admin/backups/${encodeURIComponent(filename)}/download`, {
+      headers: getBackupAuthHeaders(),
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Download failed');
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  } catch (err: any) {
+    alert(err.message || 'Failed to download backup archive');
+  }
+};
+
+const backupFileInput = ref<HTMLInputElement | null>(null);
+const isUploadingBackup = ref(false);
+
+const triggerFileInput = () => {
+  backupFileInput.value?.click();
+};
+
+const handleBackupUpload = async (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  const file = target.files?.[0];
+  if (!file) return;
+
+  const name = file.name.toLowerCase();
+  if (!name.endsWith('.sql.gz') && !name.endsWith('.gz')) {
+    alert('Please select a valid .sql.gz backup file.');
+    target.value = '';
+    return;
+  }
+
+  isUploadingBackup.value = true;
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const res = await fetch(`${apiBase}/admin/backups/upload`, {
+      method: 'POST',
+      headers: getBackupAuthHeaders(),
+      credentials: 'include',
+      body: formData,
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data?.error?.message || 'Failed to upload backup file.');
+    }
+
+    await fetchBackups();
+
+    const shouldRestore = confirm(
+      `Backup file '${data.backup?.filename || file.name}' uploaded and verified successfully!\n\nWould you like to restore your database from this backup now?`
+    );
+
+    if (shouldRestore && data.backup) {
+      openRestoreModal(data.backup);
+    }
+  } catch (err: any) {
+    alert(err.message || 'Error uploading backup file.');
+  } finally {
+    isUploadingBackup.value = false;
+    target.value = '';
+  }
+};
+
+const openRestoreModal = (backup: any) => {
+  selectedBackupForRestore.value = backup;
+  restoreConfirmText.value = '';
+  restoreSuccessMessage.value = '';
+  restoreErrorMessage.value = '';
+  showRestoreModal.value = true;
+};
+
+const executeRestore = async () => {
+  if (restoreConfirmText.value !== 'RESTORE' || !selectedBackupForRestore.value) return;
+  isRestoring.value = true;
+  restoreErrorMessage.value = '';
+  restoreSuccessMessage.value = '';
+
+  try {
+    const res = await $fetch<any>(`${apiBase}/admin/backups/${encodeURIComponent(selectedBackupForRestore.value.filename)}/restore`, {
+      method: 'POST',
+      headers: getBackupAuthHeaders(),
+      credentials: 'include',
+      body: { confirm: 'RESTORE' },
+    });
+    restoreSuccessMessage.value = `Database restored successfully! A safety rollback snapshot '${res.rollbackSnapshot}' was saved prior to restoration.`;
+    await fetchBackups();
+  } catch (err: any) {
+    restoreErrorMessage.value = err.data?.error?.message || 'Failed to restore database from backup archive';
+  } finally {
+    isRestoring.value = false;
+  }
+};
+
+const deleteBackupArchive = async (backup: any) => {
+  if (!confirm(`Are you sure you want to permanently delete backup '${backup.filename}'?`)) return;
+  try {
+    await $fetch<any>(`${apiBase}/admin/backups/${encodeURIComponent(backup.filename)}`, {
+      method: 'DELETE',
+      headers: getBackupAuthHeaders(),
+      credentials: 'include',
+    });
+    await fetchBackups();
+  } catch (err: any) {
+    alert(err.data?.error?.message || 'Failed to delete backup archive');
+  }
+};
+
+// Courier Partners Management
+const couriers = ref<any[]>([]);
+const courierSearch = ref('');
+const couriersLoading = ref(false);
+const showCourierModal = ref(false);
+const isEditingCourier = ref(false);
+const savingCourier = ref(false);
+const courierFormError = ref('');
+const courierForm = ref({
+  id: null as number | null,
+  code: '',
+  name: '',
+  trackingUrlTemplate: '',
+  active: true,
+  sort: 0,
+});
+
+const filteredCouriers = computed(() => {
+  if (!courierSearch.value.trim()) return couriers.value;
+  const q = courierSearch.value.toLowerCase().trim();
+  return couriers.value.filter(
+    (c: any) => c.name?.toLowerCase().includes(q) || c.code?.toLowerCase().includes(q)
+  );
+});
+
+const fetchCouriers = async () => {
+  if (!canManageSettings.value) return;
+  couriersLoading.value = true;
+  try {
+    const res = await $fetch<any>(`${apiBase}/admin/couriers`, {
+      headers: getBackupAuthHeaders(),
+      credentials: 'include',
+    });
+    couriers.value = res.couriers || (Array.isArray(res) ? res : []);
+  } catch (err: any) {
+    console.error('Failed to load couriers:', err);
+  } finally {
+    couriersLoading.value = false;
+  }
+};
+
+const openCreateCourierModal = () => {
+  isEditingCourier.value = false;
+  courierFormError.value = '';
+  courierForm.value = {
+    id: null,
+    code: '',
+    name: '',
+    trackingUrlTemplate: '',
+    active: true,
+    sort: couriers.value.length + 1,
+  };
+  showCourierModal.value = true;
+};
+
+const openEditCourierModal = (c: any) => {
+  isEditingCourier.value = true;
+  courierFormError.value = '';
+  courierForm.value = {
+    id: c.id,
+    code: c.code,
+    name: c.name,
+    trackingUrlTemplate: c.trackingUrlTemplate || '',
+    active: c.active !== false,
+    sort: c.sort ?? 0,
+  };
+  showCourierModal.value = true;
+};
+
+const toggleCourierActive = async (c: any) => {
+  try {
+    await $fetch<any>(`${apiBase}/admin/couriers/${c.id}`, {
+      method: 'PATCH',
+      headers: getBackupAuthHeaders(),
+      credentials: 'include',
+      body: { active: !c.active },
+    });
+    c.active = !c.active;
+  } catch (err: any) {
+    alert(err.data?.error?.message || 'Failed to update courier partner status');
+  }
+};
+
+const saveCourier = async () => {
+  if (!courierForm.value.name.trim()) {
+    courierFormError.value = 'Please provide a partner display name';
+    return;
+  }
+  if (!isEditingCourier.value && !courierForm.value.code.trim()) {
+    courierFormError.value = 'Please provide a unique partner code';
+    return;
+  }
+
+  savingCourier.value = true;
+  courierFormError.value = '';
+
+  try {
+    if (isEditingCourier.value && courierForm.value.id) {
+      await $fetch<any>(`${apiBase}/admin/couriers/${courierForm.value.id}`, {
+        method: 'PATCH',
+        headers: getBackupAuthHeaders(),
+        credentials: 'include',
+        body: {
+          name: courierForm.value.name.trim(),
+          trackingUrlTemplate: courierForm.value.trackingUrlTemplate.trim() || null,
+          sort: courierForm.value.sort,
+          active: courierForm.value.active,
+        },
+      });
+    } else {
+      await $fetch<any>(`${apiBase}/admin/couriers`, {
+        method: 'POST',
+        headers: getBackupAuthHeaders(),
+        credentials: 'include',
+        body: {
+          code: courierForm.value.code.trim(),
+          name: courierForm.value.name.trim(),
+          trackingUrlTemplate: courierForm.value.trackingUrlTemplate.trim() || null,
+          sort: courierForm.value.sort,
+          active: courierForm.value.active,
+        },
+      });
+    }
+    showCourierModal.value = false;
+    await fetchCouriers();
+  } catch (err: any) {
+    courierFormError.value = err.data?.error?.message || 'Failed to save courier partner';
+  } finally {
+    savingCourier.value = false;
+  }
+};
+
 onMounted(() => {
+  if (['telecaller_manager', 'support_telecaller', 'caller', 'doctor', 'admission_specialist', 'aftercare_executive'].includes(userRoleCode.value)) {
+    navigateTo('/');
+    return;
+  }
   loadData();
   if (activeTab.value === 'audit') {
     fetchAuditLogs();
+  } else if (activeTab.value === 'couriers') {
+    fetchCouriers();
+  } else if (activeTab.value === 'backups') {
+    fetchBackups();
   }
 });
 </script>

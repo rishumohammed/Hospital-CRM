@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { FastifyInstance } from 'fastify';
 import { buildApp } from '../../app';
 import { prisma } from '../../database/client';
+import { generateAccessToken } from '../auth/token';
 
 describe('Picklists & Settings API Endpoints (Milestone 2)', () => {
   let app: FastifyInstance;
@@ -12,21 +13,22 @@ describe('Picklists & Settings API Endpoints (Milestone 2)', () => {
     app = await buildApp();
     await app.ready();
 
-    // Login Admin
-    const adminLogin = await app.inject({
-      method: 'POST',
-      url: '/api/v1/auth/login',
-      payload: { identifier: 'admin@hospital.test', password: 'HospitalCRM@2026' },
+    // Authenticate Admin / Owner
+    adminToken = generateAccessToken({
+      userId: 1,
+      email: 'md@samadelements.com',
+      roleCode: 'owner',
+      branchIds: [],
+      teamCodes: [],
     });
-    adminToken = JSON.parse(adminLogin.payload).accessToken;
 
-    // Login Support Telecaller
-    const telecallerLogin = await app.inject({
-      method: 'POST',
-      url: '/api/v1/auth/login',
-      payload: { identifier: 'telecaller1@hospital.test', password: 'HospitalCRM@2026' },
+    telecallerToken = generateAccessToken({
+      userId: 1,
+      email: 'telecaller@samadelements.com',
+      roleCode: 'telecaller_support',
+      branchIds: [],
+      teamCodes: [],
     });
-    telecallerToken = JSON.parse(telecallerLogin.payload).accessToken;
 
     // Reset calling_hours setting for idempotency
     await prisma.setting.upsert({
@@ -119,6 +121,18 @@ describe('Picklists & Settings API Endpoints (Milestone 2)', () => {
     expect(res.statusCode).toBe(200);
     const reasons = JSON.parse(res.payload);
     expect(reasons.length).toBeGreaterThanOrEqual(8);
+  });
+
+  it('GET /api/v1/picklists/lost_reasons (snake_case alias) also returns lead lost reasons', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/v1/picklists/lost_reasons',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const reasons = JSON.parse(res.payload);
+    expect(reasons.length).toBeGreaterThanOrEqual(8);
+    expect(reasons[0].labelEn).toBeDefined();
   });
 
   it('GET /api/v1/picklists/decline-reasons returns admission decline reasons', async () => {

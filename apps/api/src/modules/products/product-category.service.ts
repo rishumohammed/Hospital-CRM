@@ -4,12 +4,13 @@ import { recordAuditLog } from '../audit/audit.service';
 import { CreateProductCategoryInput, UpdateProductCategoryInput } from '@hospital-crm/shared';
 
 function generateSlug(name: string): string {
-  return name
+  const base = name
     .toLowerCase()
     .trim()
     .replace(/[^\w\s-]/g, '')
     .replace(/[\s_-]+/g, '-')
     .replace(/^-+|-+$/g, '');
+  return base && base.length >= 2 ? base : `cat-${Date.now().toString(36)}`;
 }
 
 export async function listProductCategories(includeInactive: boolean = false) {
@@ -60,15 +61,17 @@ export async function createProductCategory(
   ip?: string,
   userAgent?: string
 ) {
-  const slug = input.slug ? input.slug.trim().toLowerCase() : generateSlug(input.name);
+  const baseSlug = input.slug && input.slug.trim().length >= 2 ? input.slug.trim().toLowerCase() : generateSlug(input.name);
 
-  // Check unique slug
+  // Check unique slug; auto-suffix if slug already exists to prevent duplicate collisions
+  let slug = baseSlug;
   const existingSlug = await prisma.productCategory.findUnique({ where: { slug } });
   if (existingSlug) {
-    const error: any = new Error(`Category slug '${slug}' already exists`);
-    error.statusCode = 409;
-    error.code = 'DUPLICATE_SLUG';
-    throw error;
+    let suffix = 1;
+    while (await prisma.productCategory.findUnique({ where: { slug: `${baseSlug}-${suffix}` } })) {
+      suffix++;
+    }
+    slug = `${baseSlug}-${suffix}`;
   }
 
   const parentId = input.parentId ?? input.parent_id ?? null;
@@ -137,7 +140,7 @@ export async function updateProductCategory(
   if (input.active !== undefined) data.active = input.active;
   if (input.description !== undefined) data.description = input.description;
 
-  if (input.slug !== undefined) {
+  if (input.slug !== undefined && input.slug !== null) {
     const slug = input.slug.trim().toLowerCase();
     const slugExists = await prisma.productCategory.findUnique({ where: { slug } });
     if (slugExists && slugExists.id !== id && !slugExists.archivedAt) {
@@ -217,25 +220,36 @@ export async function archiveProductCategory(
   }
 
   if (category.slug === 'uncategorized') {
-    const error: any = new Error('Uncategorized is a system category and cannot be archived');
+    const error: any = new Error('Uncategorized is a system category and cannot be deleted');
     error.statusCode = 400;
     error.code = 'SYSTEM_CATEGORY_PROTECTED';
     throw error;
   }
 
-  // Count active products in category and its children
-  const directCount = category.products.length;
-  const childCount = category.children.reduce((acc, c) => acc + c.products.length, 0);
-  const totalActiveProducts = directCount + childCount;
-
-  if (totalActiveProducts > 0) {
+  // 1. Enforce requirement: Delete subcategories first before deleting parent category
+  if (category.children.length > 0) {
     const error: any = new Error(
-      `Cannot archive category '${category.name}' because it contains ${totalActiveProducts} active products. Please move products to another category first.`
+      `Cannot delete category '${category.name}' because it contains ${category.children.length} subcategory(s). Please delete all subcategories first.`
+    );
+    error.statusCode = 400;
+    error.code = 'CATEGORY_HAS_SUBCATEGORIES';
+    error.details = {
+      subcategoriesCount: category.children.length,
+      subcategories: category.children.map((c) => ({ id: c.id, name: c.name })),
+    };
+    throw error;
+  }
+
+  // 2. Count active products in this category
+  const directCount = category.products.length;
+  if (directCount > 0) {
+    const error: any = new Error(
+      `Cannot delete category '${category.name}' because it contains ${directCount} active product(s). Please move products to another category first.`
     );
     error.statusCode = 400;
     error.code = 'CATEGORY_HAS_ACTIVE_PRODUCTS';
     error.details = {
-      productCount: totalActiveProducts,
+      productCount: directCount,
       canMove: true,
     };
     throw error;
@@ -251,7 +265,7 @@ export async function archiveProductCategory(
 
   await recordAuditLog({
     userId: user.id,
-    action: 'PRODUCT_CATEGORY_ARCHIVED',
+    action: 'PRODUCT_CATEGORY_DELETED',
     entity: 'product_category',
     entityId: id,
     before: category,
@@ -261,6 +275,8 @@ export async function archiveProductCategory(
 
   return archived;
 }
+
+export const deleteProductCategory = archiveProductCategory;
 
 export async function moveCategoryProducts(
   fromCategoryId: number,

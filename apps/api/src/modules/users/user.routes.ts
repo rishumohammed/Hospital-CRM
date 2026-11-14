@@ -1,6 +1,6 @@
 import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { createUserSchema, updateUserSchema, Permissions } from '@hospital-crm/shared';
+import { createUserSchema, updateUserSchema, Permissions, Roles } from '@hospital-crm/shared';
 import { prisma } from '../../database/client';
 import { hashPassword } from '../auth/password';
 import { authenticate, requirePermission } from '../auth/auth.middleware';
@@ -275,6 +275,30 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       const data: typeof parseResult.data & { status?: 'active' | 'inactive' } = parseResult.data;
+
+      // Condition: There must always be at least one active Managing Director account
+      const existingRole = await prisma.role.findUnique({ where: { id: existing.roleId } });
+      const isDemotingMd = data.roleId && existingRole?.code === Roles.OWNER && data.roleId !== existing.roleId;
+      const isDeactivatingMd = data.status === 'inactive' && existingRole?.code === Roles.OWNER;
+
+      if (isDemotingMd || isDeactivatingMd) {
+        const activeMdCount = await prisma.user.count({
+          where: {
+            role: { code: Roles.OWNER },
+            status: 'active',
+            archivedAt: null,
+          },
+        });
+        if (activeMdCount <= 1) {
+          return reply.status(400).send({
+            error: {
+              code: 'MANAGING_DIRECTOR_REQUIRED',
+              message: 'The hospital organization must have at least one active Managing Director account. You cannot remove or change the role of the only active Managing Director.',
+            },
+          });
+        }
+      }
+
       const updatePayload: any = {};
 
       if (data.name) updatePayload.name = data.name;
@@ -360,11 +384,33 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
 
       const { reassignToUserId, reason } = parseResult.data;
 
-      const user = await prisma.user.findUnique({ where: { id } });
+      const user = await prisma.user.findUnique({
+        where: { id },
+        include: { role: true },
+      });
       if (!user || user.archivedAt) {
         return reply.status(404).send({
           error: { code: 'NOT_FOUND', message: 'User not found' },
         });
+      }
+
+      // Condition: There must always be at least one active Managing Director account
+      if (user.role?.code === Roles.OWNER) {
+        const activeMdCount = await prisma.user.count({
+          where: {
+            role: { code: Roles.OWNER },
+            status: 'active',
+            archivedAt: null,
+          },
+        });
+        if (activeMdCount <= 1) {
+          return reply.status(400).send({
+            error: {
+              code: 'MANAGING_DIRECTOR_REQUIRED',
+              message: 'The hospital organization must have at least one active Managing Director account. You cannot deactivate the only active Managing Director.',
+            },
+          });
+        }
       }
 
       // Check open record counts
@@ -458,7 +504,10 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
     { preHandler: [requirePermission(Permissions.USER_MANAGE)] },
     async (request, reply) => {
       const id = parseInt((request.params as any).id, 10);
-      const user = await prisma.user.findUnique({ where: { id } });
+      const user = await prisma.user.findUnique({
+        where: { id },
+        include: { role: true },
+      });
       if (!user || user.archivedAt) {
         return reply.status(404).send({
           error: { code: 'NOT_FOUND', message: 'User not found or already deleted' },
@@ -469,6 +518,25 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(400).send({
           error: { code: 'CANNOT_DELETE_SELF', message: 'You cannot delete your own account' },
         });
+      }
+
+      // Condition: There must always be at least one active Managing Director account
+      if (user.role?.code === Roles.OWNER) {
+        const activeMdCount = await prisma.user.count({
+          where: {
+            role: { code: Roles.OWNER },
+            status: 'active',
+            archivedAt: null,
+          },
+        });
+        if (activeMdCount <= 1) {
+          return reply.status(400).send({
+            error: {
+              code: 'MANAGING_DIRECTOR_REQUIRED',
+              message: 'The hospital organization must have at least one active Managing Director account. You cannot delete the only active Managing Director.',
+            },
+          });
+        }
       }
 
       const body = (request.body || {}) as { reassignToUserId?: number; reason?: string };

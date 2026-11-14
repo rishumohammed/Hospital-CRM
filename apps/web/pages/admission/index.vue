@@ -125,6 +125,26 @@
               <UIcon name="i-heroicons-phone" class="w-3.5 h-3.5" />
               <span>Call</span>
             </a>
+            <button
+              v-if="canManageTasks"
+              type="button"
+              @click="markTaskComplete(task.id)"
+              class="px-2 py-1.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-semibold rounded-lg text-xs flex items-center gap-1 transition-colors"
+              title="Mark reminder done"
+            >
+              <UIcon name="i-heroicons-check" class="w-3.5 h-3.5" />
+              <span>Done</span>
+            </button>
+            <button
+              v-if="canManageTasks"
+              type="button"
+              @click="markTaskCancelled(task.id)"
+              class="px-2 py-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 font-semibold rounded-lg text-xs flex items-center gap-1 transition-colors"
+              title="Cancel reminder"
+            >
+              <UIcon name="i-heroicons-x-mark" class="w-3.5 h-3.5" />
+              <span>Cancel</span>
+            </button>
           </div>
         </div>
       </div>
@@ -149,7 +169,7 @@
             <NuxtLink :to="`/cases/${overdue.id}`" class="font-semibold hover:underline">
               {{ overdue.patientName }} ({{ overdue.patientCode }})
             </NuxtLink>
-            <p class="text-[10px] text-slate-500">Overdue by {{ overdue.hoursOverdue }}h</p>
+            <p class="text-[10px] text-slate-500">Overdue by {{ formatDurationHuman(overdue.hoursOverdue * 60) }}</p>
           </div>
           <NuxtLink
             :to="`/cases/${overdue.id}`"
@@ -167,7 +187,7 @@
         v-for="stg in pipelineTabs"
         :key="stg.key"
         type="button"
-        @click="selectedStage = stg.key; fetchCases()"
+        @click="selectedStage = stg.key; page = 1; fetchCases()"
         :class="[
           'px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-all min-h-[44px] flex items-center gap-2',
           selectedStage === stg.key
@@ -272,15 +292,37 @@
             <!-- Scheduled Next Follow-up -->
             <div
               v-if="c.tasks && c.tasks.length > 0"
-              class="mt-2.5 p-2 rounded-xl bg-teal-50/80 dark:bg-teal-950/40 border border-teal-200/60 dark:border-teal-800 text-xs text-teal-900 dark:text-teal-200 flex items-center justify-between gap-2"
+              class="mt-2.5 p-2 rounded-xl bg-teal-50/80 dark:bg-teal-950/40 border border-teal-200/60 dark:border-teal-800 text-xs text-teal-900 dark:text-teal-200 flex flex-wrap items-center justify-between gap-2"
             >
               <span class="flex items-center gap-1.5 font-medium truncate">
                 <UIcon name="i-heroicons-clock" class="w-4 h-4 text-teal-600 flex-shrink-0" />
                 <span>Next Follow-up: <strong>{{ c.tasks[0].title }}</strong></span>
               </span>
-              <span class="font-semibold text-teal-700 dark:text-teal-300 flex-shrink-0 text-[11px]">
-                Due: {{ new Date(c.tasks[0].dueAt).toLocaleString() }}
-              </span>
+              <div class="flex items-center gap-2 flex-shrink-0">
+                <span class="font-semibold text-teal-700 dark:text-teal-300 text-[11px]">
+                  Due: {{ new Date(c.tasks[0].dueAt).toLocaleString() }}
+                </span>
+                <button
+                  v-if="canManageTasks"
+                  type="button"
+                  @click="markTaskComplete(c.tasks[0].id)"
+                  class="px-2 py-0.5 rounded-md bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-950 dark:hover:bg-emerald-900 text-emerald-800 dark:text-emerald-200 font-semibold text-[11px] flex items-center gap-1 transition-colors"
+                  title="Mark follow-up completed"
+                >
+                  <UIcon name="i-heroicons-check" class="w-3 h-3" />
+                  <span>Done</span>
+                </button>
+                <button
+                  v-if="canManageTasks"
+                  type="button"
+                  @click="markTaskCancelled(c.tasks[0].id)"
+                  class="px-2 py-0.5 rounded-md bg-rose-100 hover:bg-rose-200 dark:bg-rose-950 dark:hover:bg-rose-900 text-rose-800 dark:text-rose-200 font-semibold text-[11px] flex items-center gap-1 transition-colors"
+                  title="Cancel reminder early"
+                >
+                  <UIcon name="i-heroicons-x-mark" class="w-3 h-3" />
+                  <span>Cancel</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -296,6 +338,7 @@
           </a>
 
           <UButton
+            v-if="canLogCall"
             @click="openLogCall(c)"
             color="teal"
             variant="soft"
@@ -306,6 +349,7 @@
           </UButton>
 
           <UButton
+            v-if="canAdvanceStage"
             @click="openAdvanceModal(c)"
             color="primary"
             variant="solid"
@@ -321,6 +365,31 @@
             <span>View</span>
             <UIcon name="i-heroicons-chevron-right" class="w-4 h-4" />
           </NuxtLink>
+        </div>
+      </div>
+
+      <!-- Pagination Footer -->
+      <div v-if="totalPages > 1" class="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-between text-xs">
+        <span class="text-slate-500 dark:text-slate-400">
+          Page {{ page }} of {{ totalPages }} ({{ total }} cases)
+        </span>
+        <div class="flex items-center space-x-1.5">
+          <button
+            type="button"
+            @click="page--; fetchCases()"
+            :disabled="page <= 1"
+            class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40 font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors cursor-pointer"
+          >
+            Previous
+          </button>
+          <button
+            type="button"
+            @click="page++; fetchCases()"
+            :disabled="page >= totalPages"
+            class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40 font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors cursor-pointer"
+          >
+            Next
+          </button>
         </div>
       </div>
     </div>
@@ -440,6 +509,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useAuthStore } from '~/stores/auth';
+import { formatDurationHuman } from '~/utils/time-format';
 
 const { t } = useI18n();
 const authStore = useAuthStore();
@@ -447,6 +517,10 @@ const config = useRuntimeConfig();
 
 const showLogCall = ref(false);
 const callCase = ref<any>(null);
+
+const canManageTasks = computed(() => authStore.hasPermission('task.manage'));
+const canLogCall = computed(() => authStore.hasPermission('interaction.create'));
+const canAdvanceStage = computed(() => authStore.hasPermission('case.edit'));
 
 function openLogCall(c: any) {
   callCase.value = c;
@@ -459,11 +533,43 @@ function handleCallLogged() {
   fetchReport();
 }
 
+async function markTaskComplete(taskId: number) {
+  try {
+    await $fetch(`${config.public.apiBase}/tasks/${taskId}/complete`, {
+      method: 'POST',
+      headers: authStore.token ? { authorization: `Bearer ${authStore.token}` } : {},
+      credentials: 'include',
+    });
+    await Promise.all([fetchReport(), fetchCases()]);
+  } catch (err: any) {
+    alert(err.data?.error?.message || 'Failed to complete reminder');
+  }
+}
+
+async function markTaskCancelled(taskId: number) {
+  if (!confirm('Are you sure you want to cancel this follow-up reminder?')) return;
+  try {
+    await $fetch(`${config.public.apiBase}/tasks/${taskId}/cancel`, {
+      method: 'POST',
+      headers: authStore.token ? { authorization: `Bearer ${authStore.token}` } : {},
+      credentials: 'include',
+    });
+    await Promise.all([fetchReport(), fetchCases()]);
+  } catch (err: any) {
+    alert(err.data?.error?.message || 'Failed to cancel reminder');
+  }
+}
+
 const report = ref<any>(null);
 const cases = ref<any[]>([]);
 const declineReasons = ref<any[]>([]);
 const loadingCases = ref(false);
 const selectedStage = ref('plan_given');
+
+const page = ref(1);
+const pageSize = ref(20);
+const total = ref(0);
+const totalPages = ref(1);
 
 const showAdvanceModal = ref(false);
 const activeCase = ref<any>(null);
@@ -522,18 +628,24 @@ async function fetchCases() {
   try {
     const params = new URLSearchParams();
     params.append('team', 'admission');
+    params.append('page', page.value.toString());
+    params.append('pageSize', pageSize.value.toString());
     if (selectedStage.value) {
       params.append('stage', selectedStage.value);
     }
 
-    const res = await $fetch<{ cases: any[] }>(
+    const res = await $fetch<{ cases: any[]; total?: number; totalPages?: number }>(
       `${config.public.apiBase}/cases?${params.toString()}`,
       {
         headers: authStore.token ? { authorization: `Bearer ${authStore.token}` } : {},
         credentials: 'include',
       }
     );
-    cases.value = res.cases || [];
+    if (res) {
+      cases.value = res.cases || [];
+      total.value = res.total ?? cases.value.length;
+      totalPages.value = res.totalPages || Math.ceil(total.value / pageSize.value) || 1;
+    }
   } catch (err) {
     console.error('Failed to load admission cases:', err);
   } finally {
@@ -543,11 +655,12 @@ async function fetchCases() {
 
 async function fetchDeclineReasons() {
   try {
-    const res = await $fetch<any[]>(`${config.public.apiBase}/picklists/decline_reasons`, {
-      headers: authStore.token ? { authorization: `Bearer ${authStore.token}` } : {},
+    const token = authStore.token || authStore.accessToken || (typeof window !== 'undefined' ? localStorage.getItem('hospital_crm_token') : null);
+    const res = await $fetch<any[]>(`${config.public.apiBase}/picklists/decline-reasons`, {
+      headers: token ? { authorization: `Bearer ${token}` } : {},
       credentials: 'include',
     });
-    declineReasons.value = res || [];
+    declineReasons.value = (Array.isArray(res) ? res : (res as any)?.data) || [];
   } catch (err) {
     console.error('Failed to load decline reasons:', err);
   }

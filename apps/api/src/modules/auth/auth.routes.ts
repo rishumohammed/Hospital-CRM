@@ -158,7 +158,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 15 * 60, // 15 minutes
+      maxAge: 24 * 60 * 60, // 24 hours
     });
 
     reply.setCookie('refreshToken', refreshToken, {
@@ -203,6 +203,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
         permissions,
       },
       accessToken,
+      refreshToken,
     });
   });
 
@@ -283,7 +284,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 15 * 60,
+      maxAge: 24 * 60 * 60,
     });
 
     reply.setCookie('refreshToken', refreshToken, {
@@ -326,6 +327,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
         permissions,
       },
       accessToken,
+      refreshToken,
     });
   });
 
@@ -409,7 +411,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 15 * 60,
+      maxAge: 24 * 60 * 60,
     });
 
     return reply.send({ accessToken: newAccessToken });

@@ -10,28 +10,46 @@
           <span>{{ t('cases.doctor_desk') }}</span>
         </h1>
         <p class="text-sm text-slate-500 dark:text-slate-400">
-          Consultation outcomes, treatment plans, and patient medical records
+          In-patient care, treatment courses, consultation outcomes, and patient monitoring
         </p>
       </div>
     </div>
 
     <!-- Stats Summary Row -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-      <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div
+        @click="activeFilter = 'all'"
+        :class="[
+          'bg-white dark:bg-slate-800 p-5 rounded-2xl border transition-all cursor-pointer shadow-sm',
+          activeFilter === 'all' ? 'border-teal-400 ring-2 ring-teal-500/20' : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'
+        ]"
+      >
         <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Patients</p>
         <p class="text-2xl font-semibold text-slate-900 dark:text-slate-100 mt-1">
           {{ myCases.length }}
         </p>
       </div>
 
-      <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
-        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Awaiting Outcome</p>
+      <div
+        @click="activeFilter = 'awaiting'"
+        :class="[
+          'bg-white dark:bg-slate-800 p-5 rounded-2xl border transition-all cursor-pointer shadow-sm',
+          activeFilter === 'awaiting' ? 'border-blue-400 ring-2 ring-blue-500/20 bg-blue-50/20' : 'border-slate-200 dark:border-slate-700 hover:border-blue-300'
+        ]"
+      >
+        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Awaiting Consultation</p>
         <p class="text-2xl font-semibold text-blue-600 dark:text-blue-400 mt-1">
           {{ awaitingOutcomeCount }}
         </p>
       </div>
 
-      <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div
+        @click="activeFilter = 'in_patient'"
+        :class="[
+          'bg-white dark:bg-slate-800 p-5 rounded-2xl border transition-all cursor-pointer shadow-sm',
+          activeFilter === 'in_patient' ? 'border-amber-400 ring-2 ring-amber-500/20 bg-amber-50/20' : 'border-slate-200 dark:border-slate-700 hover:border-amber-300'
+        ]"
+      >
         <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Advised Admission</p>
         <p class="text-2xl font-semibold text-amber-600 dark:text-amber-400 mt-1">
           {{ advisedAdmissionCount }}
@@ -121,7 +139,7 @@
                 ]"
               >
                 1h SLA Due: {{ new Date(esc.dueAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }}
-                <span v-if="isOverdue(esc.dueAt)" class="ml-1 text-[10px] px-1.5 py-0.5 rounded bg-rose-500 text-white">OVERDUE</span>
+                <span v-if="isOverdue(esc.dueAt)" class="ml-1 text-[10px] px-1.5 py-0.5 rounded bg-rose-500 text-white font-semibold">OVERDUE ({{ getOverdueDuration(esc.dueAt) }})</span>
               </span>
             </div>
 
@@ -171,6 +189,31 @@
           </div>
         </div>
       </div>
+
+      <!-- Pagination Footer -->
+      <div v-if="totalPages > 1" class="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-between text-xs">
+        <span class="text-slate-500 dark:text-slate-400">
+          Page {{ currentPage }} of {{ totalPages }} ({{ filteredCases.length }} patients)
+        </span>
+        <div class="flex items-center space-x-1.5">
+          <button
+            type="button"
+            @click="currentPage--"
+            :disabled="currentPage <= 1"
+            class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40 font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors cursor-pointer"
+          >
+            Previous
+          </button>
+          <button
+            type="button"
+            @click="currentPage++"
+            :disabled="currentPage >= totalPages"
+            class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40 font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors cursor-pointer"
+          >
+            Next
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- Empty State for Patient Queues -->
@@ -192,7 +235,7 @@
     <!-- Cases List -->
     <div v-else class="space-y-3">
       <div
-        v-for="c in filteredCases"
+        v-for="c in paginatedCases"
         :key="c.id"
         class="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow flex flex-col md:flex-row md:items-center justify-between gap-4"
       >
@@ -244,6 +287,31 @@
             <span>Record / Edit Outcome</span>
             <UIcon name="i-heroicons-arrow-right" class="w-4 h-4" />
           </NuxtLink>
+        </div>
+      </div>
+
+      <!-- Pagination Footer -->
+      <div v-if="totalPages > 1" class="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-between text-xs">
+        <span class="text-slate-500 dark:text-slate-400">
+          Page {{ currentPage }} of {{ totalPages }} ({{ filteredCases.length }} patients)
+        </span>
+        <div class="flex items-center space-x-1.5">
+          <button
+            type="button"
+            @click="currentPage--"
+            :disabled="currentPage <= 1"
+            class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40 font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors cursor-pointer"
+          >
+            Previous
+          </button>
+          <button
+            type="button"
+            @click="currentPage++"
+            :disabled="currentPage >= totalPages"
+            class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40 font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors cursor-pointer"
+          >
+            Next
+          </button>
         </div>
       </div>
     </div>
@@ -361,6 +429,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useAuthStore } from '~/stores/auth';
+import { formatDurationHuman } from '~/utils/time-format';
 
 const { t } = useI18n();
 const authStore = useAuthStore();
@@ -369,7 +438,7 @@ const config = useRuntimeConfig();
 const myCases = ref<any[]>([]);
 const escalations = ref<any[]>([]);
 const loading = ref(true);
-const activeFilter = ref('all');
+const activeFilter = ref('awaiting');
 
 const showDecisionModal = ref(false);
 const submittingDecision = ref(false);
@@ -379,11 +448,11 @@ const decisionForm = ref({
 });
 
 const queueFilters = [
-  { key: 'all', label: 'All Patients' },
-  { key: 'awaiting', label: 'Awaiting Consultation Outcome' },
+  { key: 'awaiting', label: 'Awaiting Consultation (Live Queue)' },
   { key: 'in_patient', label: 'Advised In-Patient' },
-  { key: 'completed', label: 'Completed' },
   { key: 'escalations', label: 'Clinical Escalations (1h SLA)' },
+  { key: 'completed', label: 'Completed Consultations' },
+  { key: 'all', label: 'All Cases Archive' },
 ];
 
 const awaitingOutcomeCount = computed(() => {
@@ -411,8 +480,25 @@ const filteredCases = computed(() => {
   return myCases.value;
 });
 
+const currentPage = ref(1);
+const pageSize = ref(15);
+const totalPages = computed(() => Math.ceil(filteredCases.value.length / pageSize.value) || 1);
+const paginatedCases = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value;
+  return filteredCases.value.slice(start, start + pageSize.value);
+});
+
+watch(activeFilter, () => {
+  currentPage.value = 1;
+});
+
 function isOverdue(dueAt: string) {
   return new Date(dueAt).getTime() < Date.now();
+}
+
+function getOverdueDuration(dueAt: string) {
+  const diffMin = Math.round((Date.now() - new Date(dueAt).getTime()) / 60000);
+  return formatDurationHuman(diffMin);
 }
 
 function openDecisionModal(esc: any) {

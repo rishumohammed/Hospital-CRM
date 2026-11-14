@@ -73,7 +73,20 @@ export function startScheduler() {
   });
   scheduledTasks.push(nightlyTask);
 
-  logger.info('✓ Scheduled jobs active (SLA/Escalations 1m, Overdue/Unmarked 5m, Priorities/Adherence 15m, Nightly 00:30)');
+  // 5. Automated Daily Database Backup at 02:00 AM
+  const backupTask = cron.schedule('0 2 * * *', async () => {
+    try {
+      logger.info('Starting automated daily database backup...');
+      const { createBackup } = await import('../modules/backup/backup.service');
+      const backup = await createBackup('automated', 'system_cron');
+      logger.info({ filename: backup.filename, size: backup.sizeFormatted }, 'Automated daily database backup completed successfully');
+    } catch (err) {
+      logger.error({ err }, 'Error executing automated daily database backup');
+    }
+  });
+  scheduledTasks.push(backupTask);
+
+  logger.info('✓ Scheduled jobs active (SLA/Escalations 1m, Overdue/Unmarked 5m, Priorities/Adherence 15m, Maintenance 00:30, DB Backup 02:00)');
 }
 
 /**

@@ -40,12 +40,18 @@ if [ "$SWAP_MEM" -eq 0 ] && [ "$TOTAL_MEM" -lt 3500 ]; then
   echo "✓ 2GB swapfile activated!"
 fi
 
-# 3. Setup Separate Database Storage Directory on Host
+# 3. Setup Separate Database Storage & Backup Directories on Host
 DB_DATA_DIR="/var/lib/hospital-crm-data/mysql"
 echo "==> Creating separate database storage directory at $DB_DATA_DIR..."
 sudo mkdir -p "$DB_DATA_DIR"
 sudo chmod 777 "$DB_DATA_DIR"
 echo "✓ Isolated database volume prepared at $DB_DATA_DIR"
+
+BACKUP_DIR="/var/backups/hospital-crm"
+echo "==> Creating dedicated backup storage directory at $BACKUP_DIR..."
+sudo mkdir -p "$BACKUP_DIR"
+sudo chmod 777 "$BACKUP_DIR"
+echo "✓ Dedicated backup storage prepared at $BACKUP_DIR"
 
 # 4. Setup Environment Variables (.env)
 if [ ! -f .env ]; then
@@ -64,14 +70,25 @@ else
   echo "==> Existing .env file detected."
 fi
 
-# 5. Ensure scripts are executable
+# 5. Ensure scripts are executable & install backup cron
 chmod +x apps/api/docker-entrypoint.sh 2>/dev/null || true
 chmod +x setup-ssl.sh 2>/dev/null || true
+chmod +x scripts/backup.sh 2>/dev/null || true
+chmod +x scripts/restore.sh 2>/dev/null || true
+chmod +x scripts/setup-backup-cron.sh 2>/dev/null || true
+./scripts/setup-backup-cron.sh 2>/dev/null || true
 
-# 6. Build and Launch Containers
-echo "==> Building and starting Docker containers..."
-sudo docker compose -f docker-compose.prod.yml down --remove-orphans || true
-sudo docker compose -f docker-compose.prod.yml up -d --build
+# 6. Safety Snapshot & Seamless Container Launch
+if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "hospital_crm_mysql"; then
+  echo "==> Existing production database detected. Creating safety pre-upgrade backup..."
+  ./scripts/backup.sh pre-upgrade || true
+fi
+
+echo "==> Building updated container images while services remain online..."
+sudo docker compose -f docker-compose.prod.yml build
+
+echo "==> Applying updates seamlessly..."
+sudo docker compose -f docker-compose.prod.yml up -d
 
 # 7. Show Status
 echo ""
