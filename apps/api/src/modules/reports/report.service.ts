@@ -1371,16 +1371,32 @@ export async function getTelecallerPerformance(
     },
   });
 
-  const monthlyVisits = await prisma.case.count({
-    where: {
-      consultationCompletedAt: { gte: startOfMonth, lte: endOfMonth },
-      archivedAt: null,
-      OR: [
-        { ownerId: targetUserId },
-        { lead: { ownerId: targetUserId } },
-      ],
-    },
-  });
+  const [monthlyVisitedCases, monthlyVisitedAppts] = await Promise.all([
+    prisma.case.count({
+      where: {
+        consultationCompletedAt: { gte: startOfMonth, lte: endOfMonth },
+        archivedAt: null,
+        OR: [
+          { ownerId: targetUserId },
+          { lead: { ownerId: targetUserId } },
+          { lead: { appointments: { some: { createdBy: targetUserId } } } },
+        ],
+      },
+    }),
+    prisma.appointment.count({
+      where: {
+        status: 'visited',
+        updatedAt: { gte: startOfMonth, lte: endOfMonth },
+        caseId: null,
+        OR: [
+          { createdBy: targetUserId },
+          { lead: { ownerId: targetUserId } },
+          { case: { ownerId: targetUserId } },
+        ],
+      },
+    }),
+  ]);
+  const monthlyVisits = monthlyVisitedCases + monthlyVisitedAppts;
 
   const monthlyLeadsCount = await prisma.lead.count({
     where: {
@@ -1397,16 +1413,34 @@ export async function getTelecallerPerformance(
     },
   });
 
-  const leadToBookingRatio = monthlyLeadsCount > 0
-    ? Number(((monthlyBookings / monthlyLeadsCount) * 100).toFixed(1))
+  const distinctLeadsContactedInPeriod = new Set(callsPeriod.map((c) => c.leadId || c.lead?.id).filter(Boolean)).size;
+  const leadsCreatedPeriod = await prisma.lead.count({
+    where: {
+      ownerId: targetUserId,
+      createdAt: { gte: startOfPeriod, lte: endOfPeriod },
+      archivedAt: null,
+    },
+  });
+  const totalLeadsPeriod = Math.max(distinctLeadsContactedInPeriod, newLeadsCalled, leadsCreatedPeriod);
+  const periodBookingRatio = totalLeadsPeriod > 0
+    ? Math.min(100, Number(((appointmentsBookedPeriod / Math.max(totalLeadsPeriod, appointmentsBookedPeriod)) * 100).toFixed(1)))
+    : appointmentsBookedPeriod > 0 ? 100 : 0;
+  const periodVisitRatio = totalLeadsPeriod > 0
+    ? Math.min(100, Number(((patientsVisitedPeriod / Math.max(totalLeadsPeriod, patientsVisitedPeriod)) * 100).toFixed(1)))
+    : patientsVisitedPeriod > 0 ? 100 : 0;
+
+  const maxMonthlyBookingBase = Math.max(monthlyLeadsCount, monthlyBookings);
+  const leadToBookingRatio = maxMonthlyBookingBase > 0
+    ? Math.min(100, Number(((monthlyBookings / maxMonthlyBookingBase) * 100).toFixed(1)))
     : allTimeLeadsCount > 0
-    ? Number(((monthlyBookings / allTimeLeadsCount) * 100).toFixed(1))
+    ? Math.min(100, Number(((monthlyBookings / Math.max(allTimeLeadsCount, monthlyBookings)) * 100).toFixed(1)))
     : 0;
 
-  const leadToVisitRatio = monthlyLeadsCount > 0
-    ? Number(((monthlyVisits / monthlyLeadsCount) * 100).toFixed(1))
+  const maxMonthlyVisitBase = Math.max(monthlyLeadsCount, monthlyVisits);
+  const leadToVisitRatio = maxMonthlyVisitBase > 0
+    ? Math.min(100, Number(((monthlyVisits / maxMonthlyVisitBase) * 100).toFixed(1)))
     : allTimeLeadsCount > 0
-    ? Number(((monthlyVisits / allTimeLeadsCount) * 100).toFixed(1))
+    ? Math.min(100, Number(((monthlyVisits / Math.max(allTimeLeadsCount, monthlyVisits)) * 100).toFixed(1)))
     : 0;
 
   return {
@@ -1419,6 +1453,8 @@ export async function getTelecallerPerformance(
       appointmentsBooked: appointmentsBookedPeriod,
       patientsVisited: patientsVisitedPeriod,
       patientsVisiting: patientsVisitingPeriod,
+      bookingRatio: periodBookingRatio,
+      visitRatio: periodVisitRatio,
     },
     monthly: {
       month: `${yearStr}-${monthStr}`,
@@ -1785,13 +1821,32 @@ export async function getTeamPerformance(
         },
       });
 
-      const monthlyVisits = await prisma.case.count({
-        where: {
-          consultationCompletedAt: { gte: startOfMonth, lte: endOfMonth },
-          archivedAt: null,
-          OR: [{ ownerId: tc.id }, { lead: { ownerId: tc.id } }],
-        },
-      });
+      const [monthlyVisitedCases, monthlyVisitedAppts] = await Promise.all([
+        prisma.case.count({
+          where: {
+            consultationCompletedAt: { gte: startOfMonth, lte: endOfMonth },
+            archivedAt: null,
+            OR: [
+              { ownerId: tc.id },
+              { lead: { ownerId: tc.id } },
+              { lead: { appointments: { some: { createdBy: tc.id } } } },
+            ],
+          },
+        }),
+        prisma.appointment.count({
+          where: {
+            status: 'visited',
+            updatedAt: { gte: startOfMonth, lte: endOfMonth },
+            caseId: null,
+            OR: [
+              { createdBy: tc.id },
+              { lead: { ownerId: tc.id } },
+              { case: { ownerId: tc.id } },
+            ],
+          },
+        }),
+      ]);
+      const monthlyVisits = monthlyVisitedCases + monthlyVisitedAppts;
 
       const monthlyLeadsCount = await prisma.lead.count({
         where: {
@@ -1805,16 +1860,34 @@ export async function getTeamPerformance(
         where: { ownerId: tc.id, archivedAt: null },
       });
 
-      const leadToBookingRatio = monthlyLeadsCount > 0
-        ? Number(((monthlyBookings / monthlyLeadsCount) * 100).toFixed(1))
+      const distinctLeadsContactedInPeriod = new Set(callsPeriod.map((c) => c.leadId || c.lead?.id).filter(Boolean)).size;
+      const leadsCreatedPeriod = await prisma.lead.count({
+        where: {
+          ownerId: tc.id,
+          createdAt: { gte: startOfPeriod, lte: endOfPeriod },
+          archivedAt: null,
+        },
+      });
+      const totalLeadsPeriod = Math.max(distinctLeadsContactedInPeriod, newLeadsCalled, leadsCreatedPeriod);
+      const periodBookingRatio = totalLeadsPeriod > 0
+        ? Math.min(100, Number(((appointmentsBookedPeriod / Math.max(totalLeadsPeriod, appointmentsBookedPeriod)) * 100).toFixed(1)))
+        : appointmentsBookedPeriod > 0 ? 100 : 0;
+      const periodVisitRatio = totalLeadsPeriod > 0
+        ? Math.min(100, Number(((patientsVisitedPeriod / Math.max(totalLeadsPeriod, patientsVisitedPeriod)) * 100).toFixed(1)))
+        : patientsVisitedPeriod > 0 ? 100 : 0;
+
+      const maxMonthlyBookingBase = Math.max(monthlyLeadsCount, monthlyBookings);
+      const leadToBookingRatio = maxMonthlyBookingBase > 0
+        ? Math.min(100, Number(((monthlyBookings / maxMonthlyBookingBase) * 100).toFixed(1)))
         : allTimeLeadsCount > 0
-        ? Number(((monthlyBookings / allTimeLeadsCount) * 100).toFixed(1))
+        ? Math.min(100, Number(((monthlyBookings / Math.max(allTimeLeadsCount, monthlyBookings)) * 100).toFixed(1)))
         : 0;
 
-      const leadToVisitRatio = monthlyLeadsCount > 0
-        ? Number(((monthlyVisits / monthlyLeadsCount) * 100).toFixed(1))
+      const maxMonthlyVisitBase = Math.max(monthlyLeadsCount, monthlyVisits);
+      const leadToVisitRatio = maxMonthlyVisitBase > 0
+        ? Math.min(100, Number(((monthlyVisits / maxMonthlyVisitBase) * 100).toFixed(1)))
         : allTimeLeadsCount > 0
-        ? Number(((monthlyVisits / allTimeLeadsCount) * 100).toFixed(1))
+        ? Math.min(100, Number(((monthlyVisits / Math.max(allTimeLeadsCount, monthlyVisits)) * 100).toFixed(1)))
         : 0;
 
       return {
@@ -1826,6 +1899,8 @@ export async function getTeamPerformance(
           appointmentsBooked: appointmentsBookedPeriod,
           patientsVisited: patientsVisitedPeriod,
           patientsVisiting: patientsVisitingPeriod,
+          bookingRatio: periodBookingRatio,
+          visitRatio: periodVisitRatio,
         },
         monthly: {
           bookings: monthlyBookings,
@@ -1866,10 +1941,67 @@ export async function getTeamPerformance(
     }
   );
 
+  // Hospital-wide actual totals for the month (catches all visits and bookings regardless of telecaller ownership)
+  const [totalHospitalCasesMonth, totalHospitalApptsMonth, totalHospitalBookingsMonth] = await Promise.all([
+    prisma.case.count({
+      where: {
+        consultationCompletedAt: { gte: startOfMonth, lte: endOfMonth },
+        archivedAt: null,
+        ...(params.branchId ? { branchId: params.branchId } : {}),
+      },
+    }),
+    prisma.appointment.count({
+      where: {
+        status: 'visited',
+        updatedAt: { gte: startOfMonth, lte: endOfMonth },
+        caseId: null,
+        ...(params.branchId ? { lead: { branchId: params.branchId } } : {}),
+      },
+    }),
+    prisma.appointment.count({
+      where: {
+        createdAt: { gte: startOfMonth, lte: endOfMonth },
+        status: { not: 'cancelled' },
+        ...(params.branchId ? { lead: { branchId: params.branchId } } : {}),
+      },
+    }),
+  ]);
+
+  const totalHospitalMonthlyVisits = totalHospitalCasesMonth + totalHospitalApptsMonth;
+  if (totalHospitalMonthlyVisits > hospitalTotals.monthlyVisits) {
+    hospitalTotals.monthlyVisits = totalHospitalMonthlyVisits;
+  }
+  if (totalHospitalBookingsMonth > hospitalTotals.monthlyBookings) {
+    hospitalTotals.monthlyBookings = totalHospitalBookingsMonth;
+  }
+
+  const totalHospitalLeadsPeriod = Math.max(hospitalTotals.dailyNewCalled, hospitalTotals.dailyCalls);
+  const periodHospitalBookingRatio = totalHospitalLeadsPeriod > 0
+    ? Math.min(100, Number(((hospitalTotals.dailyBookings / Math.max(totalHospitalLeadsPeriod, hospitalTotals.dailyBookings)) * 100).toFixed(1)))
+    : hospitalTotals.dailyBookings > 0 ? 100 : 0;
+  const periodHospitalVisitRatio = totalHospitalLeadsPeriod > 0
+    ? Math.min(100, Number(((hospitalTotals.dailyVisited / Math.max(totalHospitalLeadsPeriod, hospitalTotals.dailyVisited)) * 100).toFixed(1)))
+    : hospitalTotals.dailyVisited > 0 ? 100 : 0;
+
+  const maxHospitalMonthlyBookingBase = Math.max(hospitalTotals.monthlyLeads, hospitalTotals.monthlyBookings);
+  const monthlyHospitalBookingRatio = maxHospitalMonthlyBookingBase > 0
+    ? Math.min(100, Number(((hospitalTotals.monthlyBookings / maxHospitalMonthlyBookingBase) * 100).toFixed(1)))
+    : 0;
+  const maxHospitalMonthlyVisitBase = Math.max(hospitalTotals.monthlyLeads, hospitalTotals.monthlyVisits);
+  const monthlyHospitalVisitRatio = maxHospitalMonthlyVisitBase > 0
+    ? Math.min(100, Number(((hospitalTotals.monthlyVisits / maxHospitalMonthlyVisitBase) * 100).toFixed(1)))
+    : 0;
+
   return {
     date: targetDateStr,
     month: `${yearStr}-${monthStr}`,
-    totals: hospitalTotals,
+    totals: {
+      ...hospitalTotals,
+      bookingRatio: periodHospitalBookingRatio,
+      visitRatio: periodHospitalVisitRatio,
+      monthlyBookingRatio: monthlyHospitalBookingRatio,
+      monthlyVisitRatio: monthlyHospitalVisitRatio,
+    },
     telecallers: telecallerMetrics,
   };
 }

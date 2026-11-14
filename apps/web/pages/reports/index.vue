@@ -432,8 +432,8 @@
                 <td class="py-3 px-3 text-center font-bold text-emerald-600 dark:text-emerald-400">{{ tc.daily.patientsVisited ?? tc.daily.patientsVisiting }}</td>
                 <td class="py-3 px-3 text-center font-extrabold text-purple-700 dark:text-purple-300">{{ tc.monthly.bookings }}</td>
                 <td class="py-3 px-3 text-center font-extrabold text-emerald-700 dark:text-emerald-300">{{ tc.monthly.visits }}</td>
-                <td class="py-3 px-3 text-center font-semibold text-purple-600">{{ tc.monthly.leadToBookingRatio }}%</td>
-                <td class="py-3 px-3 text-center font-semibold text-emerald-600">{{ tc.monthly.leadToVisitRatio }}%</td>
+                <td class="py-3 px-3 text-center font-semibold text-purple-600">{{ selectedRange === 'this_month' ? tc.monthly.leadToBookingRatio : (tc.daily.bookingRatio ?? tc.monthly.leadToBookingRatio) }}%</td>
+                <td class="py-3 px-3 text-center font-semibold text-emerald-600">{{ selectedRange === 'this_month' ? tc.monthly.leadToVisitRatio : (tc.daily.visitRatio ?? tc.monthly.leadToVisitRatio) }}%</td>
                 <td v-if="isExecutive" class="py-3 px-3 text-center">
                   <button
                     type="button"
@@ -1500,13 +1500,18 @@ const selectedTelecaller = computed(() => {
 });
 
 const currentPerformanceDisplay = computed(() => {
+  const isThisMonth = selectedRange.value === 'this_month';
   if (selectedTelecaller.value) {
     const t = selectedTelecaller.value;
     const mBookings = t.monthly?.bookings ?? 0;
     const mVisits = t.monthly?.visits ?? 0;
     const mLeads = t.monthly?.leadsAssigned ?? 0;
-    const bRatio = t.monthly?.leadToBookingRatio ?? (mLeads > 0 ? Number(((mBookings / mLeads) * 100).toFixed(1)) : 0);
-    const vRatio = t.monthly?.leadToVisitRatio ?? (mLeads > 0 ? Number(((mVisits / mLeads) * 100).toFixed(1)) : 0);
+    const bRatio = isThisMonth
+      ? (t.monthly?.leadToBookingRatio ?? (mLeads > 0 ? Math.min(100, Number(((mBookings / Math.max(mLeads, mBookings)) * 100).toFixed(1))) : 0))
+      : (t.daily?.bookingRatio ?? t.monthly?.leadToBookingRatio ?? 0);
+    const vRatio = isThisMonth
+      ? (t.monthly?.leadToVisitRatio ?? (mLeads > 0 ? Math.min(100, Number(((mVisits / Math.max(mLeads, mVisits)) * 100).toFixed(1))) : 0))
+      : (t.daily?.visitRatio ?? t.monthly?.leadToVisitRatio ?? 0);
     return {
       isIndividual: true,
       userName: t.user.name,
@@ -1526,6 +1531,12 @@ const currentPerformanceDisplay = computed(() => {
   const mLeads = totals.monthlyLeads ?? 0;
   const mBookings = totals.monthlyBookings ?? 0;
   const mVisits = totals.monthlyVisits ?? 0;
+  const bRatio = isThisMonth
+    ? (totals.monthlyBookingRatio ?? (mLeads > 0 ? Math.min(100, Number(((mBookings / Math.max(mLeads, mBookings)) * 100).toFixed(1))) : 0))
+    : (totals.bookingRatio ?? totals.monthlyBookingRatio ?? 0);
+  const vRatio = isThisMonth
+    ? (totals.monthlyVisitRatio ?? (mLeads > 0 ? Math.min(100, Number(((mVisits / Math.max(mLeads, mVisits)) * 100).toFixed(1))) : 0))
+    : (totals.visitRatio ?? totals.monthlyVisitRatio ?? 0);
   return {
     isIndividual: false,
     userName: 'All Telecallers (Team Total)',
@@ -1537,8 +1548,8 @@ const currentPerformanceDisplay = computed(() => {
     monthlyBookings: mBookings,
     monthlyVisits: mVisits,
     monthlyLeads: mLeads,
-    bookingRatio: mLeads > 0 ? Number(((mBookings / mLeads) * 100).toFixed(1)) : 0,
-    visitRatio: mLeads > 0 ? Number(((mVisits / mLeads) * 100).toFixed(1)) : 0,
+    bookingRatio: bRatio,
+    visitRatio: vRatio,
   };
 });
 
@@ -1825,7 +1836,9 @@ function exportStaffLeaderboardCsv() {
   const lines: string[] = [];
   lines.push(`Employee,Role,First Calls (${period}),Follow-ups (${period}),Booked (${period}),Visited (${period}),Month Bookings,Month Visits,Booking Ratio %,Visit Ratio %`);
   for (const tc of list) {
-    lines.push(`"${tc.user.name}","${tc.user.role?.name || tc.user.role?.code || 'Telecaller'}",${tc.daily.newLeadsCalled},${tc.daily.followUpsDone},${tc.daily.appointmentsBooked},${tc.daily.patientsVisited ?? tc.daily.patientsVisiting ?? 0},${tc.monthly.bookings},${tc.monthly.visits},${tc.monthly.leadToBookingRatio}%,${tc.monthly.leadToVisitRatio}%`);
+    const bRatio = selectedRange.value === 'this_month' ? tc.monthly.leadToBookingRatio : (tc.daily.bookingRatio ?? tc.monthly.leadToBookingRatio);
+    const vRatio = selectedRange.value === 'this_month' ? tc.monthly.leadToVisitRatio : (tc.daily.visitRatio ?? tc.monthly.leadToVisitRatio);
+    lines.push(`"${tc.user.name}","${tc.user.role?.name || tc.user.role?.code || 'Telecaller'}",${tc.daily.newLeadsCalled},${tc.daily.followUpsDone},${tc.daily.appointmentsBooked},${tc.daily.patientsVisited ?? tc.daily.patientsVisiting ?? 0},${tc.monthly.bookings},${tc.monthly.visits},${bRatio}%,${vRatio}%`);
   }
   const blob = new Blob([lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
   const url = window.URL.createObjectURL(blob);
