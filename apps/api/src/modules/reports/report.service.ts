@@ -1322,24 +1322,47 @@ export async function getTelecallerPerformance(
   const [visitedCasesPeriod, visitedApptsPeriod] = await Promise.all([
     prisma.case.count({
       where: {
-        consultationCompletedAt: { gte: startOfPeriod, lte: endOfPeriod },
         archivedAt: null,
         OR: [
           { ownerId: targetUserId },
           { lead: { ownerId: targetUserId } },
           { lead: { appointments: { some: { createdBy: targetUserId } } } },
+          { interactions: { some: { userId: targetUserId } } },
+        ],
+        AND: [
+          {
+            OR: [
+              { consultationCompletedAt: { gte: startOfPeriod, lte: endOfPeriod } },
+              {
+                consultationCompletedAt: null,
+                createdAt: { gte: startOfPeriod, lte: endOfPeriod },
+                stage: { in: ['visited', 'plan_given', 'counseling_estimate', 'plan_accepted', 'in_treatment', 'aftercare_follow_up', 'completed'] },
+              },
+            ],
+          },
         ],
       },
     }),
     prisma.appointment.count({
       where: {
         status: 'visited',
-        updatedAt: { gte: startOfPeriod, lte: endOfPeriod },
-        caseId: null,
         OR: [
-          { createdBy: targetUserId },
-          { lead: { ownerId: targetUserId } },
-          { case: { ownerId: targetUserId } },
+          { startsAt: { gte: startOfPeriod, lte: endOfPeriod } },
+          { updatedAt: { gte: startOfPeriod, lte: endOfPeriod } },
+        ],
+        NOT: {
+          case: {
+            createdAt: { gte: startOfPeriod, lte: endOfPeriod },
+          },
+        },
+        AND: [
+          {
+            OR: [
+              { createdBy: targetUserId },
+              { lead: { ownerId: targetUserId } },
+              { case: { ownerId: targetUserId } },
+            ],
+          },
         ],
       },
     }),
@@ -1374,24 +1397,47 @@ export async function getTelecallerPerformance(
   const [monthlyVisitedCases, monthlyVisitedAppts] = await Promise.all([
     prisma.case.count({
       where: {
-        consultationCompletedAt: { gte: startOfMonth, lte: endOfMonth },
         archivedAt: null,
         OR: [
           { ownerId: targetUserId },
           { lead: { ownerId: targetUserId } },
           { lead: { appointments: { some: { createdBy: targetUserId } } } },
+          { interactions: { some: { userId: targetUserId } } },
+        ],
+        AND: [
+          {
+            OR: [
+              { consultationCompletedAt: { gte: startOfMonth, lte: endOfMonth } },
+              {
+                consultationCompletedAt: null,
+                createdAt: { gte: startOfMonth, lte: endOfMonth },
+                stage: { in: ['visited', 'plan_given', 'counseling_estimate', 'plan_accepted', 'in_treatment', 'aftercare_follow_up', 'completed'] },
+              },
+            ],
+          },
         ],
       },
     }),
     prisma.appointment.count({
       where: {
         status: 'visited',
-        updatedAt: { gte: startOfMonth, lte: endOfMonth },
-        caseId: null,
         OR: [
-          { createdBy: targetUserId },
-          { lead: { ownerId: targetUserId } },
-          { case: { ownerId: targetUserId } },
+          { startsAt: { gte: startOfMonth, lte: endOfMonth } },
+          { updatedAt: { gte: startOfMonth, lte: endOfMonth } },
+        ],
+        NOT: {
+          case: {
+            createdAt: { gte: startOfMonth, lte: endOfMonth },
+          },
+        },
+        AND: [
+          {
+            OR: [
+              { createdBy: targetUserId },
+              { lead: { ownerId: targetUserId } },
+              { case: { ownerId: targetUserId } },
+            ],
+          },
         ],
       },
     }),
@@ -1776,24 +1822,47 @@ export async function getTeamPerformance(
       const [visitedCasesPeriod, visitedApptsPeriod] = await Promise.all([
         prisma.case.count({
           where: {
-            consultationCompletedAt: { gte: startOfPeriod, lte: endOfPeriod },
             archivedAt: null,
             OR: [
               { ownerId: tc.id },
               { lead: { ownerId: tc.id } },
               { lead: { appointments: { some: { createdBy: tc.id } } } },
+              { interactions: { some: { userId: tc.id } } },
+            ],
+            AND: [
+              {
+                OR: [
+                  { consultationCompletedAt: { gte: startOfPeriod, lte: endOfPeriod } },
+                  {
+                    consultationCompletedAt: null,
+                    createdAt: { gte: startOfPeriod, lte: endOfPeriod },
+                    stage: { in: ['visited', 'plan_given', 'counseling_estimate', 'plan_accepted', 'in_treatment', 'aftercare_follow_up', 'completed'] },
+                  },
+                ],
+              },
             ],
           },
         }),
         prisma.appointment.count({
           where: {
             status: 'visited',
-            updatedAt: { gte: startOfPeriod, lte: endOfPeriod },
-            caseId: null,
             OR: [
-              { createdBy: tc.id },
-              { lead: { ownerId: tc.id } },
-              { case: { ownerId: tc.id } },
+              { startsAt: { gte: startOfPeriod, lte: endOfPeriod } },
+              { updatedAt: { gte: startOfPeriod, lte: endOfPeriod } },
+            ],
+            NOT: {
+              case: {
+                createdAt: { gte: startOfPeriod, lte: endOfPeriod },
+              },
+            },
+            AND: [
+              {
+                OR: [
+                  { createdBy: tc.id },
+                  { lead: { ownerId: tc.id } },
+                  { case: { ownerId: tc.id } },
+                ],
+              },
             ],
           },
         }),
@@ -1824,24 +1893,47 @@ export async function getTeamPerformance(
       const [monthlyVisitedCases, monthlyVisitedAppts] = await Promise.all([
         prisma.case.count({
           where: {
-            consultationCompletedAt: { gte: startOfMonth, lte: endOfMonth },
             archivedAt: null,
             OR: [
               { ownerId: tc.id },
               { lead: { ownerId: tc.id } },
               { lead: { appointments: { some: { createdBy: tc.id } } } },
+              { interactions: { some: { userId: tc.id } } },
+            ],
+            AND: [
+              {
+                OR: [
+                  { consultationCompletedAt: { gte: startOfMonth, lte: endOfMonth } },
+                  {
+                    consultationCompletedAt: null,
+                    createdAt: { gte: startOfMonth, lte: endOfMonth },
+                    stage: { in: ['visited', 'plan_given', 'counseling_estimate', 'plan_accepted', 'in_treatment', 'aftercare_follow_up', 'completed'] },
+                  },
+                ],
+              },
             ],
           },
         }),
         prisma.appointment.count({
           where: {
             status: 'visited',
-            updatedAt: { gte: startOfMonth, lte: endOfMonth },
-            caseId: null,
             OR: [
-              { createdBy: tc.id },
-              { lead: { ownerId: tc.id } },
-              { case: { ownerId: tc.id } },
+              { startsAt: { gte: startOfMonth, lte: endOfMonth } },
+              { updatedAt: { gte: startOfMonth, lte: endOfMonth } },
+            ],
+            NOT: {
+              case: {
+                createdAt: { gte: startOfMonth, lte: endOfMonth },
+              },
+            },
+            AND: [
+              {
+                OR: [
+                  { createdBy: tc.id },
+                  { lead: { ownerId: tc.id } },
+                  { case: { ownerId: tc.id } },
+                ],
+              },
             ],
           },
         }),
@@ -1941,26 +2033,83 @@ export async function getTeamPerformance(
     }
   );
 
-  // Hospital-wide actual totals for the month (catches all visits and bookings regardless of telecaller ownership)
-  const [totalHospitalCasesMonth, totalHospitalApptsMonth, totalHospitalBookingsMonth] = await Promise.all([
+  // Hospital-wide actual totals for the month and period (catches all visits and bookings regardless of telecaller ownership)
+  const [
+    totalHospitalCasesMonth,
+    totalHospitalApptsMonth,
+    totalHospitalBookingsMonth,
+    totalHospitalCasesPeriod,
+    totalHospitalApptsPeriod,
+    totalHospitalBookingsPeriod,
+  ] = await Promise.all([
     prisma.case.count({
       where: {
-        consultationCompletedAt: { gte: startOfMonth, lte: endOfMonth },
         archivedAt: null,
         ...(params.branchId ? { branchId: params.branchId } : {}),
+        OR: [
+          { consultationCompletedAt: { gte: startOfMonth, lte: endOfMonth } },
+          {
+            consultationCompletedAt: null,
+            createdAt: { gte: startOfMonth, lte: endOfMonth },
+            stage: { in: ['visited', 'plan_given', 'counseling_estimate', 'plan_accepted', 'in_treatment', 'aftercare_follow_up', 'completed'] },
+          },
+        ],
       },
     }),
     prisma.appointment.count({
       where: {
         status: 'visited',
-        updatedAt: { gte: startOfMonth, lte: endOfMonth },
-        caseId: null,
         ...(params.branchId ? { lead: { branchId: params.branchId } } : {}),
+        OR: [
+          { startsAt: { gte: startOfMonth, lte: endOfMonth } },
+          { updatedAt: { gte: startOfMonth, lte: endOfMonth } },
+        ],
+        NOT: {
+          case: {
+            createdAt: { gte: startOfMonth, lte: endOfMonth },
+          },
+        },
       },
     }),
     prisma.appointment.count({
       where: {
         createdAt: { gte: startOfMonth, lte: endOfMonth },
+        status: { not: 'cancelled' },
+        ...(params.branchId ? { lead: { branchId: params.branchId } } : {}),
+      },
+    }),
+    prisma.case.count({
+      where: {
+        archivedAt: null,
+        ...(params.branchId ? { branchId: params.branchId } : {}),
+        OR: [
+          { consultationCompletedAt: { gte: startOfPeriod, lte: endOfPeriod } },
+          {
+            consultationCompletedAt: null,
+            createdAt: { gte: startOfPeriod, lte: endOfPeriod },
+            stage: { in: ['visited', 'plan_given', 'counseling_estimate', 'plan_accepted', 'in_treatment', 'aftercare_follow_up', 'completed'] },
+          },
+        ],
+      },
+    }),
+    prisma.appointment.count({
+      where: {
+        status: 'visited',
+        ...(params.branchId ? { lead: { branchId: params.branchId } } : {}),
+        OR: [
+          { startsAt: { gte: startOfPeriod, lte: endOfPeriod } },
+          { updatedAt: { gte: startOfPeriod, lte: endOfPeriod } },
+        ],
+        NOT: {
+          case: {
+            createdAt: { gte: startOfPeriod, lte: endOfPeriod },
+          },
+        },
+      },
+    }),
+    prisma.appointment.count({
+      where: {
+        createdAt: { gte: startOfPeriod, lte: endOfPeriod },
         status: { not: 'cancelled' },
         ...(params.branchId ? { lead: { branchId: params.branchId } } : {}),
       },
@@ -1973,6 +2122,14 @@ export async function getTeamPerformance(
   }
   if (totalHospitalBookingsMonth > hospitalTotals.monthlyBookings) {
     hospitalTotals.monthlyBookings = totalHospitalBookingsMonth;
+  }
+
+  const totalHospitalPeriodVisits = totalHospitalCasesPeriod + totalHospitalApptsPeriod;
+  if (totalHospitalPeriodVisits > hospitalTotals.dailyVisited) {
+    hospitalTotals.dailyVisited = totalHospitalPeriodVisits;
+  }
+  if (totalHospitalBookingsPeriod > hospitalTotals.dailyBookings) {
+    hospitalTotals.dailyBookings = totalHospitalBookingsPeriod;
   }
 
   const totalHospitalLeadsPeriod = Math.max(hospitalTotals.dailyNewCalled, hospitalTotals.dailyCalls);
@@ -2071,11 +2228,26 @@ export async function getMonthlyStatusTrend(
 
     // Visits / Consultations completed in this month
     const caseWhere: any = {
-      consultationCompletedAt: { gte: startM, lte: endM },
       archivedAt: null,
+      OR: [
+        { consultationCompletedAt: { gte: startM, lte: endM } },
+        {
+          consultationCompletedAt: null,
+          createdAt: { gte: startM, lte: endM },
+          stage: { in: ['visited', 'plan_given', 'counseling_estimate', 'plan_accepted', 'in_treatment', 'aftercare_follow_up', 'completed'] },
+        },
+      ],
     };
     if (targetUserId) {
-      caseWhere.OR = [{ ownerId: targetUserId }, { lead: { ownerId: targetUserId } }];
+      caseWhere.AND = [
+        {
+          OR: [
+            { ownerId: targetUserId },
+            { lead: { ownerId: targetUserId } },
+            { lead: { appointments: { some: { createdBy: targetUserId } } } },
+          ],
+        },
+      ];
     }
     const visitedCount = await prisma.case.count({ where: caseWhere });
 
