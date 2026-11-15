@@ -43,6 +43,60 @@
       </button>
     </div>
 
+    <!-- Date Filter Bar -->
+    <div class="p-3.5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm flex flex-wrap items-center justify-between gap-3">
+      <!-- Date Range Pills -->
+      <div class="flex items-center space-x-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-thin">
+        <span class="text-xs font-semibold text-slate-400 dark:text-slate-500 mr-1 flex items-center gap-1">
+          <UIcon name="i-heroicons-calendar-days" class="w-4 h-4 text-slate-400" />
+          <span>Period:</span>
+        </span>
+        <button
+          v-for="r in dateRanges"
+          :key="r.key"
+          type="button"
+          @click="selectDateRange(r.key)"
+          :class="[
+            'px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all min-h-[36px] cursor-pointer',
+            selectedDateRange === r.key
+              ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 shadow-sm'
+              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
+          ]"
+        >
+          {{ r.label }}
+        </button>
+      </div>
+
+      <!-- Custom Date Picker Inputs (shown when Custom is active) -->
+      <div v-if="selectedDateRange === 'custom'" class="flex items-center gap-2 flex-wrap">
+        <div class="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
+          <span class="text-slate-400 font-medium">From:</span>
+          <input
+            type="date"
+            v-model="customStartDate"
+            @change="applyCustomDateFilter"
+            class="bg-transparent text-slate-800 dark:text-slate-200 font-semibold focus:outline-none cursor-pointer"
+          />
+        </div>
+        <div class="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
+          <span class="text-slate-400 font-medium">To:</span>
+          <input
+            type="date"
+            v-model="customEndDate"
+            @change="applyCustomDateFilter"
+            class="bg-transparent text-slate-800 dark:text-slate-200 font-semibold focus:outline-none cursor-pointer"
+          />
+        </div>
+        <button
+          type="button"
+          @click="applyCustomDateFilter"
+          class="px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold shadow-2xs transition-all cursor-pointer"
+        >
+          Apply
+        </button>
+      </div>
+    </div>
+
     <!-- Filters & Search Bar -->
     <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col md:flex-row gap-3">
       <!-- Search -->
@@ -170,6 +224,11 @@
                 <UIcon name="i-heroicons-user" class="w-3.5 h-3.5" />
                 Dr. {{ c.treatingDoctor.name }}
               </span>
+              <span v-if="c.consultationCompletedAt || c.createdAt">•</span>
+              <span v-if="c.consultationCompletedAt || c.createdAt" class="flex items-center gap-1 font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-md border border-emerald-200/60 dark:border-emerald-800/60">
+                <UIcon name="i-heroicons-calendar-days" class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span>Visited: {{ formatVisitedDate(c.consultationCompletedAt || c.createdAt) }}</span>
+              </span>
             </div>
           </div>
         </div>
@@ -238,6 +297,86 @@ const selectedStage = ref('');
 const selectedCareType = ref('');
 const searchQuery = ref('');
 
+const selectedDateRange = ref<'all' | 'today' | 'week' | 'month' | 'custom'>('all');
+const customStartDate = ref('');
+const customEndDate = ref('');
+
+const dateRanges = [
+  { key: 'all', label: 'All Time' },
+  { key: 'today', label: 'Today' },
+  { key: 'week', label: 'This Week' },
+  { key: 'month', label: 'This Month' },
+  { key: 'custom', label: 'Custom' },
+];
+
+function initCustomDates() {
+  const end = new Date();
+  const start = new Date();
+  start.setDate(start.getDate() - 7);
+  customEndDate.value = end.toISOString().slice(0, 10);
+  customStartDate.value = start.toISOString().slice(0, 10);
+}
+
+function selectDateRange(rangeKey: any) {
+  selectedDateRange.value = rangeKey;
+  if (rangeKey === 'custom') {
+    if (!customStartDate.value || !customEndDate.value) {
+      initCustomDates();
+    }
+  }
+  page.value = 1;
+  fetchCases();
+}
+
+function applyCustomDateFilter() {
+  if (customStartDate.value && customEndDate.value) {
+    if (customStartDate.value > customEndDate.value) {
+      const temp = customStartDate.value;
+      customStartDate.value = customEndDate.value;
+      customEndDate.value = temp;
+    }
+    page.value = 1;
+    fetchCases();
+  }
+}
+
+function getDateParams() {
+  let startDate: string | undefined;
+  let endDate: string | undefined;
+
+  if (selectedDateRange.value === 'today') {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    startDate = d.toISOString();
+    const end = new Date();
+    end.setHours(23, 59, 59, 999);
+    endDate = end.toISOString();
+  } else if (selectedDateRange.value === 'week') {
+    const d = new Date();
+    const day = d.getDay(); // 0 is Sunday, 1 is Monday...
+    const diff = d.getDate() - (day === 0 ? 6 : day - 1); // Monday
+    const monday = new Date(d.getFullYear(), d.getMonth(), diff, 0, 0, 0, 0);
+    startDate = monday.toISOString();
+    const end = new Date(d.getFullYear(), d.getMonth(), diff + 6, 23, 59, 59, 999);
+    endDate = end.toISOString();
+  } else if (selectedDateRange.value === 'month') {
+    const now = new Date();
+    const d = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    startDate = d.toISOString();
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    endDate = end.toISOString();
+  } else if (selectedDateRange.value === 'custom') {
+    if (customStartDate.value) {
+      startDate = `${customStartDate.value}T00:00:00.000+05:30`;
+    }
+    if (customEndDate.value) {
+      endDate = `${customEndDate.value}T23:59:59.999+05:30`;
+    }
+  }
+
+  return { startDate, endDate };
+}
+
 const page = ref(1);
 const pageSize = ref(20);
 const total = ref(0);
@@ -279,6 +418,20 @@ function formatStage(stage: string) {
   return t(`cases.stages.${stage}`, stage);
 }
 
+function formatVisitedDate(dateStr?: string | Date | null) {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
+}
+
 async function fetchCases() {
   loading.value = true;
   try {
@@ -288,6 +441,10 @@ async function fetchCases() {
     if (selectedStage.value) params.append('stage', selectedStage.value);
     if (selectedCareType.value) params.append('careType', selectedCareType.value);
     if (searchQuery.value.trim()) params.append('search', searchQuery.value.trim());
+
+    const { startDate, endDate } = getDateParams();
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
 
     const res = await $fetch<{ cases: any[]; total: number; totalPages?: number }>(
       `${config.public.apiBase}/cases?${params.toString()}`,

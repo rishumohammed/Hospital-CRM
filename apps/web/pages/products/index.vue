@@ -77,9 +77,19 @@
             @change="pagination.page = 1; fetchProducts()"
           >
             <option :value="''">All Categories</option>
-            <option v-for="cat in categories" :key="cat.id" :value="cat.id">
-              {{ cat.name }}
-            </option>
+            <template v-for="cat in parentCategories" :key="cat.id">
+              <option :value="cat.id" class="font-semibold text-slate-900 dark:text-slate-100">
+                📁 {{ cat.name }} (All)
+              </option>
+              <option
+                v-for="sub in (cat.children || allCategories.filter((c: any) => c.parentId === cat.id))"
+                :key="sub.id"
+                :value="sub.id"
+                class="text-slate-600 dark:text-slate-400 pl-3"
+              >
+                &nbsp;&nbsp;&nbsp;↳ {{ sub.name }}
+              </option>
+            </template>
           </select>
         </div>
 
@@ -237,7 +247,7 @@
               <!-- Category -->
               <td class="py-3 px-4 text-slate-600 dark:text-slate-300">
                 <span class="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700 text-[11px] font-normal">
-                  {{ p.category?.name || 'Uncategorized' }}
+                  {{ p.category?.parent ? `${p.category.parent.name} → ${p.category.name}` : (p.category?.name || 'Uncategorized') }}
                 </span>
               </td>
 
@@ -482,17 +492,34 @@
             </div>
           </div>
 
-          <!-- Category & Price -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <!-- Category, Subcategory & Price -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Category *</label>
               <select
-                v-model="productForm.categoryId"
-                class="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-850 text-xs font-normal focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                v-model="selectedParentCategoryId"
+                @change="onParentCategoryChange"
+                class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-850 text-xs font-normal focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
               >
                 <option :value="null" disabled>Select category</option>
-                <option v-for="cat in categories" :key="cat.id" :value="cat.id">
+                <option v-for="cat in parentCategories" :key="cat.id" :value="cat.id">
                   {{ cat.name }}
+                </option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Subcategory
+                <span v-if="availableSubcategories.length === 0" class="text-[10px] text-slate-400 font-normal">(None)</span>
+              </label>
+              <select
+                v-model="selectedSubcategoryId"
+                :disabled="!selectedParentCategoryId || availableSubcategories.length === 0"
+                class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-850 text-xs font-normal focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 disabled:opacity-50 disabled:bg-slate-100 dark:disabled:bg-slate-800"
+              >
+                <option :value="null">None (Direct)</option>
+                <option v-for="sub in availableSubcategories" :key="sub.id" :value="sub.id">
+                  {{ sub.name }}
                 </option>
               </select>
             </div>
@@ -504,7 +531,7 @@
                 min="0"
                 step="0.01"
                 placeholder="450.00"
-                class="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-850 text-xs font-normal focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-850 text-xs font-normal focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
               />
             </div>
           </div>
@@ -585,35 +612,6 @@
               ></textarea>
             </div>
           </div>
-
-          <!-- Prescription Checkbox -->
-          <div class="p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-850/60 flex items-center justify-between">
-            <div class="space-y-0.5">
-              <span class="text-xs font-semibold text-slate-800 dark:text-slate-200 block">Prescription Required (Rx)</span>
-              <span class="text-[11px] text-slate-500 block">Requires doctor verification before callers can confirm sale</span>
-            </div>
-            <input
-              v-model="productForm.prescriptionRequired"
-              type="checkbox"
-              class="w-4 h-4 rounded text-teal-600 focus:ring-teal-500 border-slate-300"
-            />
-          </div>
-
-          <!-- Approval Confirmation Gate (Product Manager) -->
-          <div v-if="canApprove" class="p-3.5 rounded-xl border border-teal-200 dark:border-teal-800 bg-teal-50/50 dark:bg-teal-950/40 space-y-2">
-            <div class="flex items-start gap-2.5">
-              <input
-                id="approvalGate"
-                v-model="productForm.approvalConfirmed"
-                type="checkbox"
-                class="mt-0.5 w-4 h-4 rounded text-teal-600 focus:ring-teal-500 border-teal-300"
-              />
-              <label for="approvalGate" class="text-xs text-teal-900 dark:text-teal-200 leading-snug cursor-pointer select-none">
-                <span class="font-semibold block mb-0.5">Compliance Approval Declaration</span>
-                "The description uses only approved wording. It makes no claim to cure, guarantee, or replace a doctor's advice."
-              </label>
-            </div>
-          </div>
         </div>
 
         <!-- Drawer Footer -->
@@ -657,6 +655,34 @@ const canApprove = computed(() => authStore.hasPermission('product.approve'));
 // State
 const products = ref<any[]>([]);
 const categories = ref<any[]>([]);
+const allCategories = ref<any[]>([]);
+const categoryTree = ref<any[]>([]);
+const selectedParentCategoryId = ref<number | null>(null);
+const selectedSubcategoryId = ref<number | null>(null);
+
+const parentCategories = computed(() => {
+  return categoryTree.value.length > 0
+    ? categoryTree.value
+    : allCategories.value.filter((c: any) => !c.parentId);
+});
+
+const selectedParentCategory = computed(() => {
+  return parentCategories.value.find((c: any) => c.id === selectedParentCategoryId.value) || null;
+});
+
+const availableSubcategories = computed(() => {
+  if (!selectedParentCategoryId.value) return [];
+  const parentInTree = categoryTree.value.find((c: any) => c.id === selectedParentCategoryId.value);
+  if (parentInTree && parentInTree.children && parentInTree.children.length > 0) {
+    return parentInTree.children;
+  }
+  return allCategories.value.filter((c: any) => c.parentId === selectedParentCategoryId.value);
+});
+
+const onParentCategoryChange = () => {
+  selectedSubcategoryId.value = null;
+};
+
 const isLoading = ref(false);
 const isTogglingStock = ref<number | null>(null);
 const selectedProductIds = ref<number[]>([]);
@@ -699,8 +725,6 @@ const productForm = ref({
   refillDays: 30,
   howToUse: '',
   contraindications: '',
-  prescriptionRequired: false,
-  approvalConfirmed: false,
   priceChangeReason: '',
 });
 
@@ -747,9 +771,11 @@ const fetchCategories = async () => {
     });
     if (res.ok) {
       const data = await res.json();
-      categories.value = Array.isArray(data)
+      allCategories.value = Array.isArray(data)
         ? data
-        : (data.categories || data.data || data.tree || []);
+        : (data.categories || data.data || []);
+      categoryTree.value = data.tree || allCategories.value.filter((c: any) => !c.parentId);
+      categories.value = allCategories.value;
     }
   } catch (err) {
     console.error('Failed to load categories', err);
@@ -849,10 +875,12 @@ const submitBulkStock = async () => {
 const openAddDrawer = () => {
   editingProductId.value = null;
   originalPrice.value = null;
+  selectedParentCategoryId.value = parentCategories.value[0]?.id || null;
+  selectedSubcategoryId.value = null;
   productForm.value = {
     sku: '',
     name: '',
-    categoryId: categories.value[0]?.id || null,
+    categoryId: selectedParentCategoryId.value,
     price: 0,
     usageDescription: '',
     packSize: '',
@@ -860,8 +888,6 @@ const openAddDrawer = () => {
     refillDays: 30,
     howToUse: '',
     contraindications: '',
-    prescriptionRequired: false,
-    approvalConfirmed: false,
     priceChangeReason: '',
   };
   showProductDrawer.value = true;
@@ -870,6 +896,16 @@ const openAddDrawer = () => {
 const openEditDrawer = (product: any) => {
   editingProductId.value = product.id;
   originalPrice.value = Number(product.price);
+
+  const currentCat = allCategories.value.find((c: any) => c.id === product.categoryId);
+  if (currentCat && currentCat.parentId) {
+    selectedParentCategoryId.value = currentCat.parentId;
+    selectedSubcategoryId.value = currentCat.id;
+  } else {
+    selectedParentCategoryId.value = product.categoryId;
+    selectedSubcategoryId.value = null;
+  }
+
   productForm.value = {
     sku: product.sku,
     name: product.name,
@@ -880,25 +916,53 @@ const openEditDrawer = (product: any) => {
     shelfLifeMonths: product.shelfLifeMonths || 24,
     refillDays: product.refillDays || 30,
     howToUse: product.howToUse || '',
-    contraindications: product.contraindications || '',
-    prescriptionRequired: product.prescriptionRequired || false,
-    approvalConfirmed: product.status === 'approved',
+    contraindications: product.precautions || product.contraindications || '',
     priceChangeReason: '',
   };
   showProductDrawer.value = true;
 };
 
 const saveProduct = async () => {
+  const effectiveCategoryId = selectedSubcategoryId.value || selectedParentCategoryId.value;
+  if (!effectiveCategoryId) {
+    alert('Please select a category');
+    return;
+  }
+
+  if (!productForm.value.sku?.trim()) {
+    alert('Please enter an SKU code');
+    return;
+  }
+  if (!productForm.value.name?.trim()) {
+    alert('Please enter a product name');
+    return;
+  }
+
   isSavingProduct.value = true;
   try {
     const url = editingProductId.value
       ? `${apiBase}/products/${editingProductId.value}`
       : `${apiBase}/products`;
-    const method = editingProductId.value ? 'PUT' : 'POST';
+    const method = editingProductId.value ? 'PATCH' : 'POST';
 
     const payload: any = {
-      ...productForm.value,
+      sku: productForm.value.sku.trim().toUpperCase(),
+      name: productForm.value.name.trim(),
+      categoryId: effectiveCategoryId,
+      price: Number(productForm.value.price) >= 0 ? Number(productForm.value.price) : 0,
+      usageDescription: productForm.value.usageDescription?.trim() || productForm.value.name.trim(),
+      packSize: productForm.value.packSize?.trim() || null,
+      howToUse: productForm.value.howToUse?.trim() || null,
+      precautions: productForm.value.contraindications?.trim() || null,
+      refillDays: productForm.value.refillDays ? Number(productForm.value.refillDays) : null,
+      prescriptionRequired: false,
+      approvalConfirmed: true,
+      status: 'approved',
     };
+
+    if (editingProductId.value && productForm.value.priceChangeReason) {
+      payload.priceChangeReason = productForm.value.priceChangeReason;
+    }
 
     const res = await fetch(url, {
       method,
@@ -913,8 +977,21 @@ const saveProduct = async () => {
       showProductDrawer.value = false;
       fetchProducts();
     } else {
-      const err = await res.json();
-      alert(err.error?.message || 'Failed to save product');
+      const err = await res.json().catch(() => ({}));
+      let errorMsg = err.error?.message || err.message || (typeof err.error === 'string' ? err.error : 'Failed to save product');
+      if (err.error?.details) {
+        const details = err.error.details;
+        const messages: string[] = [];
+        for (const [k, v] of Object.entries(details)) {
+          if (k !== '_errors' && typeof v === 'object' && v && (v as any)._errors?.length) {
+            messages.push(`${k}: ${(v as any)._errors.join(', ')}`);
+          }
+        }
+        if (messages.length > 0) {
+          errorMsg = `${errorMsg}\n\n• ${messages.join('\n• ')}`;
+        }
+      }
+      alert(errorMsg);
     }
   } catch (err) {
     console.error('Save product error', err);

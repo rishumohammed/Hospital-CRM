@@ -121,10 +121,12 @@ export const productRoutes: FastifyPluginAsync = async (fastify) => {
       async (req, reply) => {
         const parseResult = createProductSchema.safeParse(req.body);
         if (!parseResult.success) {
+          const firstIssue = parseResult.error.errors[0];
+          const errorMsg = firstIssue ? `${firstIssue.path.join('.') || 'field'}: ${firstIssue.message}` : 'Invalid product payload';
           return reply.status(400).send({
             error: {
               code: 'VALIDATION_ERROR',
-              message: 'Invalid product payload',
+              message: errorMsg,
               details: parseResult.error.format(),
             },
           });
@@ -158,39 +160,49 @@ export const productRoutes: FastifyPluginAsync = async (fastify) => {
       }
     );
 
-    // 5. Update Product
+    // 5. Update Product (supports both PATCH and PUT)
+    const updateProductHandler = async (req: any, reply: any) => {
+      const { id } = req.params as { id: string };
+      const productId = parseInt(id, 10);
+      if (isNaN(productId)) {
+        return reply.status(400).send({
+          error: { code: 'INVALID_ID', message: 'Product ID must be an integer' },
+        });
+      }
+
+      const parseResult = updateProductSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        const firstIssue = parseResult.error.errors[0];
+        const errorMsg = firstIssue ? `${firstIssue.path.join('.') || 'field'}: ${firstIssue.message}` : 'Invalid product update payload';
+        return reply.status(400).send({
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: errorMsg,
+            details: parseResult.error.format(),
+          },
+        });
+      }
+
+      const updated = await updateProduct(
+        productId,
+        parseResult.data,
+        req.user!,
+        req.ip,
+        req.headers['user-agent']
+      );
+      return reply.send(updated);
+    };
+
     authGroup.patch(
       '/products/:id',
       { preHandler: [requirePermission(Permissions.PRODUCT_EDIT, 'product')] },
-      async (req, reply) => {
-        const { id } = req.params as { id: string };
-        const productId = parseInt(id, 10);
-        if (isNaN(productId)) {
-          return reply.status(400).send({
-            error: { code: 'INVALID_ID', message: 'Product ID must be an integer' },
-          });
-        }
+      updateProductHandler
+    );
 
-        const parseResult = updateProductSchema.safeParse(req.body);
-        if (!parseResult.success) {
-          return reply.status(400).send({
-            error: {
-              code: 'VALIDATION_ERROR',
-              message: 'Invalid product update payload',
-              details: parseResult.error.format(),
-            },
-          });
-        }
-
-        const updated = await updateProduct(
-          productId,
-          parseResult.data,
-          req.user!,
-          req.ip,
-          req.headers['user-agent']
-        );
-        return reply.send(updated);
-      }
+    authGroup.put(
+      '/products/:id',
+      { preHandler: [requirePermission(Permissions.PRODUCT_EDIT, 'product')] },
+      updateProductHandler
     );
 
     // 6. Approve Product

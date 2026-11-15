@@ -127,9 +127,33 @@ export async function listCases(
   }
 
   if (params.startDate || params.endDate) {
-    where.createdAt = {};
-    if (params.startDate) where.createdAt.gte = new Date(params.startDate);
-    if (params.endDate) where.createdAt.lte = new Date(params.endDate);
+    let start: Date | undefined;
+    let end: Date | undefined;
+
+    if (params.startDate) {
+      start = params.startDate.includes('T')
+        ? new Date(params.startDate)
+        : new Date(`${params.startDate}T00:00:00.000+05:30`);
+    }
+    if (params.endDate) {
+      end = params.endDate.includes('T')
+        ? new Date(params.endDate)
+        : new Date(`${params.endDate}T23:59:59.999+05:30`);
+    }
+
+    const dateRangeCond: any = {};
+    if (start && !isNaN(start.getTime())) dateRangeCond.gte = start;
+    if (end && !isNaN(end.getTime())) dateRangeCond.lte = end;
+
+    where.AND = [
+      ...(where.AND || []),
+      {
+        OR: [
+          { consultationCompletedAt: dateRangeCond },
+          { consultationCompletedAt: null, createdAt: dateRangeCond },
+        ],
+      },
+    ];
   }
 
   if (params.search && params.search.trim()) {

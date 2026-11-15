@@ -63,7 +63,7 @@
               <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 flex-wrap">
                 <span class="font-mono font-semibold text-slate-700 dark:text-slate-300">SKU: {{ product.sku }}</span>
                 <span>•</span>
-                <span>📁 {{ product.category?.name || 'Uncategorized' }}</span>
+                <span>📁 {{ product.category?.parent ? `${product.category.parent.name} → ${product.category.name}` : (product.category?.name || 'Uncategorized') }}</span>
                 <span v-if="product.packSize">•</span>
                 <span v-if="product.packSize">📦 {{ product.packSize }}</span>
                 <span v-if="product.refillDays">•</span>
@@ -182,16 +182,16 @@
                   {{ formatRelationType(rel.relationType) }}
                 </span>
                 <span class="font-semibold text-xs text-slate-900 dark:text-white">
-                  {{ rel.toProduct?.name }}
+                  {{ rel.relatedProduct?.name || rel.toProduct?.name }}
                 </span>
               </div>
 
               <div class="text-[11px] text-slate-500 font-mono">
-                SKU: {{ rel.toProduct?.sku }} • ₹{{ Number(rel.toProduct?.price).toFixed(2) }}
+                SKU: {{ (rel.relatedProduct || rel.toProduct)?.sku }} • ₹{{ Number((rel.relatedProduct || rel.toProduct)?.price || 0).toFixed(2) }}
               </div>
 
-              <p v-if="rel.talkingPoints" class="text-xs text-slate-600 dark:text-slate-400 italic mt-1 bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-100 dark:border-slate-700">
-                💬 Pitch: "{{ rel.talkingPoints }}"
+              <p v-if="rel.talkingPoint || rel.talkingPoints" class="text-xs text-slate-600 dark:text-slate-400 italic mt-1 bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-100 dark:border-slate-700">
+                💬 Pitch: "{{ rel.talkingPoint || rel.talkingPoints }}"
               </p>
             </div>
 
@@ -228,6 +228,7 @@
                   <th class="py-2">Old Price</th>
                   <th class="py-2">New Price</th>
                   <th class="py-2">Reason</th>
+                  <th class="py-2">Updated By</th>
                   <th class="py-2">Date</th>
                 </tr>
               </thead>
@@ -236,6 +237,7 @@
                   <td class="py-2 text-slate-500">₹{{ Number(ph.oldPrice).toFixed(2) }}</td>
                   <td class="py-2 font-semibold text-slate-900 dark:text-white">₹{{ Number(ph.newPrice).toFixed(2) }}</td>
                   <td class="py-2 text-slate-600 dark:text-slate-400">{{ ph.reason || 'Routine revision' }}</td>
+                  <td class="py-2 text-slate-500 text-[11px]">{{ ph.changedBy?.name || 'Staff' }}</td>
                   <td class="py-2 text-[11px] text-slate-400">{{ formatDate(ph.createdAt) }}</td>
                 </tr>
               </tbody>
@@ -260,6 +262,7 @@
                 <tr class="border-b border-slate-100 dark:border-slate-700 text-[10px] text-slate-400 uppercase">
                   <th class="py-2">Status</th>
                   <th class="py-2">Note</th>
+                  <th class="py-2">Updated By</th>
                   <th class="py-2">Date</th>
                 </tr>
               </thead>
@@ -278,6 +281,7 @@
                     </span>
                   </td>
                   <td class="py-2 text-slate-600 dark:text-slate-400">{{ sh.note || '-' }}</td>
+                  <td class="py-2 text-slate-500 text-[11px]">{{ sh.changedBy?.name || 'Staff' }}</td>
                   <td class="py-2 text-[11px] text-slate-400">{{ formatDate(sh.createdAt) }}</td>
                 </tr>
               </tbody>
@@ -513,20 +517,43 @@ const submitRelation = async () => {
   if (!relationForm.value.toProductId) return;
   isSubmittingRelation.value = true;
   try {
+    const payload = {
+      relatedProductId: relationForm.value.toProductId,
+      toProductId: relationForm.value.toProductId,
+      relationType: relationForm.value.relationType,
+      talkingPoint: relationForm.value.talkingPoints?.trim() || undefined,
+      talkingPoints: relationForm.value.talkingPoints?.trim() || undefined,
+      mirror: relationForm.value.mirror,
+    };
+
     const res = await fetch(`${apiBase}/products/${productId.value}/relations`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${authStore.token}`,
       },
-      body: JSON.stringify(relationForm.value),
+      body: JSON.stringify(payload),
     });
+
     if (res.ok) {
       showRelationModal.value = false;
       fetchProduct();
     } else {
       const err = await res.json();
-      alert(err.error?.message || 'Failed to add relation');
+      let errorMsg = err.error?.message || 'Failed to add relation';
+      if (err.error?.details) {
+        const details = err.error.details;
+        const messages: string[] = [];
+        for (const [k, v] of Object.entries(details)) {
+          if (k !== '_errors' && typeof v === 'object' && v && (v as any)._errors?.length) {
+            messages.push(`${k}: ${(v as any)._errors.join(', ')}`);
+          }
+        }
+        if (messages.length > 0) {
+          errorMsg = `${errorMsg}\n\n• ${messages.join('\n• ')}`;
+        }
+      }
+      alert(errorMsg);
     }
   } catch (err) {
     console.error('Relation error', err);
@@ -538,7 +565,7 @@ const submitRelation = async () => {
 const deleteRelation = async (relationId: number) => {
   if (!confirm('Are you sure you want to remove this relation?')) return;
   try {
-    const res = await fetch(`${apiBase}/products/relations/${relationId}`, {
+    const res = await fetch(`${apiBase}/product-relations/${relationId}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${authStore.token}` },
     });

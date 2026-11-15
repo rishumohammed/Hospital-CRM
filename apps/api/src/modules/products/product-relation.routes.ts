@@ -50,10 +50,12 @@ export const productRelationRoutes: FastifyPluginAsync = async (fastify) => {
 
         const parseResult = createProductRelationSchema.safeParse(req.body);
         if (!parseResult.success) {
+          const firstIssue = parseResult.error.errors[0];
+          const errorMsg = firstIssue ? `${firstIssue.path.join('.') || 'field'}: ${firstIssue.message}` : 'Invalid product relation payload';
           return reply.status(400).send({
             error: {
               code: 'VALIDATION_ERROR',
-              message: 'Invalid product relation payload',
+              message: errorMsg,
               details: parseResult.error.format(),
             },
           });
@@ -85,10 +87,12 @@ export const productRelationRoutes: FastifyPluginAsync = async (fastify) => {
 
         const parseResult = updateProductRelationSchema.safeParse(req.body);
         if (!parseResult.success) {
+          const firstIssue = parseResult.error.errors[0];
+          const errorMsg = firstIssue ? `${firstIssue.path.join('.') || 'field'}: ${firstIssue.message}` : 'Invalid product relation update payload';
           return reply.status(400).send({
             error: {
               code: 'VALIDATION_ERROR',
-              message: 'Invalid product relation update payload',
+              message: errorMsg,
               details: parseResult.error.format(),
             },
           });
@@ -126,6 +130,37 @@ export const productRelationRoutes: FastifyPluginAsync = async (fastify) => {
         );
         return reply.send(archived);
       }
+    );
+
+    // 4b. Delete / Archive Product Relation via DELETE
+    const deleteHandler = async (req: any, reply: any) => {
+      const { id } = req.params as { id: string };
+      const relationId = parseInt(id, 10);
+      if (isNaN(relationId)) {
+        return reply.status(400).send({
+          error: { code: 'INVALID_ID', message: 'Relation ID must be an integer' },
+        });
+      }
+
+      const archived = await archiveProductRelation(
+        relationId,
+        req.user!,
+        req.ip,
+        req.headers['user-agent']
+      );
+      return reply.send(archived);
+    };
+
+    authGroup.delete(
+      '/product-relations/:id',
+      { preHandler: [requirePermission(Permissions.PRODUCT_RELATION_MANAGE, 'product_relation')] },
+      deleteHandler
+    );
+
+    authGroup.delete(
+      '/products/relations/:id',
+      { preHandler: [requirePermission(Permissions.PRODUCT_RELATION_MANAGE, 'product_relation')] },
+      deleteHandler
     );
 
     // 5. Suggestions for a Product (GET /products/:id/suggestions?lead_id=)

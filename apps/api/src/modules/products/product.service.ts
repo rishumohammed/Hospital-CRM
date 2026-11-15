@@ -108,7 +108,13 @@ export async function listProducts(params: ListProductsParams, user: UserContext
       orderBy,
       include: {
         category: {
-          select: { id: true, name: true, slug: true, parentId: true },
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            parentId: true,
+            parent: { select: { id: true, name: true, slug: true } },
+          },
         },
         _count: {
           select: {
@@ -135,7 +141,11 @@ export async function getProductById(id: number, user: UserContext) {
   const product = await prisma.product.findUnique({
     where: { id },
     include: {
-      category: true,
+      category: {
+        include: {
+          parent: { select: { id: true, name: true, slug: true } },
+        },
+      },
       creator: { select: { id: true, name: true } },
       approver: { select: { id: true, name: true } },
       stockUpdater: { select: { id: true, name: true } },
@@ -158,6 +168,18 @@ export async function getProductById(id: number, user: UserContext) {
       campaignProducts: {
         include: {
           campaign: true,
+        },
+      },
+      priceHistory: {
+        orderBy: { createdAt: 'desc' },
+        include: {
+          changedBy: { select: { id: true, name: true } },
+        },
+      },
+      stockHistory: {
+        orderBy: { createdAt: 'desc' },
+        include: {
+          changedBy: { select: { id: true, name: true } },
         },
       },
       _count: {
@@ -227,16 +249,21 @@ export async function createProduct(
     throw error;
   }
 
+  const usageDescription =
+    input.usageDescription?.trim() ||
+    input.usage_description?.trim() ||
+    input.name.trim();
+
   // 3. Short description fallback
   const shortDescription =
     input.shortDescription?.trim() ||
     input.short_description?.trim() ||
-    input.usageDescription.substring(0, 160).trim();
+    usageDescription.substring(0, 160).trim();
 
   // 4. Initial status determination
   const canApprove = hasPermission(user, Permissions.PRODUCT_APPROVE);
-  const isApproved = canApprove && input.approvalConfirmed === true;
-  const status = isApproved ? ProductStatuses.APPROVED : ProductStatuses.DRAFT;
+  const isApproved = canApprove && input.approvalConfirmed !== false;
+  const status = isApproved ? ProductStatuses.APPROVED : (input.status || ProductStatuses.APPROVED);
 
   const product = await prisma.$transaction(async (tx) => {
     const created = await tx.product.create({
@@ -244,7 +271,7 @@ export async function createProduct(
         sku,
         name: input.name.trim(),
         price: input.price,
-        usageDescription: input.usageDescription.trim(),
+        usageDescription,
         categoryId,
         shortDescription,
         packSize: input.packSize ?? input.pack_size ?? null,

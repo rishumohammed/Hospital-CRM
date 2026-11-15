@@ -91,17 +91,6 @@
               </button>
 
               <button
-                v-if="canManageCategories && (root._count?.products || 0) > 0"
-                type="button"
-                @click="openMoveProductsModal(root)"
-                class="px-2.5 py-1 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-200 text-[11px] font-semibold transition-colors flex items-center gap-1"
-                title="Move Products to another category"
-              >
-                <UIcon name="i-heroicons-arrows-right-left" class="w-3.5 h-3.5" />
-                <span>Move Products</span>
-              </button>
-
-              <button
                 v-if="canManageCategories"
                 type="button"
                 @click="openEditCategoryModal(root)"
@@ -147,14 +136,6 @@
               </div>
 
               <div class="flex items-center gap-1.5">
-                <button
-                  v-if="canManageCategories && (child._count?.products || 0) > 0"
-                  type="button"
-                  @click="openMoveProductsModal(child)"
-                  class="px-2 py-0.5 rounded-md border border-amber-200 text-amber-800 bg-amber-50 dark:bg-amber-950/40 text-[10px] font-semibold"
-                >
-                  Move
-                </button>
                 <button
                   v-if="canManageCategories"
                   type="button"
@@ -284,69 +265,6 @@
         </div>
       </div>
     </div>
-
-    <!-- Move Products Modal -->
-    <div
-      v-if="showMoveModal"
-      class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4"
-    >
-      <div class="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-2xl w-full max-w-md p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
-        <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-700/60 pb-3">
-          <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-            <UIcon name="i-heroicons-arrows-right-left" class="w-5 h-5 text-amber-600" />
-            <span>Move Products</span>
-          </h3>
-          <button
-            type="button"
-            class="text-slate-400 hover:text-slate-600 p-1"
-            @click="showMoveModal = false"
-          >
-            ✕
-          </button>
-        </div>
-
-        <p class="text-xs text-slate-500">
-          Reassign all <strong class="text-slate-800 dark:text-slate-200">{{ sourceCategory?._count?.products || 0 }} products</strong> from
-          <strong class="text-teal-600">{{ sourceCategory?.name }}</strong> to a new destination category.
-        </p>
-
-        <div>
-          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Target Category *</label>
-          <select
-            v-model="targetCategoryId"
-            class="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-850 text-xs font-normal focus:outline-none focus:ring-2 focus:ring-teal-500/20"
-          >
-            <option :value="null" disabled>Select target category</option>
-            <option
-              v-for="c in categories.filter((c) => c.id !== sourceCategory?.id)"
-              :key="c.id"
-              :value="c.id"
-            >
-              {{ c.name }}
-            </option>
-          </select>
-        </div>
-
-        <div class="flex items-center justify-end space-x-2 pt-2">
-          <button
-            type="button"
-            class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-            @click="showMoveModal = false"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            :disabled="!targetCategoryId || isMovingProducts"
-            @click="submitMoveProducts"
-            class="px-5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs shadow-md shadow-amber-500/20 disabled:opacity-50 transition-all flex items-center gap-1.5"
-          >
-            <span v-if="isMovingProducts" class="animate-spin text-xs">⟳</span>
-            <span>Move All Products</span>
-          </button>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -397,12 +315,6 @@ const categoryForm = ref({
   parentId: null as number | null,
   sort: 1,
 });
-
-// Move Products Modal state
-const showMoveModal = ref(false);
-const sourceCategory = ref<any>(null);
-const targetCategoryId = ref<number | null>(null);
-const isMovingProducts = ref(false);
 
 const onNameInput = () => {
   if (!editingCategory.value) {
@@ -512,43 +424,6 @@ const saveCategory = async () => {
   }
 };
 
-const openMoveProductsModal = (cat: any) => {
-  sourceCategory.value = cat;
-  targetCategoryId.value = null;
-  showMoveModal.value = true;
-};
-
-const submitMoveProducts = async () => {
-  if (!sourceCategory.value || !targetCategoryId.value) return;
-  isMovingProducts.value = true;
-  try {
-    const res = await fetch(
-      `${apiBase}/product-categories/${sourceCategory.value.id}/move-products`,
-      {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        credentials: 'include',
-        body: JSON.stringify({
-          targetCategoryId: targetCategoryId.value,
-        }),
-      }
-    );
-
-    if (res.ok) {
-      showMoveModal.value = false;
-      fetchCategories();
-    } else {
-      const err = await res.json().catch(() => ({}));
-      alert(err.error?.message || err.message || 'Failed to move products');
-    }
-  } catch (err: any) {
-    console.error('Move products error', err);
-    alert(err.message || 'Network error while moving products');
-  } finally {
-    isMovingProducts.value = false;
-  }
-};
-
 const confirmDeleteCategory = async (category: any) => {
   if (!category) return;
 
@@ -567,7 +442,7 @@ const confirmDeleteCategory = async (category: any) => {
   const productCount = category._count?.products || 0;
   if (productCount > 0) {
     alert(
-      `Cannot delete category "${category.name}" because it contains ${productCount} active product(s).\n\nPlease move products to another category first using the "Move Products" button.`
+      `Cannot delete category "${category.name}" because it contains ${productCount} active product(s).\n\nPlease reassign or delete these products first.`
     );
     return;
   }

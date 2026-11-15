@@ -57,9 +57,18 @@ export async function createProductRelation(
   ip?: string,
   userAgent?: string
 ) {
-  const relatedProductId = input.relatedProductId ?? input.related_product_id!;
+  const relatedProductId =
+    input.relatedProductId ??
+    input.related_product_id ??
+    (input as any).toProductId ??
+    (input as any).to_product_id!;
   const relationType = input.relationType ?? input.relation_type!;
-  const talkingPoint = (input.talkingPoint ?? input.talking_point!).trim();
+  const rawTalkingPoint =
+    input.talkingPoint ??
+    input.talking_point ??
+    (input as any).talkingPoints ??
+    (input as any).talking_points;
+  const talkingPoint = typeof rawTalkingPoint === 'string' && rawTalkingPoint.trim() ? rawTalkingPoint.trim() : 'Recommended complementary formulation.';
 
   // 1. Cannot relate to itself
   if (productId === relatedProductId) {
@@ -201,8 +210,9 @@ export async function updateProductRelation(
   if (input.relationType || input.relation_type) {
     data.relationType = input.relationType ?? input.relation_type;
   }
-  if (input.talkingPoint !== undefined || input.talking_point !== undefined) {
-    data.talkingPoint = (input.talkingPoint ?? input.talking_point)?.trim();
+  const rawTalkingPoint = input.talkingPoint ?? input.talking_point ?? (input as any).talkingPoints ?? (input as any).talking_points;
+  if (rawTalkingPoint !== undefined) {
+    data.talkingPoint = typeof rawTalkingPoint === 'string' && rawTalkingPoint.trim() ? rawTalkingPoint.trim() : 'Recommended complementary formulation.';
   }
   if (input.sort !== undefined) {
     data.sort = input.sort;

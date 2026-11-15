@@ -1236,7 +1236,8 @@ export async function getTelecallerPerformance(
   user: UserContext
 ) {
   const isManagerOrAdmin = ['admin', 'owner', 'center_head', 'telecaller_manager', 'super_admin'].includes(user.roleCode);
-  const targetUserId = isManagerOrAdmin && params.userId ? params.userId : user.id;
+  const targetUserId = isManagerOrAdmin && params.userId ? params.userId : (!isManagerOrAdmin ? user.id : undefined);
+  const effectiveBranchId = params.branchId || (user.roleCode === 'center_head' ? (user.branchIds?.[0] || (user as any).branchId || null) : null);
 
   const targetDateStr = params.date || new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
   const startOfPeriod = params.startDate ? new Date(params.startDate) : new Date(`${targetDateStr}T00:00:00.000+05:30`);
@@ -1255,15 +1256,65 @@ export async function getTelecallerPerformance(
   const startOfMonth = new Date(`${yearStr}-${monthStr}-01T00:00:00.000+05:30`);
   const endOfMonth = new Date(`${yearStr}-${monthStr}-${String(lastDayOfMonth).padStart(2, '0')}T23:59:59.999+05:30`);
 
-  const targetUser = await prisma.user.findUnique({
-    where: { id: targetUserId },
-    select: { id: true, name: true, email: true, role: { select: { code: true, name: true } } },
-  });
+  let targetUser: any = null;
+  if (targetUserId) {
+    targetUser = await prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: { id: true, name: true, email: true, role: { select: { code: true, name: true } } },
+    });
+  } else {
+    targetUser = {
+      id: 0,
+      name: user.roleCode === 'center_head' ? 'Branch Overview' : (user.roleCode === 'telecaller_manager' ? 'Telecaller Team Overview' : 'Hospital-wide Overview'),
+      email: user.email,
+      role: { code: user.roleCode, name: user.roleCode === 'center_head' ? 'Branch Manager' : (user.roleCode === 'telecaller_manager' ? 'Telecaller Lead' : 'Managing Director / Executive') },
+    };
+  }
+
+  const callUserFilter: any = targetUserId
+    ? { userId: targetUserId }
+    : (effectiveBranchId ? { lead: { branchId: effectiveBranchId } } : {});
+
+  const bookingFilter: any = targetUserId
+    ? {
+        OR: [
+          { lead: { ownerId: targetUserId } },
+          { case: { ownerId: targetUserId } },
+          { createdBy: targetUserId },
+        ],
+      }
+    : (effectiveBranchId ? { lead: { branchId: effectiveBranchId } } : {});
+
+  const visitCaseOwnerFilter: any = targetUserId
+    ? {
+        OR: [
+          { lead: { ownerId: targetUserId } },
+          { lead: { appointments: { some: { createdBy: targetUserId } } } },
+          { ownerId: targetUserId },
+        ],
+      }
+    : (effectiveBranchId ? { branchId: effectiveBranchId } : {});
+
+  const visitApptOwnerFilter: any = targetUserId
+    ? {
+        OR: [
+          { lead: { ownerId: targetUserId } },
+          { createdBy: targetUserId },
+          { case: { ownerId: targetUserId } },
+        ],
+      }
+    : (effectiveBranchId ? { lead: { branchId: effectiveBranchId } } : {});
+
+  const leadFilter: any = {
+    archivedAt: null,
+    ...(targetUserId ? { ownerId: targetUserId } : {}),
+    ...(effectiveBranchId ? { branchId: effectiveBranchId } : {}),
+  };
 
   // 1. Period metrics (Daily / Custom range)
   const callsPeriod = await prisma.interaction.findMany({
     where: {
-      userId: targetUserId,
+      ...callUserFilter,
       type: 'call',
       occurredAt: { gte: startOfPeriod, lte: endOfPeriod },
     },
@@ -1311,24 +1362,16 @@ export async function getTelecallerPerformance(
     where: {
       createdAt: { gte: startOfPeriod, lte: endOfPeriod },
       status: { not: 'cancelled' },
-      OR: [
-        { lead: { ownerId: targetUserId } },
-        { case: { ownerId: targetUserId } },
-      ],
+      ...bookingFilter,
     },
   });
 
-  // Confirmed patient visits in period
+  // Confirmed patient visits in period (Mark Visited completed today)
   const [visitedCasesPeriod, visitedApptsPeriod] = await Promise.all([
     prisma.case.count({
       where: {
         archivedAt: null,
-        OR: [
-          { ownerId: targetUserId },
-          { lead: { ownerId: targetUserId } },
-          { lead: { appointments: { some: { createdBy: targetUserId } } } },
-          { interactions: { some: { userId: targetUserId } } },
-        ],
+        ...visitCaseOwnerFilter,
         AND: [
           {
             OR: [
@@ -1346,24 +1389,9 @@ export async function getTelecallerPerformance(
     prisma.appointment.count({
       where: {
         status: 'visited',
-        OR: [
-          { startsAt: { gte: startOfPeriod, lte: endOfPeriod } },
-          { updatedAt: { gte: startOfPeriod, lte: endOfPeriod } },
-        ],
-        NOT: {
-          case: {
-            createdAt: { gte: startOfPeriod, lte: endOfPeriod },
-          },
-        },
-        AND: [
-          {
-            OR: [
-              { createdBy: targetUserId },
-              { lead: { ownerId: targetUserId } },
-              { case: { ownerId: targetUserId } },
-            ],
-          },
-        ],
+        updatedAt: { gte: startOfPeriod, lte: endOfPeriod },
+        caseId: null,
+        ...visitApptOwnerFilter,
       },
     }),
   ]);
@@ -1374,11 +1402,7 @@ export async function getTelecallerPerformance(
     where: {
       startsAt: { gte: startOfPeriod, lte: endOfPeriod },
       status: { not: 'cancelled' },
-      OR: [
-        { createdBy: targetUserId },
-        { lead: { ownerId: targetUserId } },
-        { case: { ownerId: targetUserId } },
-      ],
+      ...bookingFilter,
     },
   });
 
@@ -1387,10 +1411,7 @@ export async function getTelecallerPerformance(
     where: {
       createdAt: { gte: startOfMonth, lte: endOfMonth },
       status: { not: 'cancelled' },
-      OR: [
-        { lead: { ownerId: targetUserId } },
-        { case: { ownerId: targetUserId } },
-      ],
+      ...bookingFilter,
     },
   });
 
@@ -1398,12 +1419,7 @@ export async function getTelecallerPerformance(
     prisma.case.count({
       where: {
         archivedAt: null,
-        OR: [
-          { ownerId: targetUserId },
-          { lead: { ownerId: targetUserId } },
-          { lead: { appointments: { some: { createdBy: targetUserId } } } },
-          { interactions: { some: { userId: targetUserId } } },
-        ],
+        ...visitCaseOwnerFilter,
         AND: [
           {
             OR: [
@@ -1421,24 +1437,9 @@ export async function getTelecallerPerformance(
     prisma.appointment.count({
       where: {
         status: 'visited',
-        OR: [
-          { startsAt: { gte: startOfMonth, lte: endOfMonth } },
-          { updatedAt: { gte: startOfMonth, lte: endOfMonth } },
-        ],
-        NOT: {
-          case: {
-            createdAt: { gte: startOfMonth, lte: endOfMonth },
-          },
-        },
-        AND: [
-          {
-            OR: [
-              { createdBy: targetUserId },
-              { lead: { ownerId: targetUserId } },
-              { case: { ownerId: targetUserId } },
-            ],
-          },
-        ],
+        updatedAt: { gte: startOfMonth, lte: endOfMonth },
+        caseId: null,
+        ...visitApptOwnerFilter,
       },
     }),
   ]);
@@ -1446,25 +1447,20 @@ export async function getTelecallerPerformance(
 
   const monthlyLeadsCount = await prisma.lead.count({
     where: {
-      ownerId: targetUserId,
+      ...leadFilter,
       createdAt: { gte: startOfMonth, lte: endOfMonth },
-      archivedAt: null,
     },
   });
 
   const allTimeLeadsCount = await prisma.lead.count({
-    where: {
-      ownerId: targetUserId,
-      archivedAt: null,
-    },
+    where: leadFilter,
   });
 
   const distinctLeadsContactedInPeriod = new Set(callsPeriod.map((c) => c.leadId || c.lead?.id).filter(Boolean)).size;
   const leadsCreatedPeriod = await prisma.lead.count({
     where: {
-      ownerId: targetUserId,
+      ...leadFilter,
       createdAt: { gte: startOfPeriod, lte: endOfPeriod },
-      archivedAt: null,
     },
   });
   const totalLeadsPeriod = Math.max(distinctLeadsContactedInPeriod, newLeadsCalled, leadsCreatedPeriod);
@@ -1521,7 +1517,7 @@ export async function getProductTelecallerPerformance(
   user: UserContext
 ) {
   const isManagerOrAdmin = ['admin', 'owner', 'center_head', 'telecaller_manager', 'product_manager', 'super_admin'].includes(user.roleCode);
-  const targetUserId = isManagerOrAdmin && params.userId ? params.userId : user.id;
+  const targetUserId = isManagerOrAdmin && params.userId ? params.userId : (!isManagerOrAdmin ? user.id : undefined);
 
   const targetDateStr = params.date || new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
   const startOfToday = new Date(`${targetDateStr}T00:00:00.000+05:30`);
@@ -1535,15 +1531,32 @@ export async function getProductTelecallerPerformance(
   const startOfMonth = new Date(`${yearStr}-${monthStr}-01T00:00:00.000+05:30`);
   const endOfMonth = new Date(`${yearStr}-${monthStr}-${String(lastDayOfMonth).padStart(2, '0')}T23:59:59.999+05:30`);
 
-  const targetUser = await prisma.user.findUnique({
-    where: { id: targetUserId },
-    select: { id: true, name: true, email: true, role: { select: { code: true, name: true } } },
-  });
+  let targetUser: any = null;
+  if (targetUserId) {
+    targetUser = await prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: { id: true, name: true, email: true, role: { select: { code: true, name: true } } },
+    });
+  } else {
+    targetUser = {
+      id: 0,
+      name: user.roleCode === 'center_head' ? 'Branch Product Overview' : (user.roleCode === 'telecaller_manager' ? 'Product Team Overview' : 'Hospital-wide Product Overview'),
+      email: user.email,
+      role: { code: user.roleCode, name: user.roleCode === 'center_head' ? 'Branch Manager' : (user.roleCode === 'telecaller_manager' ? 'Telecaller Lead' : 'Managing Director / Executive') },
+    };
+  }
+
+  const callUserFilter: any = targetUserId ? { userId: targetUserId } : {};
+  const productLeadFilter: any = {
+    leadType: 'product',
+    archivedAt: null,
+    ...(targetUserId ? { ownerId: targetUserId } : {}),
+  };
 
   // 1. Daily metrics
   const callsToday = await prisma.interaction.findMany({
     where: {
-      userId: targetUserId,
+      ...callUserFilter,
       type: 'call',
       occurredAt: { gte: startOfToday, lte: endOfToday },
     },
@@ -1589,8 +1602,7 @@ export async function getProductTelecallerPerformance(
   // Orders confirmed today
   const confirmedLeadsToday = await prisma.lead.findMany({
     where: {
-      ownerId: targetUserId,
-      leadType: 'product',
+      ...productLeadFilter,
       saleConfirmedAt: { gte: startOfToday, lte: endOfToday },
     },
     select: { id: true, saleAmount: true },
@@ -1602,8 +1614,7 @@ export async function getProductTelecallerPerformance(
   // 2. Monthly metrics
   const confirmedLeadsMonth = await prisma.lead.findMany({
     where: {
-      ownerId: targetUserId,
-      leadType: 'product',
+      ...productLeadFilter,
       saleConfirmedAt: { gte: startOfMonth, lte: endOfMonth },
     },
     select: { id: true, saleAmount: true },
@@ -1614,19 +1625,13 @@ export async function getProductTelecallerPerformance(
 
   const monthlyLeadsCount = await prisma.lead.count({
     where: {
-      ownerId: targetUserId,
-      leadType: 'product',
+      ...productLeadFilter,
       createdAt: { gte: startOfMonth, lte: endOfMonth },
-      archivedAt: null,
     },
   });
 
   const allTimeLeadsCount = await prisma.lead.count({
-    where: {
-      ownerId: targetUserId,
-      leadType: 'product',
-      archivedAt: null,
-    },
+    where: productLeadFilter,
   });
 
   const leadToOrderRatio = monthlyLeadsCount > 0
@@ -1741,12 +1746,12 @@ export async function getTeamPerformance(
 
   const isManagerOrAdmin = ['admin', 'owner', 'center_head', 'telecaller_manager', 'super_admin'].includes(user.roleCode);
 
-  // Find all active telecallers & managers (scoped to self for telecaller role)
+  // Find all active telecallers & telecaller managers (scoped to self for telecaller role)
   const whereUsers: any = {
     status: 'active',
     archivedAt: null,
     role: {
-      code: { in: ['support_telecaller', 'caller', 'telecaller_manager', 'center_head', 'owner', 'admin'] },
+      code: { in: ['support_telecaller', 'caller', 'telecaller_manager'] },
     },
   };
 
@@ -1824,10 +1829,9 @@ export async function getTeamPerformance(
           where: {
             archivedAt: null,
             OR: [
-              { ownerId: tc.id },
               { lead: { ownerId: tc.id } },
               { lead: { appointments: { some: { createdBy: tc.id } } } },
-              { interactions: { some: { userId: tc.id } } },
+              { ownerId: tc.id },
             ],
             AND: [
               {
@@ -1846,23 +1850,12 @@ export async function getTeamPerformance(
         prisma.appointment.count({
           where: {
             status: 'visited',
+            updatedAt: { gte: startOfPeriod, lte: endOfPeriod },
+            caseId: null,
             OR: [
-              { startsAt: { gte: startOfPeriod, lte: endOfPeriod } },
-              { updatedAt: { gte: startOfPeriod, lte: endOfPeriod } },
-            ],
-            NOT: {
-              case: {
-                createdAt: { gte: startOfPeriod, lte: endOfPeriod },
-              },
-            },
-            AND: [
-              {
-                OR: [
-                  { createdBy: tc.id },
-                  { lead: { ownerId: tc.id } },
-                  { case: { ownerId: tc.id } },
-                ],
-              },
+              { lead: { ownerId: tc.id } },
+              { createdBy: tc.id },
+              { case: { ownerId: tc.id } },
             ],
           },
         }),
@@ -1895,10 +1888,9 @@ export async function getTeamPerformance(
           where: {
             archivedAt: null,
             OR: [
-              { ownerId: tc.id },
               { lead: { ownerId: tc.id } },
               { lead: { appointments: { some: { createdBy: tc.id } } } },
-              { interactions: { some: { userId: tc.id } } },
+              { ownerId: tc.id },
             ],
             AND: [
               {
@@ -1917,23 +1909,12 @@ export async function getTeamPerformance(
         prisma.appointment.count({
           where: {
             status: 'visited',
+            updatedAt: { gte: startOfMonth, lte: endOfMonth },
+            caseId: null,
             OR: [
-              { startsAt: { gte: startOfMonth, lte: endOfMonth } },
-              { updatedAt: { gte: startOfMonth, lte: endOfMonth } },
-            ],
-            NOT: {
-              case: {
-                createdAt: { gte: startOfMonth, lte: endOfMonth },
-              },
-            },
-            AND: [
-              {
-                OR: [
-                  { createdBy: tc.id },
-                  { lead: { ownerId: tc.id } },
-                  { case: { ownerId: tc.id } },
-                ],
-              },
+              { lead: { ownerId: tc.id } },
+              { createdBy: tc.id },
+              { case: { ownerId: tc.id } },
             ],
           },
         }),
@@ -2060,15 +2041,8 @@ export async function getTeamPerformance(
       where: {
         status: 'visited',
         ...(params.branchId ? { lead: { branchId: params.branchId } } : {}),
-        OR: [
-          { startsAt: { gte: startOfMonth, lte: endOfMonth } },
-          { updatedAt: { gte: startOfMonth, lte: endOfMonth } },
-        ],
-        NOT: {
-          case: {
-            createdAt: { gte: startOfMonth, lte: endOfMonth },
-          },
-        },
+        updatedAt: { gte: startOfMonth, lte: endOfMonth },
+        caseId: null,
       },
     }),
     prisma.appointment.count({
@@ -2096,15 +2070,8 @@ export async function getTeamPerformance(
       where: {
         status: 'visited',
         ...(params.branchId ? { lead: { branchId: params.branchId } } : {}),
-        OR: [
-          { startsAt: { gte: startOfPeriod, lte: endOfPeriod } },
-          { updatedAt: { gte: startOfPeriod, lte: endOfPeriod } },
-        ],
-        NOT: {
-          case: {
-            createdAt: { gte: startOfPeriod, lte: endOfPeriod },
-          },
-        },
+        updatedAt: { gte: startOfPeriod, lte: endOfPeriod },
+        caseId: null,
       },
     }),
     prisma.appointment.count({

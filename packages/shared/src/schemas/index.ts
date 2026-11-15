@@ -906,7 +906,7 @@ export const PHONE_NUMBER_PATTERN = /(?:\+?\d{1,3}[-.\s]?)?(?:\(?\d{2,4}\)?[-.\s
 export const skuSchema = z
   .string()
   .trim()
-  .min(3, 'SKU must be at least 3 characters')
+  .min(2, 'SKU must be at least 2 characters')
   .max(40, 'SKU cannot exceed 40 characters')
   .regex(/^[A-Za-z0-9_-]+$/, 'SKU must contain only letters, numbers, hyphens, and underscores')
   .transform((val) => val.toUpperCase());
@@ -953,11 +953,12 @@ export const createProductSchema = z.object({
   usageDescription: z
     .string()
     .trim()
-    .min(10, 'Usage description must be at least 10 characters')
-    .max(1000, 'Usage description cannot exceed 1000 characters')
+    .max(2000, 'Usage description cannot exceed 2000 characters')
     .refine((val) => !PHONE_NUMBER_PATTERN.test(val), {
       message: 'Product description must not contain contact numbers or personal data',
-    }),
+    })
+    .optional()
+    .default(''),
   usage_description: z.string().optional(),
   categoryId: z.coerce.number().int().positive('Category is required').optional(),
   category_id: z.coerce.number().int().positive().optional(),
@@ -971,8 +972,16 @@ export const createProductSchema = z.object({
   precautions: z.string().trim().max(2000).optional().nullable(),
   prescriptionRequired: z.boolean().default(false).optional(),
   prescription_required: z.boolean().default(false).optional(),
-  refillDays: z.coerce.number().int().positive().optional().nullable(),
-  refill_days: z.coerce.number().int().positive().optional().nullable(),
+  refillDays: z
+    .union([z.coerce.number().int().positive(), z.literal(''), z.literal(0)])
+    .optional()
+    .nullable()
+    .transform((v) => (v === '' || v === 0 || !v ? null : Number(v))),
+  refill_days: z
+    .union([z.coerce.number().int().positive(), z.literal(''), z.literal(0)])
+    .optional()
+    .nullable()
+    .transform((v) => (v === '' || v === 0 || !v ? null : Number(v))),
   imageUrl: z.string().url().max(500).optional().nullable().or(z.literal('')),
   image_url: z.string().url().max(500).optional().nullable().or(z.literal('')),
   internalNote: z.string().trim().max(2000).optional().nullable(),
@@ -994,12 +1003,12 @@ export const updateProductSchema = z.object({
   usageDescription: z
     .string()
     .trim()
-    .min(10)
-    .max(1000)
+    .max(2000)
     .refine((val) => !PHONE_NUMBER_PATTERN.test(val), {
       message: 'Product description must not contain contact numbers or personal data',
     })
-    .optional(),
+    .optional()
+    .nullable(),
   usage_description: z.string().optional(),
   categoryId: z.coerce.number().int().positive().optional(),
   category_id: z.coerce.number().int().positive().optional(),
@@ -1013,8 +1022,16 @@ export const updateProductSchema = z.object({
   precautions: z.string().trim().max(2000).optional().nullable(),
   prescriptionRequired: z.boolean().optional(),
   prescription_required: z.boolean().optional(),
-  refillDays: z.coerce.number().int().positive().optional().nullable(),
-  refill_days: z.coerce.number().int().positive().optional().nullable(),
+  refillDays: z
+    .union([z.coerce.number().int().positive(), z.literal(''), z.literal(0)])
+    .optional()
+    .nullable()
+    .transform((v) => (v === '' || v === 0 || !v ? null : Number(v))),
+  refill_days: z
+    .union([z.coerce.number().int().positive(), z.literal(''), z.literal(0)])
+    .optional()
+    .nullable()
+    .transform((v) => (v === '' || v === 0 || !v ? null : Number(v))),
   imageUrl: z.string().max(500).optional().nullable().or(z.literal('')),
   image_url: z.string().max(500).optional().nullable().or(z.literal('')),
   internalNote: z.string().trim().max(2000).optional().nullable(),
@@ -1065,16 +1082,26 @@ export const bulkStockUpdateSchema = z.object({
 export const createProductRelationSchema = z.object({
   relatedProductId: z.coerce.number().int().positive('Related product is required').optional(),
   related_product_id: z.coerce.number().int().positive().optional(),
+  toProductId: z.coerce.number().int().positive().optional(),
+  to_product_id: z.coerce.number().int().positive().optional(),
   relationType: z.enum(['cross_sell', 'upsell', 'frequently_together', 'substitute']).optional(),
   relation_type: z.enum(['cross_sell', 'upsell', 'frequently_together', 'substitute']).optional(),
-  talkingPoint: z.string().trim().min(3, 'Talking point is required').max(1000).refine((val) => !PHONE_NUMBER_PATTERN.test(val), {
-    message: 'Talking points cannot contain contact numbers',
-  }).optional(),
-  talking_point: z.string().optional(),
+  talkingPoint: z
+    .string()
+    .trim()
+    .max(1000)
+    .refine((val) => !val || !PHONE_NUMBER_PATTERN.test(val), {
+      message: 'Talking points cannot contain contact numbers',
+    })
+    .optional()
+    .nullable(),
+  talking_point: z.string().trim().max(1000).optional().nullable(),
+  talkingPoints: z.string().trim().max(1000).optional().nullable(),
+  talking_points: z.string().trim().max(1000).optional().nullable(),
   sort: z.coerce.number().int().default(0).optional(),
   active: z.boolean().default(true).optional(),
   mirror: z.boolean().default(false).optional(),
-}).refine((data) => data.relatedProductId !== undefined || data.related_product_id !== undefined, {
+}).refine((data) => data.relatedProductId !== undefined || data.related_product_id !== undefined || data.toProductId !== undefined || data.to_product_id !== undefined, {
   message: 'Related product is required',
 }).refine((data) => data.relationType !== undefined || data.relation_type !== undefined, {
   message: 'Relation type is required',
@@ -1085,8 +1112,10 @@ export type CreateProductRelationInput = z.infer<typeof createProductRelationSch
 export const updateProductRelationSchema = z.object({
   relationType: z.enum(['cross_sell', 'upsell', 'frequently_together', 'substitute']).optional(),
   relation_type: z.enum(['cross_sell', 'upsell', 'frequently_together', 'substitute']).optional(),
-  talkingPoint: z.string().trim().max(1000).optional(),
-  talking_point: z.string().optional(),
+  talkingPoint: z.string().trim().max(1000).optional().nullable(),
+  talking_point: z.string().trim().max(1000).optional().nullable(),
+  talkingPoints: z.string().trim().max(1000).optional().nullable(),
+  talking_points: z.string().trim().max(1000).optional().nullable(),
   sort: z.coerce.number().int().optional(),
   active: z.boolean().optional(),
 });

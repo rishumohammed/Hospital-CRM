@@ -140,6 +140,11 @@
                   <UIcon name="i-heroicons-user-group" class="w-4 h-4 text-slate-400" />
                   Desk Owner: {{ caseData.owner.name }} ({{ caseData.team }})
                 </span>
+                <span v-if="caseData.consultationCompletedAt || caseData.createdAt">•</span>
+                <span v-if="caseData.consultationCompletedAt || caseData.createdAt" class="flex items-center gap-1.5 font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2.5 py-0.5 rounded-md border border-emerald-200/60 dark:border-emerald-800/60">
+                  <UIcon name="i-heroicons-calendar-days" class="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span>Visited: {{ formatVisitedDate(caseData.consultationCompletedAt || caseData.createdAt) }}</span>
+                </span>
               </div>
             </div>
           </div>
@@ -1201,6 +1206,20 @@ function formatStage(stage: string) {
 
 function formatCareType(careType: string) {
   return t(`cases.${careType}`, careType);
+}
+
+function formatVisitedDate(dateStr?: string | Date | null) {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
 }
 
 function openAdvanceModal() {
