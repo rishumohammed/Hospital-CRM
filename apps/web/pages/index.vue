@@ -2400,7 +2400,7 @@ onMounted(async () => {
     activeTeam.value = 'admission';
   } else if (code === 'aftercare_executive' || code === 'treatment_followup_executive') {
     activeTeam.value = 'aftercare';
-  } else if (code === 'product_sales_executive' || code === 'product_caller') {
+  } else if (isProductStaff.value || code === 'product_sales_executive' || code === 'product_caller' || code === 'product_manager') {
     activeTeam.value = 'product';
   } else {
     activeTeam.value = 'support';

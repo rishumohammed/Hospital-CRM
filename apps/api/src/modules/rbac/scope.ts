@@ -182,6 +182,23 @@ export function scopeWhere(
     if (resource === 'order' || resource === 'product_customer') {
       return {};
     }
+    if (resource === 'task') {
+      const canViewTreatment = hasPermission(user, Permissions.LEAD_VIEW) || hasPermission(user, Permissions.CASE_VIEW);
+      const canViewProduct = hasPermission(user, Permissions.PRODUCT_LEAD_VIEW);
+      const isProductRole = ['product_manager', 'product_sales_executive', 'product_caller'].includes(user.roleCode);
+
+      if ((canViewProduct && !canViewTreatment) || isProductRole) {
+        return {
+          OR: [
+            { lead: { leadType: 'product' } },
+            { cadenceKey: { startsWith: 'product' } },
+            { ownerId: user.id },
+          ],
+          archivedAt: null,
+        };
+      }
+      return { archivedAt: null };
+    }
     return resource === 'audit' || resource === 'handover' ? {} : { archivedAt: null };
   }
 
@@ -189,6 +206,21 @@ export function scopeWhere(
   if (scope === 'branch') {
     const branches = user.branchIds.length > 0 ? user.branchIds : [-1];
     if (resource === 'task') {
+      const canViewTreatment = hasPermission(user, Permissions.LEAD_VIEW) || hasPermission(user, Permissions.CASE_VIEW);
+      const canViewProduct = hasPermission(user, Permissions.PRODUCT_LEAD_VIEW);
+      const isProductRole = ['product_manager', 'product_sales_executive', 'product_caller'].includes(user.roleCode);
+
+      if ((canViewProduct && !canViewTreatment) || isProductRole) {
+        return {
+          OR: [
+            { lead: { branchId: { in: branches }, leadType: 'product' } },
+            { cadenceKey: { startsWith: 'product' } },
+            { ownerId: user.id },
+          ],
+          archivedAt: null,
+        };
+      }
+
       return {
         OR: [
           { lead: { branchId: { in: branches } } },
@@ -298,6 +330,28 @@ export function scopeWhere(
     }
 
     if (resource === 'task') {
+      const canViewTreatment = hasPermission(user, Permissions.LEAD_VIEW) || hasPermission(user, Permissions.CASE_VIEW);
+      const canViewProduct = hasPermission(user, Permissions.PRODUCT_LEAD_VIEW);
+      const isProductRole = ['product_manager', 'product_sales_executive', 'product_caller'].includes(user.roleCode);
+
+      if ((canViewProduct && !canViewTreatment) || isProductRole) {
+        return {
+          owner: {
+            userTeams: {
+              some: {
+                team: { code: { in: teams } },
+              },
+            },
+          },
+          OR: [
+            { lead: { leadType: 'product' } },
+            { cadenceKey: { startsWith: 'product' } },
+            { ownerId: user.id },
+          ],
+          archivedAt: null,
+        };
+      }
+
       return {
         owner: {
           userTeams: {

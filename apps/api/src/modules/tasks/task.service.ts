@@ -161,8 +161,10 @@ export async function listTasks(filter: TaskFilterOptions, user: UserContext) {
     });
   } else if (filter.team === 'product') {
     where.AND.push({
-      leadId: { not: null },
-      lead: { leadType: 'product' },
+      OR: [
+        { leadId: { not: null }, lead: { leadType: 'product' } },
+        { cadenceKey: { startsWith: 'product' } },
+      ],
     });
   } else if (filter.team === 'admission') {
     where.AND.push({
@@ -306,6 +308,7 @@ export async function listTasks(filter: TaskFilterOptions, user: UserContext) {
     }
     if (filter.team === 'support') {
       openTasksWhere.leadId = { not: null };
+      openTasksWhere.lead = { leadType: { not: 'product' } };
     } else if (filter.team === 'admission') {
       openTasksWhere.caseId = { not: null };
       openTasksWhere.case = { team: 'admission' };
@@ -313,7 +316,10 @@ export async function listTasks(filter: TaskFilterOptions, user: UserContext) {
       openTasksWhere.caseId = { not: null };
       openTasksWhere.case = { team: 'aftercare' };
     } else if (filter.team === 'product') {
-      openTasksWhere.cadenceKey = { startsWith: 'product' };
+      openTasksWhere.OR = [
+        { cadenceKey: { startsWith: 'product' } },
+        { lead: { leadType: 'product' } },
+      ];
     }
 
     if (categoryClause) {

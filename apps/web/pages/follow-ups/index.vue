@@ -10,7 +10,7 @@
           </span>
         </h1>
         <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-          Track overdue calls, callbacks due today, and scheduled patient follow-ups.
+          {{ activeDesk === 'product' ? 'Track customer product inquiries, callback requests, and order follow-ups.' : 'Track overdue calls, callbacks due today, and scheduled patient follow-ups.' }}
         </p>
       </div>
 
@@ -27,8 +27,41 @@
       </div>
     </div>
 
+    <!-- Treatment vs Product Follow-up Top Toggle Bar: Only show if user has access to BOTH -->
+    <div v-if="canViewTreatmentFollowups && canViewProductFollowups" class="flex items-center gap-2 border-b border-slate-200 dark:border-slate-700 pb-2">
+      <button
+        v-if="canViewTreatmentFollowups"
+        type="button"
+        :class="[
+          'px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 border shadow-2xs cursor-pointer',
+          activeDesk === 'treatment'
+            ? 'bg-teal-600 text-white border-teal-600 shadow-sm'
+            : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-50'
+        ]"
+        @click="setDesk('treatment')"
+      >
+        <span>🏥</span>
+        <span>Treatment Follow-ups</span>
+      </button>
+
+      <button
+        v-if="canViewProductFollowups"
+        type="button"
+        :class="[
+          'px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 border shadow-2xs cursor-pointer',
+          activeDesk === 'product'
+            ? 'bg-teal-600 text-white border-teal-600 shadow-sm'
+            : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-50'
+        ]"
+        @click="setDesk('product')"
+      >
+        <span>📦</span>
+        <span>Product Follow-ups</span>
+      </button>
+    </div>
+
     <!-- Quick Status KPI Cards -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+    <div :class="['grid grid-cols-2 gap-3 sm:gap-4', activeDesk === 'product' ? 'lg:grid-cols-3' : 'lg:grid-cols-4']">
       <!-- 1. Overdue Dues -->
       <button
         type="button"
@@ -79,8 +112,9 @@
         </div>
       </button>
 
-      <!-- 3. Today's Visits -->
+      <!-- 3. Today's Visits (Clinical Only) -->
       <button
+        v-if="activeDesk !== 'product'"
         type="button"
         @click="selectTiming('today_visits')"
         :class="[
@@ -173,9 +207,9 @@
             v-model="ownerFilter"
             class="w-full h-11 px-3 rounded-xl border border-teal-200 dark:border-teal-700/70 bg-teal-50/50 dark:bg-teal-950/30 text-teal-950 dark:text-teal-200 text-xs font-semibold focus:ring-2 focus:ring-teal-500 cursor-pointer"
           >
-            <option value="">👤 All Telecallers</option>
+            <option value="">{{ activeDesk === 'product' ? '👤 All Product Staff' : '👤 All Telecallers' }}</option>
             <option
-              v-for="staff in staffMembers"
+              v-for="staff in filteredStaffMembers"
               :key="staff.id"
               :value="staff.id.toString()"
             >
@@ -746,7 +780,7 @@
 
     <LeadQuickCreateDrawer
       :is-open="showQuickCreate"
-      default-lead-type="treatment"
+      :default-lead-type="activeDesk === 'product' || isProductStaff ? 'product' : 'treatment'"
       @close="showQuickCreate = false"
       @created="onActionCompleted"
       @lead-created="onActionCompleted"
@@ -814,7 +848,48 @@ const canViewAllStaff = computed(() => {
   return ['owner', 'admin', 'center_head', 'telecaller_manager', 'product_manager'].includes(userRoleCode.value);
 });
 
+const isProductStaff = computed(() => {
+  return ['product_sales_executive', 'product_caller', 'product_manager'].includes(userRoleCode.value);
+});
+
+const canViewTreatmentFollowups = computed(() => {
+  if (isProductStaff.value && !['owner', 'admin'].includes(userRoleCode.value)) return false;
+  return authStore.hasPermission('task.view') && (authStore.hasPermission('lead.view') || authStore.hasPermission('case.view'));
+});
+
+const canViewProductFollowups = computed(() => {
+  return isProductStaff.value || authStore.hasPermission('product_lead.view');
+});
+
+const activeDesk = ref<'treatment' | 'product'>('treatment');
+
+const setDesk = (desk: 'treatment' | 'product') => {
+  activeDesk.value = desk;
+  if (desk === 'product' && activeTiming.value === 'today_visits') {
+    activeTiming.value = 'all';
+  }
+  ownerFilter.value = '';
+  page.value = 1;
+  loadTasks();
+  fetchTimingCounts();
+};
+
 const staffMembers = ref<any[]>([]);
+
+const filteredStaffMembers = computed(() => {
+  if (activeDesk.value === 'product') {
+    const prods = staffMembers.value.filter((s: any) => {
+      const code = (s.role?.code || '').toLowerCase();
+      return ['product_sales_executive', 'product_caller', 'product_manager'].includes(code);
+    });
+    return prods.length > 0 ? prods : staffMembers.value;
+  }
+  const nonProds = staffMembers.value.filter((s: any) => {
+    const code = (s.role?.code || '').toLowerCase();
+    return !['product_sales_executive', 'product_caller'].includes(code);
+  });
+  return nonProds.length > 0 ? nonProds : staffMembers.value;
+});
 
 const fetchStaffMembers = async () => {
   if (!canViewAllStaff.value) return;
@@ -911,6 +986,9 @@ const loadTasks = async () => {
       params.append('nextStepOnly', 'true');
     }
 
+    const team = (activeDesk.value === 'product' || isProductStaff.value) ? 'product' : 'support';
+    params.append('team', team);
+
     const res = await fetch(`${apiBase}/tasks?${params.toString()}`, {
       headers: { Authorization: `Bearer ${authStore.token}` },
     });
@@ -938,19 +1016,31 @@ const fetchTimingCounts = async () => {
     const priorityParam = priorityFilter.value ? `&priority=${priorityFilter.value}` : '';
     const nextStepParam = groupByPatient.value ? '&nextStepOnly=true' : '';
     const searchParam = searchQuery.value.trim() ? `&search=${encodeURIComponent(searchQuery.value.trim())}` : '';
+    const team = (activeDesk.value === 'product' || isProductStaff.value) ? 'product' : 'support';
+    const teamParam = `&team=${team}`;
 
-    const filterSuffix = `${nextStepParam}${ownerParam}${priorityParam}${searchParam}`;
+    const filterSuffix = `${nextStepParam}${ownerParam}${priorityParam}${searchParam}${teamParam}`;
 
-    const [odRes, tdRes, tvRes, upRes] = await Promise.all([
+    const promises: Promise<any>[] = [
       fetch(`${apiBase}/tasks?due=overdue&status=open&pageSize=1${filterSuffix}`, { headers }),
       fetch(`${apiBase}/tasks?due=today&status=open&pageSize=1${filterSuffix}`, { headers }),
-      fetch(`${apiBase}/tasks?due=today_visits&status=open&pageSize=1${filterSuffix}`, { headers }),
-      fetch(`${apiBase}/tasks?due=upcoming&status=open&pageSize=1${filterSuffix}`, { headers }),
-    ]);
+    ];
+    if (activeDesk.value !== 'product') {
+      promises.push(fetch(`${apiBase}/tasks?due=today_visits&status=open&pageSize=1${filterSuffix}`, { headers }));
+    } else {
+      promises.push(Promise.resolve({ ok: false }));
+    }
+    promises.push(fetch(`${apiBase}/tasks?due=upcoming&status=open&pageSize=1${filterSuffix}`, { headers }));
+
+    const [odRes, tdRes, tvRes, upRes] = await Promise.all(promises);
 
     if (odRes.ok) overdueCount.value = (await odRes.json()).meta?.total || 0;
     if (tdRes.ok) todayCount.value = (await tdRes.json()).meta?.total || 0;
-    if (tvRes.ok) todayVisitCount.value = (await tvRes.json()).meta?.total || 0;
+    if (tvRes.ok) {
+      todayVisitCount.value = (await tvRes.json()).meta?.total || 0;
+    } else {
+      todayVisitCount.value = 0;
+    }
     if (upRes.ok) upcomingCount.value = (await upRes.json()).meta?.total || 0;
   } catch (err) {
     console.error('Failed to fetch timing counts', err);
@@ -1142,6 +1232,11 @@ onMounted(() => {
     if (saved === 'cards' || saved === 'table') {
       viewMode.value = saved;
     }
+  }
+  if (isProductStaff.value && !['owner', 'admin', 'center_head', 'telecaller_manager'].includes(userRoleCode.value)) {
+    activeDesk.value = 'product';
+  } else if (!canViewTreatmentFollowups.value && canViewProductFollowups.value) {
+    activeDesk.value = 'product';
   }
   fetchStaffMembers();
   loadTasks();
