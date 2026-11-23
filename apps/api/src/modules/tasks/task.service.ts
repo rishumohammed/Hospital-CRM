@@ -327,22 +327,15 @@ export async function listTasks(filter: TaskFilterOptions, user: UserContext) {
       openTasksWhere.AND.push(categoryClause);
     }
 
-    const startOfToday = fromZonedTime(startOfDay(zonedNow), timezone);
-    const endOfToday = fromZonedTime(endOfDay(zonedNow), timezone);
-
-    if (filter.due === 'overdue') {
-      openTasksWhere.dueAt = { lt: now };
-    } else if (filter.due === 'today') {
-      openTasksWhere.dueAt = { gte: startOfToday, lte: endOfToday };
-    } else if (filter.due === 'upcoming') {
-      openTasksWhere.dueAt = { gt: endOfToday };
-    } else if (filter.due === 'appointment_followups' || filter.due === 'appointments') {
+    if (filter.due === 'appointment_followups' || filter.due === 'appointments') {
       openTasksWhere.OR = [
         { cadenceKey: { startsWith: 'appointment' } },
         { title: { contains: 'Appointment' } },
         { lead: { status: 'appointment_booked' } },
       ];
     } else if (filter.due === 'today_visits') {
+      const startOfToday = fromZonedTime(startOfDay(zonedNow), timezone);
+      const endOfToday = fromZonedTime(endOfDay(zonedNow), timezone);
       openTasksWhere.OR = [
         {
           lead: {

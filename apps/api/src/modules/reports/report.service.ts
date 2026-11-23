@@ -1316,12 +1316,18 @@ export async function getTelecallerPerformance(
     ? new Date(new Date(params.startDate).setHours(23, 59, 59, 999))
     : new Date(`${targetDateStr}T23:59:59.999+05:30`);
 
-  const refDate = params.startDate ? new Date(params.startDate) : params.endDate ? new Date(params.endDate) : new Date();
-  const year = refDate.getFullYear();
-  const yearStr = String(year);
-  const month = refDate.getMonth() + 1;
+  const kolkataDateParts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(params.startDate ? new Date(params.startDate) : new Date());
+
+  const yearStr = kolkataDateParts.find((p) => p.type === 'year')?.value || String(new Date().getFullYear());
+  const monthStr = kolkataDateParts.find((p) => p.type === 'month')?.value || String(new Date().getMonth() + 1).padStart(2, '0');
+  const year = parseInt(yearStr, 10);
+  const month = parseInt(monthStr, 10);
   const lastDayOfMonth = new Date(year, month, 0).getDate();
-  const monthStr = String(month).padStart(2, '0');
   const startOfMonth = new Date(`${yearStr}-${monthStr}-01T00:00:00.000+05:30`);
   const endOfMonth = new Date(`${yearStr}-${monthStr}-${String(lastDayOfMonth).padStart(2, '0')}T23:59:59.999+05:30`);
 
@@ -1812,12 +1818,18 @@ export async function getTeamPerformance(
     ? new Date(new Date(params.startDate).setHours(23, 59, 59, 999))
     : new Date(`${targetDateStr}T23:59:59.999+05:30`);
 
-  const refDate = params.startDate ? new Date(params.startDate) : params.endDate ? new Date(params.endDate) : new Date();
-  const year = refDate.getFullYear();
-  const yearStr = String(year);
-  const month = refDate.getMonth() + 1;
+  const kolkataDateParts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(params.startDate ? new Date(params.startDate) : new Date());
+
+  const yearStr = kolkataDateParts.find((p) => p.type === 'year')?.value || String(new Date().getFullYear());
+  const monthStr = kolkataDateParts.find((p) => p.type === 'month')?.value || String(new Date().getMonth() + 1).padStart(2, '0');
+  const year = parseInt(yearStr, 10);
+  const month = parseInt(monthStr, 10);
   const lastDayOfMonth = new Date(year, month, 0).getDate();
-  const monthStr = String(month).padStart(2, '0');
   const startOfMonth = new Date(`${yearStr}-${monthStr}-01T00:00:00.000+05:30`);
   const endOfMonth = new Date(`${yearStr}-${monthStr}-${String(lastDayOfMonth).padStart(2, '0')}T23:59:59.999+05:30`);
 

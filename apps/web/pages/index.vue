@@ -1434,22 +1434,22 @@
                   <div class="text-[10px] text-slate-400">{{ tc.user.role?.name || tc.user.role?.code }}</div>
                 </td>
                 <td class="py-3 px-3 text-center font-bold text-teal-700 dark:text-teal-300">
-                  {{ leaderboardRange === 'this_month' ? (tc.monthly?.totalLeads ?? tc.daily?.totalLeads ?? 0) : (tc.daily?.totalLeads ?? 0) }}
+                  {{ leaderboardRange === 'this_month' ? (tc.daily?.totalLeads || tc.monthly?.totalLeads || 0) : (tc.daily?.totalLeads || 0) }}
                 </td>
                 <td class="py-3 px-3 text-center font-bold text-purple-700 dark:text-purple-300">
-                  {{ leaderboardRange === 'this_month' ? (tc.monthly?.bookings ?? tc.daily?.appointmentsBooked ?? 0) : (tc.daily?.appointmentsBooked ?? 0) }}
+                  {{ leaderboardRange === 'this_month' ? (tc.daily?.appointmentsBooked || tc.monthly?.bookings || 0) : (tc.daily?.appointmentsBooked || 0) }}
                 </td>
                 <td class="py-3 px-3 text-center font-bold text-emerald-700 dark:text-emerald-300">
-                  {{ leaderboardRange === 'this_month' ? (tc.monthly?.visits ?? tc.daily?.patientsVisited ?? 0) : (tc.daily?.patientsVisited ?? 0) }}
+                  {{ leaderboardRange === 'this_month' ? (tc.daily?.patientsVisited || tc.monthly?.visits || 0) : (tc.daily?.patientsVisited || 0) }}
                 </td>
                 <td class="py-3 px-3 text-center">
                   <span class="font-semibold text-purple-600 dark:text-purple-400">
-                    {{ leaderboardRange === 'this_month' ? (tc.monthly?.leadToBookingRatio ?? tc.daily?.bookingRatio ?? 0) : (tc.daily?.bookingRatio ?? 0) }}%
+                    {{ leaderboardRange === 'this_month' ? (tc.daily?.bookingRatio ?? tc.monthly?.leadToBookingRatio ?? 0) : (tc.daily?.bookingRatio ?? 0) }}%
                   </span>
                 </td>
                 <td class="py-3 px-3 text-center">
                   <span class="font-semibold text-emerald-600 dark:text-emerald-400">
-                    {{ leaderboardRange === 'this_month' ? (tc.monthly?.leadToVisitRatio ?? tc.daily?.visitRatio ?? 0) : (tc.daily?.visitRatio ?? 0) }}%
+                    {{ leaderboardRange === 'this_month' ? (tc.daily?.visitRatio ?? tc.monthly?.leadToVisitRatio ?? 0) : (tc.daily?.visitRatio ?? 0) }}%
                   </span>
                 </td>
               </tr>
@@ -2147,9 +2147,9 @@ const leaderboardTotals = computed(() => {
   let totalBooked = 0;
   let totalVisited = 0;
   for (const tc of list) {
-    totalLeads += (isMonth ? (tc.monthly?.totalLeads ?? tc.daily?.totalLeads ?? 0) : (tc.daily?.totalLeads ?? 0));
-    totalBooked += (isMonth ? (tc.monthly?.bookings ?? tc.daily?.appointmentsBooked ?? 0) : (tc.daily?.appointmentsBooked ?? 0));
-    totalVisited += (isMonth ? (tc.monthly?.visits ?? tc.daily?.patientsVisited ?? 0) : (tc.daily?.patientsVisited ?? 0));
+    totalLeads += (isMonth ? (tc.daily?.totalLeads || tc.monthly?.totalLeads || 0) : (tc.daily?.totalLeads || 0));
+    totalBooked += (isMonth ? (tc.daily?.appointmentsBooked || tc.monthly?.bookings || 0) : (tc.daily?.appointmentsBooked || 0));
+    totalVisited += (isMonth ? (tc.daily?.patientsVisited || tc.monthly?.visits || 0) : (tc.daily?.patientsVisited || 0));
   }
   const bookingRate = totalLeads > 0 ? Number(((totalBooked / totalLeads) * 100).toFixed(1)) : 0;
   const visitRate = totalLeads > 0 ? Number(((totalVisited / totalLeads) * 100).toFixed(1)) : 0;

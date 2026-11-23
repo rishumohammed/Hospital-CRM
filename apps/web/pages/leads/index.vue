@@ -213,29 +213,51 @@
 
     <!-- Search Bar & Live Queue Switcher -->
     <div class="bg-white dark:bg-slate-800 p-3 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-2.5">
-      <div class="relative">
-        <input
-          v-model="filters.search"
-          @input="handleSearch"
-          type="text"
-          class="w-full h-11 pl-10 pr-10 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-teal-500 focus:bg-white dark:focus:bg-slate-800 transition-all"
-          placeholder="Search leads by patient name, phone number, or clinical concern..."
-        />
-        <span class="absolute left-3.5 top-3 text-slate-400">🔍</span>
-        <button
-          v-if="filters.search"
-          type="button"
-          @click="filters.search = ''; handleSearch()"
-          class="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 w-6 h-6 flex items-center justify-center rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-sm cursor-pointer"
-          title="Clear search"
-        >
-          ✕
-        </button>
+      <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+        <!-- Search Input -->
+        <div class="relative flex-1">
+          <input
+            v-model="filters.search"
+            @input="handleSearch"
+            type="text"
+            class="w-full h-11 pl-10 pr-10 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-teal-500 focus:bg-white dark:focus:bg-slate-800 transition-all"
+            placeholder="Search leads by patient name, phone number, or clinical concern..."
+          />
+          <span class="absolute left-3.5 top-3 text-slate-400">🔍</span>
+          <button
+            v-if="filters.search"
+            type="button"
+            @click="filters.search = ''; handleSearch()"
+            class="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 w-6 h-6 flex items-center justify-center rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-sm cursor-pointer"
+            title="Clear search"
+          >
+            ✕
+          </button>
+        </div>
+
+        <!-- Telecaller / Staff Filter (for Managers & Lead Viewers) -->
+        <div v-if="canViewAllLeads" class="w-full sm:w-64 shrink-0">
+          <select
+            v-model="filters.ownerId"
+            @change="onEmployeeFilterChange"
+            class="w-full h-11 px-3 rounded-xl border border-teal-200 dark:border-teal-700/70 bg-teal-50/50 dark:bg-teal-950/30 text-teal-950 dark:text-teal-200 text-xs font-semibold focus:ring-2 focus:ring-teal-500 cursor-pointer shadow-2xs"
+          >
+            <option value="">{{ activeLeadType === 'product' ? '👤 All Product Staff' : '👤 All Telecallers' }}</option>
+            <option value="unassigned">⚠️ Unassigned Leads</option>
+            <option
+              v-for="staff in filteredStaffMembers"
+              :key="staff.id"
+              :value="staff.id.toString()"
+            >
+              {{ staff.name }} ({{ staff.role?.name || staff.role?.code }})
+            </option>
+          </select>
+        </div>
       </div>
 
       <!-- Live Pipeline Scope Indicator -->
       <div class="flex flex-wrap items-center justify-between gap-2 pt-0.5 text-xs text-slate-500">
-        <div class="flex items-center gap-1.5">
+        <div class="flex items-center gap-1.5 flex-wrap">
           <span
             :class="[
               'inline-block w-2 h-2 rounded-full',
@@ -248,6 +270,19 @@
           <span class="hidden sm:inline text-slate-400">
             &bull; {{ filters.status === 'not_interested' ? 'Showing leads closed from call logs and their recorded lost reasons' : filters.status === 'all' ? 'Showing all historical records including closed/converted' : 'Excludes converted (patients in consultation) & closed' }}
           </span>
+
+          <!-- Active Telecaller Filter Pill -->
+          <div v-if="filters.ownerId" class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-teal-50 dark:bg-teal-950/40 text-teal-800 dark:text-teal-300 border border-teal-200 dark:border-teal-800 text-[11px] font-medium ml-1">
+            <span>👤 {{ selectedStaffName }}</span>
+            <button
+              type="button"
+              @click="clearStaffFilter"
+              class="text-teal-600 hover:text-teal-800 dark:text-teal-400 font-bold ml-0.5 cursor-pointer"
+              title="Clear telecaller filter"
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
         <div class="flex items-center gap-2">
@@ -794,7 +829,7 @@ const isManagement = computed(() => {
 
 const canViewAllLeads = computed(() => {
   const role = userRoleCode.value;
-  return role === 'owner' || role === 'admin' || role === 'center_head' || role === 'telecaller_manager' || role === 'product_manager';
+  return ['owner', 'admin', 'super_admin', 'center_head', 'telecaller_manager', 'product_manager'].includes(role) || authStore.hasPermission('lead.view_all');
 });
 
 const canReassignLead = computed(() => {
@@ -806,6 +841,21 @@ const canReassignLead = computed(() => {
 });
 
 const staffMembers = ref<any[]>([]);
+
+const filteredStaffMembers = computed(() => {
+  if (activeLeadType.value === 'product') {
+    const prods = staffMembers.value.filter((s: any) => {
+      const code = (s.role?.code || '').toLowerCase();
+      return ['product_sales_executive', 'product_caller', 'product_manager'].includes(code);
+    });
+    return prods.length > 0 ? prods : staffMembers.value;
+  }
+  const nonProds = staffMembers.value.filter((s: any) => {
+    const code = (s.role?.code || '').toLowerCase();
+    return !['product_sales_executive', 'product_caller'].includes(code);
+  });
+  return nonProds.length > 0 ? nonProds : staffMembers.value;
+});
 
 const fetchStaffMembers = async () => {
   try {
@@ -887,7 +937,8 @@ const fetchTasksDueToday = async () => {
     if (!token) return;
     const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
     const team = (activeLeadType.value === 'product' || isProductStaff.value) ? 'product' : 'support';
-    const res = await fetch(`${apiBase}/tasks?due=today&status=open&pageSize=1&nextStepOnly=true&team=${team}`, {
+    const ownerParam = filters.ownerId && filters.ownerId !== 'unassigned' ? `&ownerId=${filters.ownerId}` : '';
+    const res = await fetch(`${apiBase}/tasks?due=today&status=open&pageSize=1&nextStepOnly=true&team=${team}${ownerParam}`, {
       headers,
       credentials: 'include',
     });
