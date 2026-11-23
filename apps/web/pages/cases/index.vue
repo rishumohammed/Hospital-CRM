@@ -222,7 +222,7 @@
               <span v-if="c.treatingDoctor">•</span>
               <span v-if="c.treatingDoctor" class="flex items-center gap-1">
                 <UIcon name="i-heroicons-user" class="w-3.5 h-3.5" />
-                Dr. {{ c.treatingDoctor.name }}
+                {{ formatDoctorDisplay(c.treatingDoctor) }}
               </span>
               <span v-if="c.consultationCompletedAt || c.createdAt">•</span>
               <span v-if="c.consultationCompletedAt || c.createdAt" class="flex items-center gap-1 font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-md border border-emerald-200/60 dark:border-emerald-800/60">
@@ -416,6 +416,16 @@ function getStageBadgeClass(stage: string) {
 
 function formatStage(stage: string) {
   return t(`cases.stages.${stage}`, stage);
+}
+
+function formatDoctorDisplay(doc?: any) {
+  if (!doc) return '';
+  const name = (doc.name || '').trim();
+  if (name.startsWith('Dr.') || name.startsWith('Dr ')) return name;
+  const roleCode = (doc.role?.code || '').toLowerCase();
+  const roleName = (doc.role?.name || '').toLowerCase();
+  const isDoc = roleCode === 'doctor' || roleName.includes('doctor');
+  return isDoc ? `Dr. ${name}` : name;
 }
 
 function formatVisitedDate(dateStr?: string | Date | null) {

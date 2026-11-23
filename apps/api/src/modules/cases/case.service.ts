@@ -186,7 +186,7 @@ export async function listCases(
         department: { select: { id: true, code: true, labelEn: true, labelMl: true } },
         branch: { select: { id: true, code: true, name: true, timezone: true } },
         owner: { select: { id: true, name: true, email: true } },
-        treatingDoctor: { select: { id: true, name: true, email: true } },
+        treatingDoctor: { select: { id: true, name: true, email: true, role: { select: { id: true, code: true, name: true } } } },
         tasks: {
           where: { status: 'open' },
           orderBy: { dueAt: 'asc' },
@@ -252,7 +252,7 @@ export async function getCaseById(
       department: true,
       branch: true,
       owner: { select: { id: true, name: true, email: true } },
-      treatingDoctor: { select: { id: true, name: true, email: true } },
+      treatingDoctor: { select: { id: true, name: true, email: true, role: { select: { id: true, code: true, name: true } } } },
       notStartedReason: true,
       closureCode: true,
       lead: {
@@ -364,7 +364,7 @@ export async function updateCase(
       department: true,
       branch: true,
       owner: { select: { id: true, name: true, email: true } },
-      treatingDoctor: { select: { id: true, name: true, email: true } },
+      treatingDoctor: { select: { id: true, name: true, email: true, role: { select: { id: true, code: true, name: true } } } },
     },
   });
 
@@ -488,7 +488,7 @@ export async function recordConsultationOutcome(
         department: true,
         branch: true,
         owner: { select: { id: true, name: true, email: true } },
-        treatingDoctor: { select: { id: true, name: true, email: true } },
+        treatingDoctor: { select: { id: true, name: true, email: true, role: { select: { id: true, code: true, name: true } } } },
       },
     });
 
@@ -674,7 +674,7 @@ export async function advanceCaseStage(
         department: true,
         branch: true,
         owner: { select: { id: true, name: true, email: true } },
-        treatingDoctor: { select: { id: true, name: true, email: true } },
+        treatingDoctor: { select: { id: true, name: true, email: true, role: { select: { id: true, code: true, name: true } } } },
         notStartedReason: true,
         closureCode: true,
       },
@@ -970,7 +970,7 @@ export async function markTreatmentCompleted(
         department: true,
         branch: true,
         owner: { select: { id: true, name: true, email: true } },
-        treatingDoctor: { select: { id: true, name: true, email: true } },
+        treatingDoctor: { select: { id: true, name: true, email: true, role: { select: { id: true, code: true, name: true } } } },
       },
     });
 

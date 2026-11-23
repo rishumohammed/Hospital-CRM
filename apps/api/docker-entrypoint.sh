@@ -39,5 +39,20 @@ echo "✓ Database schema synchronized successfully!"
 echo "==> Seeding initial demo users and hospital data..."
 pnpm seed || true
 
+echo "==> Sanitizing legacy date formats in database..."
+node -e "
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
+async function clean() {
+  try {
+    await prisma.\$executeRawUnsafe(\"UPDATE cases SET created_at = consultation_completed_at, updated_at = consultation_completed_at WHERE CAST(created_at AS CHAR) LIKE '0000-00-00%' AND consultation_completed_at IS NOT NULL\");
+    await prisma.\$executeRawUnsafe(\"UPDATE cases SET created_at = '2026-11-10 10:00:00', updated_at = '2026-11-10 10:00:00' WHERE CAST(created_at AS CHAR) LIKE '0000-00-00%'\");
+    await prisma.\$executeRawUnsafe(\"UPDATE leads SET created_at = updated_at WHERE CAST(created_at AS CHAR) LIKE '0000-00-00%' AND CAST(updated_at AS CHAR) NOT LIKE '0000-00-00%'\");
+    await prisma.\$executeRawUnsafe(\"UPDATE leads SET created_at = '2026-11-01 10:00:00', updated_at = '2026-11-01 10:00:00' WHERE CAST(created_at AS CHAR) LIKE '0000-00-00%' OR CAST(updated_at AS CHAR) LIKE '0000-00-00%'\");
+  } catch(e) {} finally { await prisma.\$disconnect(); }
+}
+clean();
+" || true
+
 echo "==> Starting production Fastify server..."
 exec "$@"

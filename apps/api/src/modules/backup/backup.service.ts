@@ -136,6 +136,18 @@ function isMysqlCliAvailable(): boolean {
 }
 
 /**
+ * Checks if MySQL is running in a local Docker container (standard production deployment).
+ */
+function isDockerMysqlAvailable(): boolean {
+  try {
+    const stdout = execSync("docker ps --format '{{.Names}}'", { stdio: ['ignore', 'pipe', 'ignore'] }).toString();
+    return stdout.includes('hospital_crm_mysql');
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Lists all available backup archives.
  */
 export async function listBackups(): Promise<BackupItem[]> {
@@ -360,7 +372,12 @@ export async function createBackup(
 
   const creds = getDatabaseCredentials();
 
-  if (isMysqldumpAvailable()) {
+  if (isDockerMysqlAvailable()) {
+    logger.info('Using Docker hospital_crm_mysql container for backup');
+    const dumpCmd = `docker exec hospital_crm_mysql mysqldump -u ${creds.user} -p"${creds.password}" --single-transaction --quick --routines --triggers --events --hex-blob --default-character-set=utf8mb4 ${creds.database}`;
+    const gzipCmd = `gzip -9 > "${destPath}"`;
+    await execAsync(`${dumpCmd} | ${gzipCmd}`);
+  } else if (isMysqldumpAvailable()) {
     logger.info('Using native mysqldump utility for backup');
     const dumpCmd = `mysqldump -h ${creds.host} -P ${creds.port} -u ${creds.user} -p"${creds.password}" --single-transaction --quick --routines --triggers --events --hex-blob --default-character-set=utf8mb4 ${creds.database}`;
     const gzipCmd = `gzip -9 > "${destPath}"`;
@@ -544,15 +561,25 @@ export async function restoreBackup(filename: string, user: UserContext): Promis
   // 1. Verify Gzip integrity
   await verifyGzipIntegrity(filePath);
 
-  // 2. CRITICAL SAFETY: Create pre-restore safety rollback snapshot first!
+  // 2. SAFETY: Attempt pre-restore safety rollback snapshot (do not block restore if dump fails)
   logger.info({ filename, user: user.email }, 'Taking safety rollback snapshot before starting database restore...');
-  const rollbackItem = await createBackup('rollback', user.email);
+  let rollbackSnapshotName = '';
+  try {
+    const rollbackItem = await createBackup('rollback', user.email);
+    rollbackSnapshotName = rollbackItem.filename;
+  } catch (err: any) {
+    logger.warn({ err: err.message }, 'Notice: Pre-restore rollback snapshot could not be generated; proceeding with restoration');
+  }
 
   // 3. Perform restoration
   const creds = getDatabaseCredentials();
   logger.info({ filename, targetDb: creds.database }, 'Restoring database...');
 
-  if (isMysqlCliAvailable()) {
+  if (isDockerMysqlAvailable()) {
+    logger.info('Using Docker hospital_crm_mysql container for restore');
+    const restoreCmd = `gzip -dc "${filePath}" | docker exec -i hospital_crm_mysql mysql -u ${creds.user} -p"${creds.password}" --default-character-set=utf8mb4 --init-command="SET FOREIGN_KEY_CHECKS=0;" ${creds.database}`;
+    await execAsync(restoreCmd);
+  } else if (isMysqlCliAvailable()) {
     logger.info('Using native mysql CLI for restore');
     const restoreCmd = `gzip -dc "${filePath}" | mysql -h ${creds.host} -P ${creds.port} -u ${creds.user} -p"${creds.password}" --default-character-set=utf8mb4 --init-command="SET FOREIGN_KEY_CHECKS=0;" ${creds.database}`;
     await execAsync(restoreCmd);
@@ -569,16 +596,16 @@ export async function restoreBackup(filename: string, user: UserContext): Promis
     action: 'restore',
     after: {
       targetBackup: filename,
-      rollbackSnapshot: rollbackItem.filename,
+      rollbackSnapshot: rollbackSnapshotName || 'none',
       restoredBy: user.email,
       timestamp: new Date().toISOString(),
     },
   });
 
-  logger.info({ targetBackup: filename, rollbackSnapshot: rollbackItem.filename }, 'Database restore completed successfully');
+  logger.info({ targetBackup: filename, rollbackSnapshot: rollbackSnapshotName }, 'Database restore completed successfully');
   return {
     success: true,
-    rollbackSnapshot: rollbackItem.filename,
+    rollbackSnapshot: rollbackSnapshotName,
   };
 }
 

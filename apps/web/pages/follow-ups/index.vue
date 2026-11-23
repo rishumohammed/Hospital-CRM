@@ -307,6 +307,26 @@
           </button>
         </div>
       </div>
+      <div v-else-if="fetchError" class="space-y-3">
+        <div class="w-14 h-14 mx-auto rounded-full bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 flex items-center justify-center text-rose-500 text-2xl">
+          ⚠️
+        </div>
+        <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">
+          Failed to load follow-up tasks
+        </h3>
+        <p class="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+          {{ fetchError }}
+        </p>
+        <div class="pt-2">
+          <button
+            type="button"
+            @click="loadTasks"
+            class="px-4 py-2 text-xs font-semibold rounded-xl bg-teal-600 hover:bg-teal-700 text-white transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
       <div v-else>
         <div class="w-16 h-16 mx-auto rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center text-3xl">
           🎉
@@ -825,6 +845,7 @@ const totalPages = ref(1);
 
 const tasks = ref<any[]>([]);
 const isLoading = ref(true);
+const fetchError = ref('');
 
 const overdueCount = ref(0);
 const todayCount = ref(0);
@@ -994,14 +1015,18 @@ const loadTasks = async () => {
     });
 
     if (res.ok) {
+      fetchError.value = '';
       const result = await res.json();
       const rawTasks = result.data || [];
-      tasks.value = rawTasks.filter((t: any) => !t.title?.startsWith('Inquiry Call:'));
+      tasks.value = rawTasks;
       totalTasks.value = result.meta?.total || tasks.value.length;
       totalPages.value = result.meta?.totalPages || 1;
+    } else {
+      fetchError.value = `Server returned status ${res.status}. Could not load follow-up list.`;
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error('Failed to load tasks', err);
+    fetchError.value = 'Network error: could not connect to server.';
   } finally {
     isLoading.value = false;
   }

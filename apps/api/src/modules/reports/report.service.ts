@@ -1,6 +1,8 @@
 import { prisma } from '../../database/client';
 import { UserContext, scopeWhere, getEffectiveScope } from '../rbac/scope';
 import { Permissions, CaseStages, LeadStatuses } from '@hospital-crm/shared';
+import { toZonedTime, fromZonedTime } from 'date-fns-tz';
+import { startOfDay, endOfDay } from 'date-fns';
 
 export interface AdmissionReportParams {
   branchId?: number;
@@ -442,10 +444,66 @@ export async function getSupportReport(
     }
   }
 
+  // Clinical vs Product separate metrics for stacked presentation
+  let clinicalTotal = 0;
+  let productTotal = 0;
+  let clinicalInProgressCount = 0;
+  let productInProgressCount = 0;
+  let clinicalBookedCount = 0;
+  let productBookedCount = 0;
+  let clinicalConvertedCount = 0;
+  let productConvertedCount = 0;
+
+  for (const l of leads) {
+    const isProd = l.leadType === 'product';
+    if (isProd) {
+      productTotal++;
+      if (l.status === LeadStatuses.NEW || l.status === LeadStatuses.CONTACTED || l.status === LeadStatuses.QUALIFIED) {
+        productInProgressCount++;
+      } else if (l.status === LeadStatuses.APPOINTMENT_BOOKED) {
+        productBookedCount++;
+      } else if (l.status === LeadStatuses.CONVERTED) {
+        productConvertedCount++;
+        productBookedCount++;
+      }
+    } else {
+      clinicalTotal++;
+      if (l.status === LeadStatuses.NEW || l.status === LeadStatuses.CONTACTED || l.status === LeadStatuses.QUALIFIED) {
+        clinicalInProgressCount++;
+      } else if (l.status === LeadStatuses.APPOINTMENT_BOOKED) {
+        clinicalBookedCount++;
+      } else if (l.status === LeadStatuses.CONVERTED) {
+        clinicalConvertedCount++;
+        clinicalBookedCount++;
+      }
+    }
+  }
+
+  const totalHospitalCases = await prisma.case.count({
+    where: {
+      archivedAt: null,
+      stage: { in: ['visited', 'plan_given', 'counseling_estimate', 'plan_accepted', 'in_treatment', 'aftercare_follow_up', 'completed'] },
+      ...(params.branchId ? { branchId: params.branchId } : {}),
+      ...(where.createdAt ? { createdAt: where.createdAt } : {}),
+    },
+  });
+
+  const effectiveClinicalConverted = Math.max(clinicalConvertedCount, totalHospitalCases);
+  const effectiveClinicalBooked = Math.max(clinicalBookedCount, effectiveClinicalConverted);
+  const effectiveProductConverted = productConvertedCount;
+  const effectiveProductBooked = productBookedCount;
+
+  const effectiveConvertedLeads = effectiveClinicalConverted + effectiveProductConverted;
+  const effectiveVisitedLeads = effectiveConvertedLeads;
+  const inBookedOrDone = effectiveClinicalBooked + effectiveProductBooked;
+  const clinicalPipeline = clinicalInProgressCount + effectiveClinicalBooked;
+  const productPipeline = productInProgressCount + effectiveProductBooked;
+  const inPipeline = clinicalPipeline + productPipeline;
+
   const slaComplianceRate = respondedLeadsCount > 0 ? Math.round((slaMetCount / respondedLeadsCount) * 100) : 100;
   const avgResponseMinutes = respondedLeadsCount > 0 ? Math.round(totalResponseMinutes / respondedLeadsCount) : null;
-  const bookingRate = totalLeads > 0 ? Math.round(((appointmentBookedLeads + visitedLeads) / totalLeads) * 100) : 0;
-  const conversionRate = totalLeads > 0 ? Math.round((convertedLeads / totalLeads) * 100) : 0;
+  const bookingRate = totalLeads > 0 ? Math.round(((appointmentBookedLeads + convertedLeads) / totalLeads) * 100) : 0;
+  const conversionRate = totalLeads > 0 ? Math.round((effectiveConvertedLeads / totalLeads) * 100) : 0;
 
   // 14-day Daily Trend
   const dailyMap: Record<string, { date: string; label: string; leads: number; converted: number; booked: number }> = {};
@@ -478,9 +536,6 @@ export async function getSupportReport(
   const dailyTrend = Object.values(dailyMap);
 
   // Conversion Funnel
-  const inBookedOrDone = Math.min(totalLeads, appointmentBookedLeads + visitedLeads);
-  const inPipeline = Math.min(totalLeads, inProgressLeads + inBookedOrDone);
-
   const conversionFunnel = [
     {
       stage: 'Total Inquiries',
@@ -502,8 +557,8 @@ export async function getSupportReport(
     },
     {
       stage: 'Converted Patient',
-      count: convertedLeads,
-      percentage: totalLeads > 0 ? Math.min(100, Math.round((convertedLeads / totalLeads) * 100)) : 0,
+      count: effectiveConvertedLeads,
+      percentage: totalLeads > 0 ? Math.min(100, Math.round((effectiveConvertedLeads / totalLeads) * 100)) : 0,
       color: 'emerald',
     },
   ];
@@ -513,14 +568,28 @@ export async function getSupportReport(
     newLeads,
     inProgressLeads,
     appointmentBookedLeads,
-    visitedLeads,
-    convertedLeads,
+    visitedLeads: effectiveVisitedLeads,
+    convertedLeads: effectiveConvertedLeads,
     lostLeads,
     emergencyRedirects,
     bookingRate,
     conversionRate,
     dailyTrend,
     conversionFunnel,
+    breakdown: {
+      clinical: {
+        totalLeads: clinicalTotal,
+        inProgressLeads: clinicalPipeline,
+        appointmentBookedLeads: effectiveClinicalBooked,
+        convertedLeads: effectiveClinicalConverted,
+      },
+      product: {
+        totalLeads: productTotal,
+        inProgressLeads: productPipeline,
+        appointmentBookedLeads: effectiveProductBooked,
+        convertedLeads: effectiveProductConverted,
+      },
+    },
     sla: {
       complianceRate: slaComplianceRate,
       avgResponseMinutes,
@@ -1247,7 +1316,7 @@ export async function getTelecallerPerformance(
     ? new Date(new Date(params.startDate).setHours(23, 59, 59, 999))
     : new Date(`${targetDateStr}T23:59:59.999+05:30`);
 
-  const refDate = params.endDate ? new Date(params.endDate) : params.startDate ? new Date(params.startDate) : new Date();
+  const refDate = params.startDate ? new Date(params.startDate) : params.endDate ? new Date(params.endDate) : new Date();
   const year = refDate.getFullYear();
   const yearStr = String(year);
   const month = refDate.getMonth() + 1;
@@ -1358,15 +1427,7 @@ export async function getTelecallerPerformance(
   const newLeadsCalled = newLeadIds.size;
   const followUpsDone = followUpCallsCount;
 
-  const appointmentsBookedPeriod = await prisma.appointment.count({
-    where: {
-      createdAt: { gte: startOfPeriod, lte: endOfPeriod },
-      status: { not: 'cancelled' },
-      ...bookingFilter,
-    },
-  });
-
-  // Confirmed patient visits in period (Mark Visited completed today)
+  // Confirmed patient visits in period (Mark Visited completed today or consultation completed)
   const [visitedCasesPeriod, visitedApptsPeriod] = await Promise.all([
     prisma.case.count({
       where: {
@@ -1398,6 +1459,18 @@ export async function getTelecallerPerformance(
 
   const patientsVisitedPeriod = visitedCasesPeriod + visitedApptsPeriod;
 
+  // Pending / upcoming appointments booked in period (scheduled, confirmed, booked)
+  const pendingAppointmentsBookedPeriod = await prisma.appointment.count({
+    where: {
+      createdAt: { gte: startOfPeriod, lte: endOfPeriod },
+      status: { in: ['scheduled', 'confirmed', 'booked', 'pending'] },
+      ...bookingFilter,
+    },
+  });
+
+  // Total bookings in period includes all who visited in period + pending bookings made in period
+  const appointmentsBookedPeriod = patientsVisitedPeriod + pendingAppointmentsBookedPeriod;
+
   const patientsVisitingPeriod = await prisma.appointment.count({
     where: {
       startsAt: { gte: startOfPeriod, lte: endOfPeriod },
@@ -1407,15 +1480,7 @@ export async function getTelecallerPerformance(
   });
 
   // 2. Monthly metrics
-  const monthlyBookings = await prisma.appointment.count({
-    where: {
-      createdAt: { gte: startOfMonth, lte: endOfMonth },
-      status: { not: 'cancelled' },
-      ...bookingFilter,
-    },
-  });
-
-  const [monthlyVisitedCases, monthlyVisitedAppts] = await Promise.all([
+  const [visitedCasesMonth, visitedApptsMonth] = await Promise.all([
     prisma.case.count({
       where: {
         archivedAt: null,
@@ -1443,7 +1508,18 @@ export async function getTelecallerPerformance(
       },
     }),
   ]);
-  const monthlyVisits = monthlyVisitedCases + monthlyVisitedAppts;
+
+  const monthlyVisits = visitedCasesMonth + visitedApptsMonth;
+
+  const pendingMonthlyBookings = await prisma.appointment.count({
+    where: {
+      createdAt: { gte: startOfMonth, lte: endOfMonth },
+      status: { in: ['scheduled', 'confirmed', 'booked', 'pending'] },
+      ...bookingFilter,
+    },
+  });
+
+  const monthlyBookings = monthlyVisits + pendingMonthlyBookings;
 
   const monthlyLeadsCount = await prisma.lead.count({
     where: {
@@ -1463,7 +1539,7 @@ export async function getTelecallerPerformance(
       createdAt: { gte: startOfPeriod, lte: endOfPeriod },
     },
   });
-  const totalLeadsPeriod = Math.max(distinctLeadsContactedInPeriod, newLeadsCalled, leadsCreatedPeriod);
+  const totalLeadsPeriod = Math.max(distinctLeadsContactedInPeriod, newLeadsCalled, leadsCreatedPeriod, appointmentsBookedPeriod, patientsVisitedPeriod);
   const periodBookingRatio = totalLeadsPeriod > 0
     ? Math.min(100, Number(((appointmentsBookedPeriod / Math.max(totalLeadsPeriod, appointmentsBookedPeriod)) * 100).toFixed(1)))
     : appointmentsBookedPeriod > 0 ? 100 : 0;
@@ -1471,16 +1547,15 @@ export async function getTelecallerPerformance(
     ? Math.min(100, Number(((patientsVisitedPeriod / Math.max(totalLeadsPeriod, patientsVisitedPeriod)) * 100).toFixed(1)))
     : patientsVisitedPeriod > 0 ? 100 : 0;
 
-  const maxMonthlyBookingBase = Math.max(monthlyLeadsCount, monthlyBookings);
-  const leadToBookingRatio = maxMonthlyBookingBase > 0
-    ? Math.min(100, Number(((monthlyBookings / maxMonthlyBookingBase) * 100).toFixed(1)))
+  const totalLeadsMonth = Math.max(monthlyLeadsCount, monthlyBookings, monthlyVisits);
+  const leadToBookingRatio = totalLeadsMonth > 0
+    ? Math.min(100, Number(((monthlyBookings / totalLeadsMonth) * 100).toFixed(1)))
     : allTimeLeadsCount > 0
     ? Math.min(100, Number(((monthlyBookings / Math.max(allTimeLeadsCount, monthlyBookings)) * 100).toFixed(1)))
     : 0;
 
-  const maxMonthlyVisitBase = Math.max(monthlyLeadsCount, monthlyVisits);
-  const leadToVisitRatio = maxMonthlyVisitBase > 0
-    ? Math.min(100, Number(((monthlyVisits / maxMonthlyVisitBase) * 100).toFixed(1)))
+  const leadToVisitRatio = totalLeadsMonth > 0
+    ? Math.min(100, Number(((monthlyVisits / totalLeadsMonth) * 100).toFixed(1)))
     : allTimeLeadsCount > 0
     ? Math.min(100, Number(((monthlyVisits / Math.max(allTimeLeadsCount, monthlyVisits)) * 100).toFixed(1)))
     : 0;
@@ -1492,6 +1567,7 @@ export async function getTelecallerPerformance(
       totalCalls: callsPeriod.length,
       newLeadsCalled,
       followUpsDone,
+      totalLeads: totalLeadsPeriod,
       appointmentsBooked: appointmentsBookedPeriod,
       patientsVisited: patientsVisitedPeriod,
       patientsVisiting: patientsVisitingPeriod,
@@ -1505,6 +1581,7 @@ export async function getTelecallerPerformance(
       visits: monthlyVisits,
       visitTarget: 0,   // 0 = No target set
       leadsAssigned: monthlyLeadsCount,
+      totalLeads: totalLeadsMonth,
       allTimeLeads: allTimeLeadsCount,
       leadToBookingRatio,
       leadToVisitRatio,
@@ -1735,7 +1812,7 @@ export async function getTeamPerformance(
     ? new Date(new Date(params.startDate).setHours(23, 59, 59, 999))
     : new Date(`${targetDateStr}T23:59:59.999+05:30`);
 
-  const refDate = params.endDate ? new Date(params.endDate) : params.startDate ? new Date(params.startDate) : new Date();
+  const refDate = params.startDate ? new Date(params.startDate) : params.endDate ? new Date(params.endDate) : new Date();
   const year = refDate.getFullYear();
   const yearStr = String(year);
   const month = refDate.getMonth() + 1;
@@ -1746,12 +1823,12 @@ export async function getTeamPerformance(
 
   const isManagerOrAdmin = ['admin', 'owner', 'center_head', 'telecaller_manager', 'super_admin'].includes(user.roleCode);
 
-  // Find all active telecallers & telecaller managers (scoped to self for telecaller role)
+  // Find all active telecallers, telecaller managers & product sales staff
   const whereUsers: any = {
     status: 'active',
     archivedAt: null,
     role: {
-      code: { in: ['support_telecaller', 'caller', 'telecaller_manager'] },
+      code: { in: ['support_telecaller', 'caller', 'telecaller_manager', 'product_sales_executive', 'product_caller', 'product_manager'] },
     },
   };
 
@@ -1816,14 +1893,7 @@ export async function getTeamPerformance(
       const newLeadsCalled = newLeadIds.size;
       const followUpsDone = followUpCallsCount;
 
-      const appointmentsBookedPeriod = await prisma.appointment.count({
-        where: {
-          createdAt: { gte: startOfPeriod, lte: endOfPeriod },
-          status: { not: 'cancelled' },
-          OR: [{ lead: { ownerId: tc.id } }, { case: { ownerId: tc.id } }],
-        },
-      });
-
+      // Confirmed patient visits in period
       const [visitedCasesPeriod, visitedApptsPeriod] = await Promise.all([
         prisma.case.count({
           where: {
@@ -1863,6 +1933,41 @@ export async function getTeamPerformance(
 
       const patientsVisitedPeriod = visitedCasesPeriod + visitedApptsPeriod;
 
+      // Pending / upcoming appointments booked in period
+      const pendingAppointmentsPeriod = await prisma.appointment.count({
+        where: {
+          createdAt: { gte: startOfPeriod, lte: endOfPeriod },
+          status: { in: ['scheduled', 'confirmed', 'booked', 'pending'] },
+          OR: [{ createdBy: tc.id }, { lead: { ownerId: tc.id } }, { case: { ownerId: tc.id } }],
+        },
+      });
+
+      // Leads with status appointment_booked or converted assigned to tc in period
+      const [bookedLeadsPeriod, convertedLeadsPeriod] = await Promise.all([
+        prisma.lead.count({
+          where: {
+            ownerId: tc.id,
+            createdAt: { gte: startOfPeriod, lte: endOfPeriod },
+            status: 'appointment_booked',
+            archivedAt: null,
+          },
+        }),
+        prisma.lead.count({
+          where: {
+            ownerId: tc.id,
+            createdAt: { gte: startOfPeriod, lte: endOfPeriod },
+            status: 'converted',
+            archivedAt: null,
+          },
+        }),
+      ]);
+
+      const effectivePatientsVisitedPeriod = Math.max(convertedLeadsPeriod, patientsVisitedPeriod);
+      const effectiveAppointmentsBookedPeriod = Math.max(
+        bookedLeadsPeriod + convertedLeadsPeriod,
+        effectivePatientsVisitedPeriod + pendingAppointmentsPeriod
+      );
+
       const patientsVisitingPeriod = await prisma.appointment.count({
         where: {
           startsAt: { gte: startOfPeriod, lte: endOfPeriod },
@@ -1875,15 +1980,8 @@ export async function getTeamPerformance(
         },
       });
 
-      const monthlyBookings = await prisma.appointment.count({
-        where: {
-          createdAt: { gte: startOfMonth, lte: endOfMonth },
-          status: { not: 'cancelled' },
-          OR: [{ lead: { ownerId: tc.id } }, { case: { ownerId: tc.id } }],
-        },
-      });
-
-      const [monthlyVisitedCases, monthlyVisitedAppts] = await Promise.all([
+      // Monthly metrics
+      const [visitedCasesMonth, visitedApptsMonth, bookedLeadsMonth, convertedLeadsMonth] = await Promise.all([
         prisma.case.count({
           where: {
             archivedAt: null,
@@ -1918,8 +2016,38 @@ export async function getTeamPerformance(
             ],
           },
         }),
+        prisma.lead.count({
+          where: {
+            ownerId: tc.id,
+            createdAt: { gte: startOfMonth, lte: endOfMonth },
+            status: 'appointment_booked',
+            archivedAt: null,
+          },
+        }),
+        prisma.lead.count({
+          where: {
+            ownerId: tc.id,
+            createdAt: { gte: startOfMonth, lte: endOfMonth },
+            status: 'converted',
+            archivedAt: null,
+          },
+        }),
       ]);
-      const monthlyVisits = monthlyVisitedCases + monthlyVisitedAppts;
+
+      const effectiveMonthlyVisits = Math.max(convertedLeadsMonth, visitedCasesMonth + visitedApptsMonth);
+
+      const pendingMonthlyBookings = await prisma.appointment.count({
+        where: {
+          createdAt: { gte: startOfMonth, lte: endOfMonth },
+          status: { in: ['scheduled', 'confirmed', 'booked', 'pending'] },
+          OR: [{ createdBy: tc.id }, { lead: { ownerId: tc.id } }, { case: { ownerId: tc.id } }],
+        },
+      });
+
+      const effectiveMonthlyBookings = Math.max(
+        bookedLeadsMonth + convertedLeadsMonth,
+        effectiveMonthlyVisits + pendingMonthlyBookings
+      );
 
       const monthlyLeadsCount = await prisma.lead.count({
         where: {
@@ -1941,26 +2069,25 @@ export async function getTeamPerformance(
           archivedAt: null,
         },
       });
-      const totalLeadsPeriod = Math.max(distinctLeadsContactedInPeriod, newLeadsCalled, leadsCreatedPeriod);
+      const totalLeadsPeriod = Math.max(distinctLeadsContactedInPeriod, newLeadsCalled, leadsCreatedPeriod, effectiveAppointmentsBookedPeriod, effectivePatientsVisitedPeriod);
       const periodBookingRatio = totalLeadsPeriod > 0
-        ? Math.min(100, Number(((appointmentsBookedPeriod / Math.max(totalLeadsPeriod, appointmentsBookedPeriod)) * 100).toFixed(1)))
-        : appointmentsBookedPeriod > 0 ? 100 : 0;
+        ? Math.min(100, Number(((effectiveAppointmentsBookedPeriod / Math.max(totalLeadsPeriod, effectiveAppointmentsBookedPeriod)) * 100).toFixed(1)))
+        : effectiveAppointmentsBookedPeriod > 0 ? 100 : 0;
       const periodVisitRatio = totalLeadsPeriod > 0
-        ? Math.min(100, Number(((patientsVisitedPeriod / Math.max(totalLeadsPeriod, patientsVisitedPeriod)) * 100).toFixed(1)))
-        : patientsVisitedPeriod > 0 ? 100 : 0;
+        ? Math.min(100, Number(((effectivePatientsVisitedPeriod / Math.max(totalLeadsPeriod, effectivePatientsVisitedPeriod)) * 100).toFixed(1)))
+        : effectivePatientsVisitedPeriod > 0 ? 100 : 0;
 
-      const maxMonthlyBookingBase = Math.max(monthlyLeadsCount, monthlyBookings);
-      const leadToBookingRatio = maxMonthlyBookingBase > 0
-        ? Math.min(100, Number(((monthlyBookings / maxMonthlyBookingBase) * 100).toFixed(1)))
+      const totalLeadsMonth = Math.max(monthlyLeadsCount, effectiveMonthlyBookings, effectiveMonthlyVisits);
+      const leadToBookingRatio = totalLeadsMonth > 0
+        ? Math.min(100, Number(((effectiveMonthlyBookings / totalLeadsMonth) * 100).toFixed(1)))
         : allTimeLeadsCount > 0
-        ? Math.min(100, Number(((monthlyBookings / Math.max(allTimeLeadsCount, monthlyBookings)) * 100).toFixed(1)))
+        ? Math.min(100, Number(((effectiveMonthlyBookings / Math.max(allTimeLeadsCount, effectiveMonthlyBookings)) * 100).toFixed(1)))
         : 0;
 
-      const maxMonthlyVisitBase = Math.max(monthlyLeadsCount, monthlyVisits);
-      const leadToVisitRatio = maxMonthlyVisitBase > 0
-        ? Math.min(100, Number(((monthlyVisits / maxMonthlyVisitBase) * 100).toFixed(1)))
+      const leadToVisitRatio = totalLeadsMonth > 0
+        ? Math.min(100, Number(((effectiveMonthlyVisits / totalLeadsMonth) * 100).toFixed(1)))
         : allTimeLeadsCount > 0
-        ? Math.min(100, Number(((monthlyVisits / Math.max(allTimeLeadsCount, monthlyVisits)) * 100).toFixed(1)))
+        ? Math.min(100, Number(((effectiveMonthlyVisits / Math.max(allTimeLeadsCount, effectiveMonthlyVisits)) * 100).toFixed(1)))
         : 0;
 
       return {
@@ -1969,24 +2096,84 @@ export async function getTeamPerformance(
           totalCalls: callsPeriod.length,
           newLeadsCalled,
           followUpsDone,
-          appointmentsBooked: appointmentsBookedPeriod,
-          patientsVisited: patientsVisitedPeriod,
+          totalLeads: totalLeadsPeriod,
+          appointmentsBooked: effectiveAppointmentsBookedPeriod,
+          patientsVisited: effectivePatientsVisitedPeriod,
           patientsVisiting: patientsVisitingPeriod,
           bookingRatio: periodBookingRatio,
           visitRatio: periodVisitRatio,
         },
         monthly: {
-          bookings: monthlyBookings,
+          bookings: effectiveMonthlyBookings,
           bookingTarget: 0,
-          visits: monthlyVisits,
+          visits: effectiveMonthlyVisits,
           visitTarget: 0,
           leadsAssigned: monthlyLeadsCount,
+          totalLeads: totalLeadsMonth,
           leadToBookingRatio,
           leadToVisitRatio,
         },
       };
     })
   );
+
+  // Include Unassigned Leads (Pool) row so staff leaderboard reconciles 100% with hospital & product pipeline
+  const [
+    unassignedLeadsMonth,
+    unassignedBookedMonth,
+    unassignedConvertedMonth,
+    unassignedCasesMonth,
+    unassignedLeadsPeriod,
+    unassignedBookedPeriod,
+    unassignedConvertedPeriod,
+    unassignedCasesPeriod,
+  ] = await Promise.all([
+    prisma.lead.count({ where: { ownerId: null, createdAt: { gte: startOfMonth, lte: endOfMonth }, archivedAt: null } }),
+    prisma.lead.count({ where: { ownerId: null, createdAt: { gte: startOfMonth, lte: endOfMonth }, status: 'appointment_booked', archivedAt: null } }),
+    prisma.lead.count({ where: { ownerId: null, createdAt: { gte: startOfMonth, lte: endOfMonth }, status: 'converted', archivedAt: null } }),
+    prisma.case.count({ where: { ownerId: null, archivedAt: null, stage: { in: ['visited', 'plan_given', 'counseling_estimate', 'plan_accepted', 'in_treatment', 'aftercare_follow_up', 'completed'] } } }),
+    prisma.lead.count({ where: { ownerId: null, createdAt: { gte: startOfPeriod, lte: endOfPeriod }, archivedAt: null } }),
+    prisma.lead.count({ where: { ownerId: null, createdAt: { gte: startOfPeriod, lte: endOfPeriod }, status: 'appointment_booked', archivedAt: null } }),
+    prisma.lead.count({ where: { ownerId: null, createdAt: { gte: startOfPeriod, lte: endOfPeriod }, status: 'converted', archivedAt: null } }),
+    prisma.case.count({ where: { ownerId: null, archivedAt: null, stage: { in: ['visited', 'plan_given', 'counseling_estimate', 'plan_accepted', 'in_treatment', 'aftercare_follow_up', 'completed'] } } }),
+  ]);
+
+  if (unassignedLeadsMonth > 0 || unassignedLeadsPeriod > 0) {
+    const unassignedVisitsMonth = Math.max(unassignedConvertedMonth, unassignedCasesMonth);
+    const unassignedBookingsMonth = unassignedBookedMonth + unassignedConvertedMonth;
+    const unassignedVisitsPeriod = Math.max(unassignedConvertedPeriod, unassignedCasesPeriod);
+    const unassignedBookingsPeriod = unassignedBookedPeriod + unassignedConvertedPeriod;
+
+    telecallerMetrics.push({
+      user: {
+        id: -1,
+        name: 'Unassigned Leads (Pool)',
+        email: '',
+        role: { code: 'pool', name: 'Fresh / Incoming Pool' },
+      },
+      daily: {
+        totalCalls: 0,
+        newLeadsCalled: 0,
+        followUpsDone: 0,
+        totalLeads: unassignedLeadsPeriod,
+        appointmentsBooked: unassignedBookingsPeriod,
+        patientsVisited: unassignedVisitsPeriod,
+        patientsVisiting: 0,
+        bookingRatio: unassignedLeadsPeriod > 0 ? Number(((unassignedBookingsPeriod / unassignedLeadsPeriod) * 100).toFixed(1)) : 0,
+        visitRatio: unassignedLeadsPeriod > 0 ? Number(((unassignedVisitsPeriod / unassignedLeadsPeriod) * 100).toFixed(1)) : 0,
+      },
+      monthly: {
+        bookings: unassignedBookingsMonth,
+        bookingTarget: 0,
+        visits: unassignedVisitsMonth,
+        visitTarget: 0,
+        leadsAssigned: unassignedLeadsMonth,
+        totalLeads: unassignedLeadsMonth,
+        leadToBookingRatio: unassignedLeadsMonth > 0 ? Number(((unassignedBookingsMonth / unassignedLeadsMonth) * 100).toFixed(1)) : 0,
+        leadToVisitRatio: unassignedLeadsMonth > 0 ? Number(((unassignedVisitsMonth / unassignedLeadsMonth) * 100).toFixed(1)) : 0,
+      },
+    });
+  }
 
   // Hospital-wide aggregates
   const hospitalTotals = telecallerMetrics.reduce(
@@ -2018,10 +2205,10 @@ export async function getTeamPerformance(
   const [
     totalHospitalCasesMonth,
     totalHospitalApptsMonth,
-    totalHospitalBookingsMonth,
+    totalHospitalPendingBookingsMonth,
     totalHospitalCasesPeriod,
     totalHospitalApptsPeriod,
-    totalHospitalBookingsPeriod,
+    totalHospitalPendingBookingsPeriod,
   ] = await Promise.all([
     prisma.case.count({
       where: {
@@ -2048,7 +2235,7 @@ export async function getTeamPerformance(
     prisma.appointment.count({
       where: {
         createdAt: { gte: startOfMonth, lte: endOfMonth },
-        status: { not: 'cancelled' },
+        status: { in: ['scheduled', 'confirmed', 'booked', 'pending'] },
         ...(params.branchId ? { lead: { branchId: params.branchId } } : {}),
       },
     }),
@@ -2077,29 +2264,44 @@ export async function getTeamPerformance(
     prisma.appointment.count({
       where: {
         createdAt: { gte: startOfPeriod, lte: endOfPeriod },
-        status: { not: 'cancelled' },
+        status: { in: ['scheduled', 'confirmed', 'booked', 'pending'] },
         ...(params.branchId ? { lead: { branchId: params.branchId } } : {}),
       },
     }),
   ]);
 
   const totalHospitalMonthlyVisits = totalHospitalCasesMonth + totalHospitalApptsMonth;
+  const totalHospitalBookingsMonth = totalHospitalMonthlyVisits + totalHospitalPendingBookingsMonth;
+
   if (totalHospitalMonthlyVisits > hospitalTotals.monthlyVisits) {
     hospitalTotals.monthlyVisits = totalHospitalMonthlyVisits;
   }
   if (totalHospitalBookingsMonth > hospitalTotals.monthlyBookings) {
     hospitalTotals.monthlyBookings = totalHospitalBookingsMonth;
   }
+  if (hospitalTotals.monthlyVisits > hospitalTotals.monthlyBookings) {
+    hospitalTotals.monthlyBookings = hospitalTotals.monthlyVisits;
+  }
 
   const totalHospitalPeriodVisits = totalHospitalCasesPeriod + totalHospitalApptsPeriod;
+  const totalHospitalBookingsPeriod = totalHospitalPeriodVisits + totalHospitalPendingBookingsPeriod;
+
   if (totalHospitalPeriodVisits > hospitalTotals.dailyVisited) {
     hospitalTotals.dailyVisited = totalHospitalPeriodVisits;
   }
   if (totalHospitalBookingsPeriod > hospitalTotals.dailyBookings) {
     hospitalTotals.dailyBookings = totalHospitalBookingsPeriod;
   }
+  if (hospitalTotals.dailyVisited > hospitalTotals.dailyBookings) {
+    hospitalTotals.dailyBookings = hospitalTotals.dailyVisited;
+  }
 
-  const totalHospitalLeadsPeriod = Math.max(hospitalTotals.dailyNewCalled, hospitalTotals.dailyCalls);
+  const totalHospitalLeadsPeriod = Math.max(
+    hospitalTotals.dailyNewCalled,
+    hospitalTotals.dailyCalls,
+    hospitalTotals.dailyBookings,
+    hospitalTotals.dailyVisited
+  );
   const periodHospitalBookingRatio = totalHospitalLeadsPeriod > 0
     ? Math.min(100, Number(((hospitalTotals.dailyBookings / Math.max(totalHospitalLeadsPeriod, hospitalTotals.dailyBookings)) * 100).toFixed(1)))
     : hospitalTotals.dailyBookings > 0 ? 100 : 0;
@@ -2107,13 +2309,12 @@ export async function getTeamPerformance(
     ? Math.min(100, Number(((hospitalTotals.dailyVisited / Math.max(totalHospitalLeadsPeriod, hospitalTotals.dailyVisited)) * 100).toFixed(1)))
     : hospitalTotals.dailyVisited > 0 ? 100 : 0;
 
-  const maxHospitalMonthlyBookingBase = Math.max(hospitalTotals.monthlyLeads, hospitalTotals.monthlyBookings);
+  const maxHospitalMonthlyBookingBase = Math.max(hospitalTotals.monthlyLeads, hospitalTotals.monthlyBookings, hospitalTotals.monthlyVisits);
   const monthlyHospitalBookingRatio = maxHospitalMonthlyBookingBase > 0
     ? Math.min(100, Number(((hospitalTotals.monthlyBookings / maxHospitalMonthlyBookingBase) * 100).toFixed(1)))
     : 0;
-  const maxHospitalMonthlyVisitBase = Math.max(hospitalTotals.monthlyLeads, hospitalTotals.monthlyVisits);
-  const monthlyHospitalVisitRatio = maxHospitalMonthlyVisitBase > 0
-    ? Math.min(100, Number(((hospitalTotals.monthlyVisits / maxHospitalMonthlyVisitBase) * 100).toFixed(1)))
+  const monthlyHospitalVisitRatio = maxHospitalMonthlyBookingBase > 0
+    ? Math.min(100, Number(((hospitalTotals.monthlyVisits / maxHospitalMonthlyBookingBase) * 100).toFixed(1)))
     : 0;
 
   return {
@@ -2148,6 +2349,22 @@ export async function getMonthlyStatusTrend(
     inProgress: number;
     lost: number;
     totalLeads: number;
+    product?: {
+      totalLeads: number;
+      callbackRequested: number;
+      appointmentBooked: number;
+      visited: number;
+      inProgress: number;
+      lost: number;
+    };
+    clinical?: {
+      totalLeads: number;
+      callbackRequested: number;
+      appointmentBooked: number;
+      visited: number;
+      inProgress: number;
+      lost: number;
+    };
   }> = [];
 
   for (let i = numMonths - 1; i >= 0; i--) {
@@ -2170,6 +2387,7 @@ export async function getMonthlyStatusTrend(
       select: {
         id: true,
         status: true,
+        leadType: true,
       },
     });
 
@@ -2192,6 +2410,16 @@ export async function getMonthlyStatusTrend(
       apptWhere.OR = [{ lead: { ownerId: targetUserId } }, { case: { ownerId: targetUserId } }];
     }
     const bookedCount = await prisma.appointment.count({ where: apptWhere });
+
+    // Pending / upcoming appointments booked in this month
+    const pendingApptWhere: any = {
+      createdAt: { gte: startM, lte: endM },
+      status: { in: ['scheduled', 'confirmed', 'booked', 'pending'] },
+    };
+    if (targetUserId) {
+      pendingApptWhere.OR = [{ lead: { ownerId: targetUserId } }, { case: { ownerId: targetUserId } }];
+    }
+    const pendingBookedCount = await prisma.appointment.count({ where: pendingApptWhere });
 
     // Visits / Consultations completed in this month
     const caseWhere: any = {
@@ -2218,27 +2446,373 @@ export async function getMonthlyStatusTrend(
     }
     const visitedCount = await prisma.case.count({ where: caseWhere });
 
+    // Every visited patient was booked first. Total bookings = visits + pending bookings made in the month
+    const bookedLeadsInMonth = leads.filter((l) => l.status === 'appointment_booked').length;
+    const convertedLeadsInMonth = leads.filter((l) => l.status === 'converted').length;
+    const totalBookedCount = Math.max(bookedCount, visitedCount + pendingBookedCount, bookedLeadsInMonth + convertedLeadsInMonth);
+    const totalVisitedCount = Math.max(visitedCount, convertedLeadsInMonth);
+
     // Leads in progress (contacted, qualified, new)
     const inProgressCount = leads.filter((l) => ['new', 'contacted', 'qualified', 'callback'].includes(l.status)).length;
 
     // Leads lost / not interested
     const lostCount = leads.filter((l) => ['not_interested', 'lost', 'unqualified'].includes(l.status)).length;
 
+    const productLeads = leads.filter((l) => l.leadType === 'product');
+    const clinicalLeads = leads.filter((l) => l.leadType !== 'product');
+
+    const productBookedCount = productLeads.filter((l) => l.status === 'appointment_booked' || l.status === 'converted').length;
+    const productVisitedCount = productLeads.filter((l) => l.status === 'converted').length;
+    const productInProgressCount = productLeads.filter((l) => ['new', 'contacted', 'qualified', 'callback'].includes(l.status)).length;
+    const productLostCount = productLeads.filter((l) => ['not_interested', 'lost', 'unqualified'].includes(l.status)).length;
+
+    const clinicalBookedCount = Math.max(0, totalBookedCount - productBookedCount);
+    const clinicalVisitedCount = Math.max(0, totalVisitedCount - productVisitedCount);
+    const clinicalInProgressCount = Math.max(0, inProgressCount - productInProgressCount);
+    const clinicalLostCount = Math.max(0, lostCount - productLostCount);
+
     monthsData.push({
       month: key,
       monthLabel,
       callbackRequested: callbackCount,
-      appointmentBooked: bookedCount,
-      visited: visitedCount,
+      appointmentBooked: totalBookedCount,
+      visited: totalVisitedCount,
       inProgress: inProgressCount,
       lost: lostCount,
       totalLeads: leads.length,
+      product: {
+        totalLeads: productLeads.length,
+        callbackRequested: 0,
+        appointmentBooked: productBookedCount,
+        visited: productVisitedCount,
+        inProgress: productInProgressCount,
+        lost: productLostCount,
+      },
+      clinical: {
+        totalLeads: clinicalLeads.length,
+        callbackRequested: callbackCount,
+        appointmentBooked: clinicalBookedCount,
+        visited: clinicalVisitedCount,
+        inProgress: clinicalInProgressCount,
+        lost: clinicalLostCount,
+      },
     });
   }
 
   return {
     targetUserId: targetUserId || 'all',
     months: monthsData,
+  };
+}
+
+export interface DashboardTodayParams {
+  branchId?: number;
+}
+
+/**
+ * Returns today's operational counts for Dashboard KPI cards (Asia/Kolkata timezone).
+ * Scoped by user permissions and optional branch.
+ */
+export async function getDashboardTodayStats(
+  params: DashboardTodayParams,
+  user: UserContext
+) {
+  const timezone = 'Asia/Kolkata';
+  const now = new Date();
+  const zonedNow = toZonedTime(now, timezone);
+  const startOfToday = fromZonedTime(startOfDay(zonedNow), timezone);
+  const endOfToday = fromZonedTime(endOfDay(zonedNow), timezone);
+
+  const leadScope = scopeWhere(user, 'lead', Permissions.REPORT_VIEW);
+  const productLeadScope = scopeWhere(user, 'product_lead', Permissions.PRODUCT_REPORT_VIEW);
+  const taskScope = scopeWhere(user, 'task', Permissions.TASK_VIEW);
+  const caseScope = scopeWhere(user, 'case', Permissions.REPORT_VIEW);
+
+  const branchFilter = params.branchId ? { branchId: params.branchId } : {};
+
+  // 1. Clinical Consultation Leads (Today)
+  const [
+    clinicalNewLeads,
+    clinicalNewLeadsHot,
+    clinicalFollowUpTasks,
+    clinicalFollowUpTasksDone,
+    clinicalCallsDoneToday,
+    clinicalAppointmentsBookedToday,
+    clinicalLeadsBookedToday,
+    clinicalAppointmentsVisitingToday,
+    clinicalAppointmentsVisitedToday,
+    clinicalCasesConverted,
+  ] = await Promise.all([
+    // New consultation inquiries created today
+    prisma.lead.count({
+      where: {
+        archivedAt: null,
+        leadType: { not: 'product' },
+        createdAt: { gte: startOfToday, lte: endOfToday },
+        ...leadScope,
+        ...branchFilter,
+      },
+    }),
+    // Hot priority consultation inquiries created today
+    prisma.lead.count({
+      where: {
+        archivedAt: null,
+        leadType: { not: 'product' },
+        priority: 'hot',
+        createdAt: { gte: startOfToday, lte: endOfToday },
+        ...leadScope,
+        ...branchFilter,
+      },
+    }),
+    // Follow-ups due today (open) - excluding inquiry calls
+    prisma.task.findMany({
+      where: {
+        status: 'open',
+        dueAt: { gte: startOfToday, lte: endOfToday },
+        NOT: { title: { startsWith: 'Inquiry Call:' } },
+        OR: [
+          { leadId: { not: null }, lead: { leadType: { not: 'product' } } },
+          { caseId: { not: null } },
+        ],
+        ...taskScope,
+      },
+      select: { id: true, leadId: true, caseId: true },
+    }),
+    // Follow-ups completed today (tasks marked done today)
+    prisma.task.count({
+      where: {
+        status: 'done',
+        completedAt: { gte: startOfToday, lte: endOfToday },
+        NOT: { title: { startsWith: 'Inquiry Call:' } },
+        OR: [
+          { leadId: { not: null }, lead: { leadType: { not: 'product' } } },
+          { caseId: { not: null } },
+        ],
+        ...taskScope,
+      },
+    }),
+    // Follow-up calls logged today
+    prisma.interaction.count({
+      where: {
+        occurredAt: { gte: startOfToday, lte: endOfToday },
+        type: 'call',
+        OR: [
+          { leadId: { not: null }, lead: { leadType: { not: 'product' } } },
+          { caseId: { not: null } },
+        ],
+      },
+    }),
+    // Appointments got / booked today by telecallers
+    prisma.appointment.count({
+      where: {
+        createdAt: { gte: startOfToday, lte: endOfToday },
+        status: { not: 'cancelled' },
+        ...branchFilter,
+      },
+    }),
+    // Leads marked appointment booked today
+    prisma.lead.count({
+      where: {
+        archivedAt: null,
+        leadType: { not: 'product' },
+        status: 'appointment_booked',
+        updatedAt: { gte: startOfToday, lte: endOfToday },
+        ...leadScope,
+        ...branchFilter,
+      },
+    }),
+    // Clinic visits scheduled for today (Visiting Today)
+    prisma.appointment.count({
+      where: {
+        startsAt: { gte: startOfToday, lte: endOfToday },
+        status: { not: 'cancelled' },
+        ...branchFilter,
+      },
+    }),
+    // Patient visits marked visited today
+    prisma.appointment.count({
+      where: {
+        startsAt: { gte: startOfToday, lte: endOfToday },
+        status: 'visited',
+        ...branchFilter,
+      },
+    }),
+    // Patient cases converted/created today
+    prisma.case.count({
+      where: {
+        archivedAt: null,
+        createdAt: { gte: startOfToday, lte: endOfToday },
+        stage: { not: 'closed_lost' },
+        ...caseScope,
+        ...branchFilter,
+      },
+    }),
+  ]);
+
+  // Compute unique patient follow-up count (matching Single Next Step on /follow-ups)
+  const uniqueClinicalLeads = new Set<number>();
+  const uniqueClinicalCases = new Set<number>();
+  let clinicalStandalone = 0;
+  for (const t of clinicalFollowUpTasks) {
+    if (t.leadId) uniqueClinicalLeads.add(t.leadId);
+    else if (t.caseId) uniqueClinicalCases.add(t.caseId);
+    else clinicalStandalone++;
+  }
+  const clinicalFollowUpsDue = uniqueClinicalLeads.size + uniqueClinicalCases.size + clinicalStandalone;
+  const clinicalFollowUpsTotalTasks = clinicalFollowUpTasks.length;
+  const clinicalFollowUpsDone = Math.max(clinicalFollowUpTasksDone, clinicalCallsDoneToday);
+  const clinicalAppointmentsGot = Math.max(clinicalAppointmentsBookedToday, clinicalLeadsBookedToday);
+  const clinicalVisitingToday = clinicalAppointmentsVisitingToday;
+  const clinicalVisitedToday = clinicalAppointmentsVisitedToday;
+
+  // Confirmed total for consultation = confirmed clinic visits + converted cases
+  const clinicalConfirmed = Math.max(clinicalVisitedToday, clinicalCasesConverted);
+
+  // 2. Product Leads (Today)
+  const [
+    productNewLeads,
+    productFollowUpTasks,
+    productFollowUpsDone,
+    productAppointments,
+    productOrdersPlaced,
+    productOrdersRevenue,
+    productInterestsAccepted,
+    productLeadsConverted,
+  ] = await Promise.all([
+    // New product inquiries created today
+    prisma.lead.count({
+      where: {
+        archivedAt: null,
+        leadType: 'product',
+        createdAt: { gte: startOfToday, lte: endOfToday },
+        ...productLeadScope,
+        ...branchFilter,
+      },
+    }),
+    // Product follow-ups due today (open)
+    prisma.task.findMany({
+      where: {
+        status: 'open',
+        dueAt: { gte: startOfToday, lte: endOfToday },
+        NOT: { title: { startsWith: 'Inquiry Call:' } },
+        OR: [
+          { leadId: { not: null }, lead: { leadType: 'product' } },
+          { cadenceKey: { startsWith: 'product' } },
+        ],
+        ...taskScope,
+      },
+      select: { id: true, leadId: true, caseId: true },
+    }),
+    // Product follow-ups completed today
+    prisma.task.count({
+      where: {
+        status: 'done',
+        completedAt: { gte: startOfToday, lte: endOfToday },
+        NOT: { title: { startsWith: 'Inquiry Call:' } },
+        OR: [
+          { leadId: { not: null }, lead: { leadType: 'product' } },
+          { cadenceKey: { startsWith: 'product' } },
+        ],
+        ...taskScope,
+      },
+    }),
+    // Product scheduled consultation / callback inquiries today
+    prisma.task.count({
+      where: {
+        status: 'open',
+        dueAt: { gte: startOfToday, lte: endOfToday },
+        OR: [
+          { lead: { leadType: 'product' }, title: { contains: 'Appointment' } },
+          { cadenceKey: { startsWith: 'product' }, title: { contains: 'Appointment' } },
+          { lead: { leadType: 'product' }, priority: 'hot' },
+        ],
+        ...taskScope,
+      },
+    }),
+    // Confirmed orders created today
+    prisma.order.count({
+      where: {
+        createdAt: { gte: startOfToday, lte: endOfToday },
+        status: { not: 'cancelled' },
+      },
+    }),
+    // Total revenue from confirmed orders today
+    prisma.order.aggregate({
+      where: {
+        createdAt: { gte: startOfToday, lte: endOfToday },
+        status: { not: 'cancelled' },
+      },
+      _sum: {
+        totalAmount: true,
+      },
+    }),
+    // Accepted product sales interests today
+    prisma.leadProductInterest.count({
+      where: {
+        status: 'accepted',
+        updatedAt: { gte: startOfToday, lte: endOfToday },
+        lead: {
+          leadType: 'product',
+          ...branchFilter,
+        },
+      },
+    }),
+    // Product leads converted today
+    prisma.lead.count({
+      where: {
+        leadType: 'product',
+        status: 'converted',
+        updatedAt: { gte: startOfToday, lte: endOfToday },
+        ...productLeadScope,
+        ...branchFilter,
+      },
+    }),
+  ]);
+
+  const uniqueProductLeads = new Set<number>();
+  const uniqueProductCases = new Set<number>();
+  let productStandalone = 0;
+  for (const t of productFollowUpTasks) {
+    if (t.leadId) uniqueProductLeads.add(t.leadId);
+    else if (t.caseId) uniqueProductCases.add(t.caseId);
+    else productStandalone++;
+  }
+  const productFollowUpsDue = uniqueProductLeads.size + uniqueProductCases.size + productStandalone;
+
+  const productConfirmed = Math.max(productOrdersPlaced, productInterestsAccepted, productLeadsConverted);
+  const totalProductRevenue = Number(productOrdersRevenue._sum.totalAmount || 0);
+
+  return {
+    date: new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now),
+    timezone,
+    clinical: {
+      newLeads: clinicalNewLeads,
+      newLeadsHot: clinicalNewLeadsHot,
+      followUpsDone: clinicalFollowUpsDone,
+      followUpsDue: clinicalFollowUpsDue,
+      appointmentsGot: clinicalAppointmentsGot,
+      visitingToday: clinicalVisitingToday,
+      visitedToday: clinicalVisitedToday,
+      // Compatibility aliases
+      followUps: clinicalFollowUpsDue,
+      followUpsCompleted: clinicalFollowUpsDone,
+      appointments: clinicalVisitingToday,
+      confirmed: clinicalVisitingToday,
+      confirmedVisits: clinicalVisitedToday,
+      convertedCases: clinicalCasesConverted,
+    },
+    product: {
+      newLeads: productNewLeads,
+      followUpsDone: productFollowUpsDone,
+      followUpsDue: productFollowUpsDue,
+      ordersGot: productOrdersPlaced,
+      appointments: productAppointments,
+      confirmed: productConfirmed,
+      revenue: totalProductRevenue,
+      // Compatibility aliases
+      followUps: productFollowUpsDue,
+      followUpsCompleted: productFollowUpsDone,
+    },
   };
 }
 

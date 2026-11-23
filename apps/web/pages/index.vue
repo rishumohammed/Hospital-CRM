@@ -46,7 +46,7 @@
             >
               <UIcon name="i-heroicons-user-group" class="w-4 h-4 text-teal-600" />
               <span>Consultation Leads</span>
-              <span class="text-[10px] px-1.5 py-0.5 rounded-full font-mono" :class="activeMetricTab === 'clinical' ? 'bg-teal-100 text-teal-800' : 'bg-teal-900 text-teal-200'">{{ supportMetrics?.totalLeads || 0 }}</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded-full font-mono" :class="activeMetricTab === 'clinical' ? 'bg-teal-100 text-teal-800' : 'bg-teal-900 text-teal-200'">{{ todayMetrics?.clinical?.newLeads ?? 0 }} Today</span>
             </button>
 
             <button
@@ -61,7 +61,7 @@
             >
               <UIcon name="i-heroicons-shopping-bag" class="w-4 h-4 text-emerald-600" />
               <span>Product Leads</span>
-              <span class="text-[10px] px-1.5 py-0.5 rounded-full font-mono" :class="activeMetricTab === 'product' ? 'bg-emerald-100 text-emerald-800' : 'bg-teal-900 text-teal-200'">{{ productMetrics?.kpis?.totalLeads || 0 }}</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded-full font-mono" :class="activeMetricTab === 'product' ? 'bg-emerald-100 text-emerald-800' : 'bg-teal-900 text-teal-200'">{{ todayMetrics?.product?.newLeads ?? 0 }} Today</span>
             </button>
 
             <button
@@ -101,121 +101,92 @@
             <span class="text-[11px] text-teal-200/80 font-medium hidden sm:inline">Click any card to filter tasks or view leads</span>
           </div>
 
-          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            <!-- 1. Total Leads -->
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+            <!-- 1. New Leads -->
             <div
-              @click="navigateTo('/leads')"
+              @click="navigateTo('/leads?status=new')"
               class="group relative cursor-pointer rounded-2xl p-4 bg-teal-900/40 hover:bg-teal-900/70 border border-teal-500/20 hover:border-teal-400/50 backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg flex flex-col justify-between"
-              title="Click to view all leads"
+              title="Click to view new consultation leads"
             >
               <UIcon name="i-heroicons-arrow-up-right" class="w-3.5 h-3.5 text-teal-300/40 group-hover:text-teal-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all opacity-0 group-hover:opacity-100 absolute top-3.5 right-3.5" />
               <div>
-                <p class="text-[11px] text-teal-200/90 font-semibold uppercase tracking-wider">Total Leads</p>
-                <p class="mt-1 font-bold text-2xl text-white tracking-tight">
-                  {{ supportMetrics?.totalLeads ?? '—' }}
-                </p>
-              </div>
-              <span class="text-[10px] text-teal-200/80 mt-2 flex items-center gap-1 font-normal">
-                <span class="w-1.5 h-1.5 rounded-full bg-teal-300"></span>
-                <span>New Inquiries: {{ supportMetrics?.newLeads || 0 }}</span>
-              </span>
-            </div>
-
-            <!-- 2. Conversion Ratio -->
-            <div
-              @click="navigateTo('/reports')"
-              class="group relative cursor-pointer rounded-2xl p-4 bg-teal-900/40 hover:bg-teal-900/70 border border-teal-500/20 hover:border-teal-400/50 backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg flex flex-col justify-between"
-              title="Click to view conversion report"
-            >
-              <UIcon name="i-heroicons-arrow-up-right" class="w-3.5 h-3.5 text-teal-300/40 group-hover:text-teal-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all opacity-0 group-hover:opacity-100 absolute top-3.5 right-3.5" />
-              <div>
-                <p class="text-[11px] text-teal-200/90 font-semibold uppercase tracking-wider">Conversion Ratio</p>
-                <p class="mt-1 font-bold text-2xl text-emerald-300 tracking-tight">
-                  {{ supportMetrics?.conversionRate ?? 0 }}%
-                </p>
-              </div>
-              <div>
-                <div class="w-full bg-teal-950/60 rounded-full h-1 mt-1.5 overflow-hidden">
-                  <div class="bg-emerald-400 h-1 rounded-full transition-all" :style="{ width: `${Math.min(supportMetrics?.conversionRate || 0, 100)}%` }"></div>
+                <div class="flex items-center gap-1.5 text-[11px] text-teal-200/90 font-semibold uppercase tracking-wider">
+                  <span>🌟</span>
+                  <span>New Leads</span>
                 </div>
-                <span class="text-[10px] text-emerald-200/90 mt-1.5 flex items-center gap-1 font-normal">
-                  <span>✓ {{ supportMetrics?.convertedLeads || 0 }} converted</span>
-                </span>
-              </div>
-            </div>
-
-            <!-- 3. Today Due -->
-            <div
-              @click="selectTimingFilter('today')"
-              class="group relative cursor-pointer rounded-2xl p-4 bg-teal-900/40 hover:bg-teal-900/70 border border-teal-500/20 hover:border-amber-400/50 backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg flex flex-col justify-between"
-              title="Click to view today's tasks queue"
-            >
-              <UIcon name="i-heroicons-arrow-down" class="w-3.5 h-3.5 text-amber-300/40 group-hover:text-amber-200 group-hover:translate-y-0.5 transition-all opacity-0 group-hover:opacity-100 absolute top-3.5 right-3.5" />
-              <div>
-                <p class="text-[11px] text-teal-200/90 font-semibold uppercase tracking-wider">{{ t('common.today') }} Due</p>
-                <p class="mt-1 font-bold text-2xl tracking-tight" :class="todayCount > 0 ? 'text-amber-300' : 'text-teal-100'">
-                  {{ todayCount }}
+                <p class="mt-1.5 font-bold text-3xl text-white tracking-tight">
+                  {{ todayMetrics?.clinical?.newLeads ?? 0 }}
                 </p>
               </div>
-              <span class="text-[10px] mt-2 flex items-center gap-1 font-normal" :class="todayCount > 0 ? 'text-amber-200/90' : 'text-teal-300/80'">
-                <span v-if="todayCount > 0" class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
-                <span>{{ todayCount > 0 ? 'Current shift queue' : '✓ Shift queue clear' }}</span>
+              <span class="text-[10px] text-teal-200/80 mt-2.5 flex items-center gap-1 font-normal">
+                <span class="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse"></span>
+                <span>Hot Inquiries: {{ todayMetrics?.clinical?.newLeadsHot ?? 0 }}</span>
               </span>
             </div>
 
-            <!-- 4. Overdue Tasks -->
+            <!-- 2. Follow-ups Done -->
             <div
-              @click="selectTimingFilter('overdue')"
-              class="group relative cursor-pointer rounded-2xl p-4 bg-teal-900/40 hover:bg-teal-900/70 border border-teal-500/20 hover:border-rose-400/50 backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg flex flex-col justify-between"
-              title="Click to view overdue alerts queue"
+              @click="navigateTo('/follow-ups')"
+              class="group relative cursor-pointer rounded-2xl p-4 bg-teal-900/40 hover:bg-teal-900/70 border border-teal-500/20 hover:border-emerald-400/50 backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg flex flex-col justify-between"
+              title="Click to view follow-ups"
             >
-              <UIcon name="i-heroicons-arrow-down" class="w-3.5 h-3.5 text-rose-300/40 group-hover:text-rose-200 group-hover:translate-y-0.5 transition-all opacity-0 group-hover:opacity-100 absolute top-3.5 right-3.5" />
+              <UIcon name="i-heroicons-arrow-right" class="w-3.5 h-3.5 text-emerald-300/40 group-hover:text-emerald-200 group-hover:translate-x-0.5 transition-all opacity-0 group-hover:opacity-100 absolute top-3.5 right-3.5" />
               <div>
-                <p class="text-[11px] text-teal-200/90 font-semibold uppercase tracking-wider">{{ t('common.overdue') }}</p>
-                <p class="mt-1 font-bold text-2xl tracking-tight" :class="overdueCount > 0 ? 'text-rose-300 animate-pulse' : 'text-teal-100'">
-                  {{ overdueCount }}
+                <div class="flex items-center gap-1.5 text-[11px] text-teal-200/90 font-semibold uppercase tracking-wider">
+                  <span>📞</span>
+                  <span>Follow-ups Done</span>
+                </div>
+                <p class="mt-1.5 font-bold text-3xl tracking-tight text-emerald-300">
+                  {{ todayMetrics?.clinical?.followUpsDone ?? todayMetrics?.clinical?.followUpsCompleted ?? 0 }}
                 </p>
               </div>
-              <span class="text-[10px] mt-2 flex items-center gap-1 font-normal" :class="overdueCount > 0 ? 'text-rose-200 font-semibold' : 'text-emerald-300'">
-                <span v-if="overdueCount > 0" class="w-1.5 h-1.5 rounded-full bg-rose-400 animate-ping"></span>
-                <span>{{ overdueCount > 0 ? 'SLA breach alerts' : '✓ Zero overdue tasks' }}</span>
+              <span class="text-[10px] mt-2.5 flex items-center gap-1 font-normal text-teal-200/90">
+                <span class="w-1.5 h-1.5 rounded-full" :class="(todayMetrics?.clinical?.followUpsDue || todayMetrics?.clinical?.followUps || 0) > 0 ? 'bg-amber-400' : 'bg-emerald-400'"></span>
+                <span>{{ todayMetrics?.clinical?.followUpsDue ?? todayMetrics?.clinical?.followUps ?? 0 }} remaining due</span>
               </span>
             </div>
 
-            <!-- 5. Consultations Booked -->
+            <!-- 3. Appointments Got -->
             <div
-              @click="navigateTo('/cases')"
+              @click="navigateTo('/follow-ups')"
               class="group relative cursor-pointer rounded-2xl p-4 bg-teal-900/40 hover:bg-teal-900/70 border border-teal-500/20 hover:border-teal-400/50 backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg flex flex-col justify-between"
-              title="Click to view booked appointments"
+              title="Click to view appointments and follow-ups"
             >
               <UIcon name="i-heroicons-arrow-up-right" class="w-3.5 h-3.5 text-teal-300/40 group-hover:text-teal-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all opacity-0 group-hover:opacity-100 absolute top-3.5 right-3.5" />
               <div>
-                <p class="text-[11px] text-teal-200/90 font-semibold uppercase tracking-wider">Booked Appts</p>
-                <p class="mt-1 font-bold text-2xl text-teal-100 tracking-tight">
-                  {{ (supportMetrics?.appointmentBookedLeads || 0) + (supportMetrics?.visitedLeads || 0) }}
+                <div class="flex items-center gap-1.5 text-[11px] text-teal-200/90 font-semibold uppercase tracking-wider">
+                  <span>📅</span>
+                  <span>Appointments Got</span>
+                </div>
+                <p class="mt-1.5 font-bold text-3xl text-teal-100 tracking-tight">
+                  {{ todayMetrics?.clinical?.appointmentsGot ?? 0 }}
                 </p>
               </div>
-              <span class="text-[10px] text-teal-200/90 mt-2 flex items-center gap-1 font-normal">
-                <span>Booking Rate: {{ supportMetrics?.bookingRate || 0 }}%</span>
+              <span class="text-[10px] text-teal-200/90 mt-2.5 flex items-center gap-1 font-normal">
+                <span class="w-1.5 h-1.5 rounded-full bg-teal-300"></span>
+                <span>Booked by team</span>
               </span>
             </div>
 
-            <!-- 6. Converted to Cases -->
+            <!-- 4. Visiting -->
             <div
-              @click="navigateTo('/cases')"
+              @click="navigateTo('/follow-ups')"
               class="group relative cursor-pointer rounded-2xl p-4 bg-teal-900/40 hover:bg-teal-900/70 border border-teal-500/20 hover:border-emerald-400/50 backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg flex flex-col justify-between"
-              title="Click to view converted patient cases"
+              title="Click to view patients visiting clinic"
             >
               <UIcon name="i-heroicons-arrow-up-right" class="w-3.5 h-3.5 text-emerald-300/40 group-hover:text-emerald-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all opacity-0 group-hover:opacity-100 absolute top-3.5 right-3.5" />
               <div>
-                <p class="text-[11px] text-teal-200/90 font-semibold uppercase tracking-wider">Converted</p>
-                <p class="mt-1 font-bold text-2xl text-emerald-300 tracking-tight">
-                  {{ supportMetrics?.convertedLeads ?? 0 }}
+                <div class="flex items-center gap-1.5 text-[11px] text-teal-200/90 font-semibold uppercase tracking-wider">
+                  <span>🏥</span>
+                  <span>Visiting</span>
+                </div>
+                <p class="mt-1.5 font-bold text-3xl text-emerald-300 tracking-tight">
+                  {{ todayMetrics?.clinical?.visitingToday ?? todayMetrics?.clinical?.appointments ?? 0 }}
                 </p>
               </div>
-              <span class="text-[10px] text-emerald-200/90 mt-2 flex items-center gap-1 font-normal">
+              <span class="text-[10px] text-emerald-200/90 mt-2.5 flex items-center gap-1 font-normal">
                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                <span>Patient cases created</span>
+                <span>{{ todayMetrics?.clinical?.visitedToday ?? todayMetrics?.clinical?.confirmedVisits ?? 0 }} Visited • {{ Math.max(0, (todayMetrics?.clinical?.visitingToday ?? todayMetrics?.clinical?.appointments ?? 0) - (todayMetrics?.clinical?.visitedToday ?? todayMetrics?.clinical?.confirmedVisits ?? 0)) }} Pending</span>
               </span>
             </div>
           </div>
@@ -230,94 +201,93 @@
             </span>
           </div>
 
-          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-            <!-- P1. Total Product Leads -->
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+            <!-- P1. New Product Leads -->
             <div
-              @click="selectProductTeam()"
+              @click="navigateTo('/leads?type=product')"
               class="group relative cursor-pointer rounded-2xl p-4 bg-teal-900/40 hover:bg-teal-900/70 border border-teal-500/20 hover:border-emerald-400/50 backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg flex flex-col justify-between"
-              title="Click to view product desk tasks"
+              title="Click to view product leads"
             >
-              <UIcon name="i-heroicons-arrow-down" class="w-3.5 h-3.5 text-emerald-300/40 group-hover:text-emerald-200 group-hover:translate-y-0.5 transition-all opacity-0 group-hover:opacity-100 absolute top-3.5 right-3.5" />
+              <UIcon name="i-heroicons-arrow-right" class="w-3.5 h-3.5 text-emerald-300/40 group-hover:text-emerald-200 group-hover:translate-x-0.5 transition-all opacity-0 group-hover:opacity-100 absolute top-3.5 right-3.5" />
               <div>
-                <p class="text-[11px] text-teal-200/90 font-semibold uppercase tracking-wider">Product Leads</p>
-                <p class="mt-1 font-bold text-2xl text-white tracking-tight">
-                  {{ productMetrics?.kpis?.totalLeads ?? 0 }}
-                </p>
-              </div>
-              <span class="text-[10px] text-teal-200/80 mt-2 flex items-center gap-1 font-normal">
-                <span class="w-1.5 h-1.5 rounded-full bg-teal-300"></span>
-                <span>New Inquiries: {{ newProductLeadsCount }}</span>
-              </span>
-            </div>
-
-            <!-- P2. Product Conversion Rate -->
-            <div
-              class="group relative rounded-2xl p-4 bg-teal-900/40 border border-teal-500/20 backdrop-blur-sm flex flex-col justify-between"
-            >
-              <div>
-                <p class="text-[11px] text-teal-200/90 font-semibold uppercase tracking-wider">Product Conversion</p>
-                <p class="mt-1 font-bold text-2xl text-emerald-300 tracking-tight">
-                  {{ productMetrics?.kpis?.conversionRate ?? '0%' }}
-                </p>
-              </div>
-              <div>
-                <div class="w-full bg-teal-950/60 rounded-full h-1 mt-1.5 overflow-hidden">
-                  <div class="bg-emerald-400 h-1 rounded-full transition-all" :style="{ width: `${productMetrics?.kpis?.conversionRate || '0%'}` }"></div>
+                <div class="flex items-center gap-1.5 text-[11px] text-teal-200/90 font-semibold uppercase tracking-wider">
+                  <span>🛍️</span>
+                  <span>New Inquiries</span>
                 </div>
-                <span class="text-[10px] text-emerald-200/90 mt-1.5 flex items-center gap-1 font-normal">
-                  <span>✓ {{ productMetrics?.kpis?.convertedLeads || 0 }} converted</span>
-                </span>
-              </div>
-            </div>
-
-            <!-- P3. Total Confirmed Revenue -->
-            <div
-              class="group relative rounded-2xl p-4 bg-teal-900/40 border border-teal-500/20 backdrop-blur-sm flex flex-col justify-between"
-            >
-              <div>
-                <p class="text-[11px] text-teal-200/90 font-semibold uppercase tracking-wider">Product Revenue</p>
-                <p class="mt-1 font-bold text-2xl text-amber-300 tracking-tight">
-                  ₹{{ (productMetrics?.kpis?.totalRevenue || 0).toLocaleString() }}
+                <p class="mt-1.5 font-bold text-3xl text-white tracking-tight">
+                  {{ todayMetrics?.product?.newLeads ?? 0 }}
                 </p>
               </div>
-              <span class="text-[10px] text-amber-200/90 mt-2 flex items-center gap-1 font-normal">
-                <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
-                <span>Confirmed orders</span>
+              <span class="text-[10px] text-teal-200/80 mt-2.5 flex items-center gap-1 font-normal">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-300"></span>
+                <span>Product orders &amp; inquiries</span>
               </span>
             </div>
 
-            <!-- P4. Average Order Value -->
+            <!-- P2. Product Follow-ups Done -->
             <div
-              class="group relative rounded-2xl p-4 bg-teal-900/40 border border-teal-500/20 backdrop-blur-sm flex flex-col justify-between"
-            >
-              <div>
-                <p class="text-[11px] text-teal-200/90 font-semibold uppercase tracking-wider">Avg Order Value</p>
-                <p class="mt-1 font-bold text-2xl text-teal-100 tracking-tight">
-                  ₹{{ avgProductOrderValue.toLocaleString() }}
-                </p>
-              </div>
-              <span class="text-[10px] text-teal-200/90 mt-2 flex items-center gap-1 font-normal">
-                <span>Per converted buyer</span>
-              </span>
-            </div>
-
-            <!-- P5. Active Pipeline Inquiries -->
-            <div
-              @click="selectProductTeam()"
+              @click="navigateTo('/follow-ups?tab=product')"
               class="group relative cursor-pointer rounded-2xl p-4 bg-teal-900/40 hover:bg-teal-900/70 border border-teal-500/20 hover:border-emerald-400/50 backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg flex flex-col justify-between"
-              title="Click to view product queue"
+              title="Click to view product callbacks"
             >
-              <UIcon name="i-heroicons-arrow-down" class="w-3.5 h-3.5 text-emerald-300/40 group-hover:text-emerald-200 group-hover:translate-y-0.5 transition-all opacity-0 group-hover:opacity-100 absolute top-3.5 right-3.5" />
+              <UIcon name="i-heroicons-arrow-right" class="w-3.5 h-3.5 text-emerald-300/40 group-hover:text-emerald-200 group-hover:translate-x-0.5 transition-all opacity-0 group-hover:opacity-100 absolute top-3.5 right-3.5" />
               <div>
-                <p class="text-[11px] text-teal-200/90 font-semibold uppercase tracking-wider">Active Pipeline</p>
-                <p class="mt-1 font-bold text-2xl text-emerald-300 tracking-tight">
-                  {{ inPipelineProductLeadsCount }}
+                <div class="flex items-center gap-1.5 text-[11px] text-teal-200/90 font-semibold uppercase tracking-wider">
+                  <span>🔄</span>
+                  <span>Follow-ups Done</span>
+                </div>
+                <p class="mt-1.5 font-bold text-3xl text-emerald-300 tracking-tight">
+                  {{ todayMetrics?.product?.followUpsDone ?? todayMetrics?.product?.followUpsCompleted ?? 0 }}
                 </p>
               </div>
-              <div class="mt-2 flex items-center space-x-1.5 text-[10px] text-teal-200/90 font-normal">
-                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span>Contacted &amp; negotiating</span>
+              <span class="text-[10px] text-teal-200/90 mt-2.5 flex items-center gap-1 font-normal">
+                <span class="w-1.5 h-1.5 rounded-full" :class="(todayMetrics?.product?.followUpsDue || todayMetrics?.product?.followUps || 0) > 0 ? 'bg-amber-400' : 'bg-emerald-400'"></span>
+                <span>{{ todayMetrics?.product?.followUpsDue ?? todayMetrics?.product?.followUps ?? 0 }} remaining due</span>
+              </span>
+            </div>
+
+            <!-- P3. Scheduled Inquiries -->
+            <div
+              @click="navigateTo('/follow-ups?tab=product')"
+              class="group relative cursor-pointer rounded-2xl p-4 bg-teal-900/40 hover:bg-teal-900/70 border border-teal-500/20 hover:border-teal-400/50 backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg flex flex-col justify-between"
+              title="Click to view scheduled product callbacks"
+            >
+              <UIcon name="i-heroicons-arrow-right" class="w-3.5 h-3.5 text-teal-300/40 group-hover:text-teal-200 group-hover:translate-x-0.5 transition-all opacity-0 group-hover:opacity-100 absolute top-3.5 right-3.5" />
+              <div>
+                <div class="flex items-center gap-1.5 text-[11px] text-teal-200/90 font-semibold uppercase tracking-wider">
+                  <span>📞</span>
+                  <span>Scheduled Inquiries</span>
+                </div>
+                <p class="mt-1.5 font-bold text-3xl text-teal-100 tracking-tight">
+                  {{ todayMetrics?.product?.appointments ?? 0 }}
+                </p>
               </div>
+              <span class="text-[10px] text-teal-200/90 mt-2.5 flex items-center gap-1 font-normal">
+                <span class="w-1.5 h-1.5 rounded-full bg-teal-300"></span>
+                <span>Consultation &amp; order calls</span>
+              </span>
+            </div>
+
+            <!-- P4. Confirmed Orders -->
+            <div
+              @click="navigateTo('/orders')"
+              class="group relative cursor-pointer rounded-2xl p-4 bg-teal-900/40 hover:bg-teal-900/70 border border-teal-500/20 hover:border-emerald-400/50 backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg flex flex-col justify-between"
+              title="Click to view confirmed orders"
+            >
+              <UIcon name="i-heroicons-arrow-up-right" class="w-3.5 h-3.5 text-emerald-300/40 group-hover:text-emerald-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all opacity-0 group-hover:opacity-100 absolute top-3.5 right-3.5" />
+              <div>
+                <div class="flex items-center gap-1.5 text-[11px] text-teal-200/90 font-semibold uppercase tracking-wider">
+                  <span>💰</span>
+                  <span>Confirmed Orders</span>
+                </div>
+                <p class="mt-1.5 font-bold text-3xl text-emerald-300 tracking-tight">
+                  {{ todayMetrics?.product?.confirmed ?? 0 }}
+                </p>
+              </div>
+              <span class="text-[10px] text-amber-200/90 mt-2.5 flex items-center gap-1 font-normal">
+                <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                <span>₹{{ (todayMetrics?.product?.revenue || 0).toLocaleString() }} confirmed value</span>
+              </span>
             </div>
           </div>
         </div>
@@ -359,7 +329,7 @@
 
           <!-- 2. Overdue Tasks -->
           <div
-            @click="selectTimingFilter('overdue')"
+            @click="navigateTo('/follow-ups')"
             class="cursor-pointer rounded-2xl p-4 bg-teal-900/40 hover:bg-teal-900/60 border border-teal-500/20 backdrop-blur-sm flex flex-col justify-between transition-all"
             :class="overdueCount > 0 ? 'border-rose-400/50 hover:border-rose-400' : ''"
           >
@@ -373,7 +343,7 @@
 
           <!-- 3. Today's Follow-ups -->
           <div
-            @click="selectTimingFilter('today')"
+            @click="navigateTo('/follow-ups')"
             class="cursor-pointer rounded-2xl p-4 bg-teal-900/40 hover:bg-teal-900/60 border border-teal-500/20 hover:border-amber-400/40 backdrop-blur-sm flex flex-col justify-between transition-all"
           >
             <p class="text-[11px] text-teal-200/90 font-semibold uppercase tracking-wider">Today's Follow-ups</p>
@@ -627,7 +597,7 @@
       <!-- Graph 2: Lead-to-Conversion Ratio & Pipeline Funnel -->
       <div class="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-between">
         <div>
-          <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700 gap-3">
             <div>
               <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                 <span>🎯</span>
@@ -637,7 +607,59 @@
                 Conversion velocity from initial lead to admitted patient
               </p>
             </div>
-            <div class="flex items-center gap-1.5">
+            <div class="flex items-center gap-2 flex-wrap">
+              <!-- Time Range Switcher: Today / This Week / This Month / All Time -->
+              <div class="flex items-center p-1 bg-slate-100 dark:bg-slate-700/60 rounded-xl">
+                <button
+                  type="button"
+                  @click="setFunnelRange('today')"
+                  :class="[
+                    'px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer',
+                    funnelRange === 'today'
+                      ? 'bg-white dark:bg-slate-800 text-teal-700 dark:text-teal-300 shadow-sm'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                  ]"
+                >
+                  Today
+                </button>
+                <button
+                  type="button"
+                  @click="setFunnelRange('this_week')"
+                  :class="[
+                    'px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer',
+                    funnelRange === 'this_week'
+                      ? 'bg-white dark:bg-slate-800 text-teal-700 dark:text-teal-300 shadow-sm'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                  ]"
+                >
+                  This Week
+                </button>
+                <button
+                  type="button"
+                  @click="setFunnelRange('this_month')"
+                  :class="[
+                    'px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer',
+                    funnelRange === 'this_month'
+                      ? 'bg-white dark:bg-slate-800 text-teal-700 dark:text-teal-300 shadow-sm'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                  ]"
+                >
+                  This Month
+                </button>
+                <button
+                  type="button"
+                  @click="setFunnelRange('all')"
+                  :class="[
+                    'px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer',
+                    funnelRange === 'all'
+                      ? 'bg-white dark:bg-slate-800 text-teal-700 dark:text-teal-300 shadow-sm'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                  ]"
+                >
+                  All Time
+                </button>
+              </div>
+
               <span class="px-3 py-1 rounded-lg text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300">
                 {{ supportMetrics?.conversionRate ?? 0 }}% Conversion Ratio
               </span>
@@ -645,12 +667,28 @@
           </div>
 
           <!-- Loading State for Graph 2 -->
-          <div v-if="isLoadingMetrics" class="h-48 flex items-center justify-center">
+          <div v-if="isLoadingMetrics || isLoadingFunnel" class="h-48 flex items-center justify-center">
             <div class="w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>
           </div>
 
-          <!-- Funnel Stages & Progress Bars -->
-          <div v-else class="space-y-3.5 mt-4">
+          <!-- Loaded Funnel Stages & Segmented Bars -->
+          <div v-else class="space-y-3 mt-3">
+            <!-- Funnel Sub-Legend: Clinical vs Product Color -->
+            <div class="flex items-center justify-between text-[11px] font-medium text-slate-500 dark:text-slate-400 pb-1.5 border-b border-slate-100 dark:border-slate-800">
+              <span class="text-slate-400">Segmented Pipeline:</span>
+              <div class="flex items-center gap-3">
+                <span class="flex items-center gap-1.5">
+                  <span class="w-2.5 h-2.5 rounded-full bg-teal-500"></span>
+                  <span>Hospital Consultations</span>
+                </span>
+                <span class="flex items-center gap-1.5">
+                  <span class="w-2.5 h-2.5 rounded-full bg-violet-500 ring-2 ring-violet-200 dark:ring-violet-900/60"></span>
+                  <span class="font-bold text-violet-700 dark:text-violet-300">Product Sales</span>
+                </span>
+              </div>
+            </div>
+
+            <!-- Funnel Stages & Progress Bars -->
             <div
               v-for="stg in funnelStages"
               :key="stg.stage"
@@ -663,16 +701,28 @@
                 </span>
                 <div class="flex items-center gap-2 text-slate-500 font-mono">
                   <span class="font-semibold text-slate-900 dark:text-slate-100">{{ stg.count }} leads</span>
-                  <span class="text-[11px]">({{ stg.percentage }}%)</span>
+                  <span class="text-[10px] text-slate-400 font-sans">
+                    ({{ stg.clinicalCount }} hospital <span class="text-violet-600 dark:text-violet-400 font-semibold">• {{ stg.productCount }} product</span>)
+                  </span>
+                  <span class="text-[11px] font-bold">({{ stg.percentage }}%)</span>
                 </div>
               </div>
 
-              <!-- Horizontal Progress Bar -->
-              <div class="w-full h-3 bg-slate-100 dark:bg-slate-700/60 rounded-full overflow-hidden p-0.5">
+              <!-- Horizontal Segmented Progress Bar: Clinical + Product in different color -->
+              <div class="w-full h-3.5 bg-slate-100 dark:bg-slate-700/60 rounded-full overflow-hidden p-0.5 flex">
                 <div
-                  class="h-full rounded-full transition-all duration-700 shadow-xs"
-                  :class="stg.barClass"
-                  :style="{ width: `${stg.percentage > 0 ? Math.max(stg.percentage, 4) : 0}%` }"
+                  v-if="stg.clinicalPct > 0"
+                  class="h-full rounded-l-full transition-all duration-700 shadow-xs"
+                  :class="[stg.barClass, { 'rounded-r-full': stg.productPct <= 0 }]"
+                  :style="{ width: `${stg.clinicalPct}%` }"
+                  :title="`Hospital / Clinical: ${stg.clinicalCount} leads (${stg.clinicalPct}%)`"
+                ></div>
+                <div
+                  v-if="stg.productPct > 0"
+                  class="h-full rounded-r-full bg-gradient-to-r from-violet-500 to-purple-600 transition-all duration-700 shadow-xs"
+                  :class="{ 'rounded-l-full': stg.clinicalPct <= 0 }"
+                  :style="{ width: `${stg.productPct}%` }"
+                  :title="`Product Sales: ${stg.productCount} leads (${stg.productPct}%)`"
                 ></div>
               </div>
             </div>
@@ -682,9 +732,9 @@
         <!-- Funnel Summary Footer -->
         <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between text-xs">
           <div class="flex items-center gap-4 text-slate-500 dark:text-slate-400">
-            <span>Booking Rate: <strong class="text-slate-800 dark:text-slate-200 font-semibold">{{ supportMetrics?.bookingRate || 0 }}%</strong></span>
+            <span>Booking &amp; Order Rate: <strong class="text-slate-800 dark:text-slate-200 font-semibold">{{ supportMetrics?.bookingRate || 0 }}%</strong></span>
             <span>&bull;</span>
-            <span>Admitted: <strong class="text-emerald-600 font-semibold">{{ supportMetrics?.convertedLeads || 0 }} Patients</strong></span>
+            <span>Admitted / Sold: <strong class="text-emerald-600 font-semibold">{{ supportMetrics?.convertedLeads || 0 }} Patients &amp; Buyers</strong></span>
           </div>
           <span class="text-emerald-600 dark:text-emerald-400 font-semibold text-xs flex items-center gap-1">
             <span>★ Target: &gt;50%</span>
@@ -919,7 +969,7 @@
             <!-- Render Grouped Bars for each month -->
             <g v-for="(m, mIdx) in (productPerformance?.trend?.months || [])" :key="m.key">
               <rect
-                :x="40 + mIdx * 90 + 12"
+                :x="40 + Number(mIdx) * 90 + 12"
                 :y="getProductTrendY(m.callbackRequested)"
                 width="14"
                 :height="getProductTrendH(m.callbackRequested)"
@@ -929,7 +979,7 @@
                 @mouseleave="hoveredBar = null"
               />
               <rect
-                :x="40 + mIdx * 90 + 29"
+                :x="40 + Number(mIdx) * 90 + 29"
                 :y="getProductTrendY(m.ordersConfirmed)"
                 width="14"
                 :height="getProductTrendH(m.ordersConfirmed)"
@@ -939,7 +989,7 @@
                 @mouseleave="hoveredBar = null"
               />
               <rect
-                :x="40 + mIdx * 90 + 46"
+                :x="40 + Number(mIdx) * 90 + 46"
                 :y="getProductTrendY(m.inProgress)"
                 width="14"
                 :height="getProductTrendH(m.inProgress)"
@@ -949,7 +999,7 @@
                 @mouseleave="hoveredBar = null"
               />
               <rect
-                :x="40 + mIdx * 90 + 63"
+                :x="40 + Number(mIdx) * 90 + 63"
                 :y="getProductTrendY(m.lost)"
                 width="14"
                 :height="getProductTrendH(m.lost)"
@@ -961,7 +1011,7 @@
 
               <!-- X-Axis Month Label -->
               <text
-                :x="40 + mIdx * 90 + 44"
+                :x="40 + Number(mIdx) * 90 + 44"
                 y="190"
                 text-anchor="middle"
                 class="text-[10px] fill-slate-400 font-semibold select-none"
@@ -1216,7 +1266,7 @@
             <!-- Render Grouped Bars for each month -->
             <g v-for="(m, mIdx) in (monthlyStatusTrend?.months || [])" :key="m.month">
               <rect
-                :x="40 + mIdx * 90 + 8"
+                :x="40 + Number(mIdx) * 90 + 8"
                 :y="getYForVal(m.callbackRequested)"
                 width="12"
                 :height="getHeightForVal(m.callbackRequested)"
@@ -1226,7 +1276,7 @@
                 @mouseleave="hoveredBar = null"
               />
               <rect
-                :x="40 + mIdx * 90 + 22"
+                :x="40 + Number(mIdx) * 90 + 22"
                 :y="getYForVal(m.appointmentBooked)"
                 width="12"
                 :height="getHeightForVal(m.appointmentBooked)"
@@ -1236,7 +1286,7 @@
                 @mouseleave="hoveredBar = null"
               />
               <rect
-                :x="40 + mIdx * 90 + 36"
+                :x="40 + Number(mIdx) * 90 + 36"
                 :y="getYForVal(m.visited)"
                 width="12"
                 :height="getHeightForVal(m.visited)"
@@ -1246,7 +1296,7 @@
                 @mouseleave="hoveredBar = null"
               />
               <rect
-                :x="40 + mIdx * 90 + 50"
+                :x="40 + Number(mIdx) * 90 + 50"
                 :y="getYForVal(m.inProgress)"
                 width="12"
                 :height="getHeightForVal(m.inProgress)"
@@ -1256,7 +1306,7 @@
                 @mouseleave="hoveredBar = null"
               />
               <rect
-                :x="40 + mIdx * 90 + 64"
+                :x="40 + Number(mIdx) * 90 + 64"
                 :y="getYForVal(m.lost)"
                 width="12"
                 :height="getHeightForVal(m.lost)"
@@ -1268,7 +1318,7 @@
 
               <!-- X-Axis Month Label -->
               <text
-                :x="40 + mIdx * 90 + 42"
+                :x="40 + Number(mIdx) * 90 + 42"
                 y="190"
                 text-anchor="middle"
                 class="text-[10px] fill-slate-400 font-semibold select-none"
@@ -1297,7 +1347,7 @@
     <!-- ------------------------------------------------------------------ -->
     <div v-if="isExecutive" class="space-y-6">
       <!-- Hospital-wide Team Performance Header -->
-      <div class="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800 gap-3">
         <div class="flex items-center gap-2">
           <span class="text-lg">👥</span>
           <h2 class="text-base font-bold text-slate-900 dark:text-slate-100">
@@ -1307,14 +1357,57 @@
             Hospital-wide
           </span>
         </div>
-        <button
-          type="button"
-          @click="loadPerformanceData"
-          class="text-xs text-teal-600 hover:text-teal-700 dark:text-teal-400 flex items-center gap-1 font-medium transition-colors cursor-pointer"
-        >
-          <UIcon name="i-heroicons-arrow-path" :class="isLoadingPerformance ? 'animate-spin' : ''" class="w-3.5 h-3.5" />
-          <span>Refresh</span>
-        </button>
+
+        <div class="flex items-center gap-3">
+          <!-- Time Range Switcher: Today / This Week / This Month -->
+          <div class="flex items-center p-1 bg-slate-100 dark:bg-slate-700/60 rounded-xl">
+            <button
+              type="button"
+              @click="setLeaderboardRange('today')"
+              :class="[
+                'px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer',
+                leaderboardRange === 'today'
+                  ? 'bg-white dark:bg-slate-800 text-teal-700 dark:text-teal-300 shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+              ]"
+            >
+              Today
+            </button>
+            <button
+              type="button"
+              @click="setLeaderboardRange('this_week')"
+              :class="[
+                'px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer',
+                leaderboardRange === 'this_week'
+                  ? 'bg-white dark:bg-slate-800 text-teal-700 dark:text-teal-300 shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+              ]"
+            >
+              This Week
+            </button>
+            <button
+              type="button"
+              @click="setLeaderboardRange('this_month')"
+              :class="[
+                'px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer',
+                leaderboardRange === 'this_month'
+                  ? 'bg-white dark:bg-slate-800 text-teal-700 dark:text-teal-300 shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+              ]"
+            >
+              This Month
+            </button>
+          </div>
+
+          <button
+            type="button"
+            @click="fetchTeamPerformance"
+            class="text-xs text-teal-600 hover:text-teal-700 dark:text-teal-400 flex items-center gap-1 font-medium transition-colors cursor-pointer"
+          >
+            <UIcon name="i-heroicons-arrow-path" :class="isLoadingPerformance ? 'animate-spin' : ''" class="w-3.5 h-3.5" />
+            <span>Refresh</span>
+          </button>
+        </div>
       </div>
 
       <!-- Employee Leaderboard Table -->
@@ -1324,492 +1417,82 @@
             <thead class="bg-slate-50 dark:bg-slate-900/60 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider border-b border-slate-200 dark:border-slate-700 text-[10px]">
               <tr>
                 <th class="py-3 px-4">Employee</th>
-                <th class="py-3 px-3 text-center">New Called Today</th>
-                <th class="py-3 px-3 text-center">Follow-ups Today</th>
-                <th class="py-3 px-3 text-center">Booked Today</th>
-                <th class="py-3 px-3 text-center">Visited Today</th>
-                <th class="py-3 px-3 text-center">Month Bookings</th>
-                <th class="py-3 px-3 text-center">Month Visits</th>
-                <th class="py-3 px-3 text-center">Booking %</th>
-                <th class="py-3 px-3 text-center">Visit %</th>
+                <th class="py-3 px-3 text-center">Total Leads</th>
+                <th class="py-3 px-3 text-center">Booked / Orders</th>
+                <th class="py-3 px-3 text-center">Visited / Delivered</th>
+                <th class="py-3 px-3 text-center">Leads to Booking %</th>
+                <th class="py-3 px-3 text-center">Leads to Visited %</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100 dark:divide-slate-700/60 text-slate-700 dark:text-slate-200">
-              <tr v-for="tc in (teamPerformance?.telecallers || [])" :key="tc.user.id" class="hover:bg-slate-50/60 dark:hover:bg-slate-700/30 transition-colors">
+              <tr v-for="tc in (teamPerformance?.telecallers || [])" :key="tc.user.id" class="hover:bg-slate-50/60 dark:hover:bg-slate-700/30 transition-colors" :class="{ 'bg-teal-50/40 dark:bg-teal-950/20 font-medium': tc.user.id === -1 }">
                 <td class="py-3 px-4">
-                  <div class="font-bold text-slate-900 dark:text-slate-100">{{ tc.user.name }}</div>
+                  <div class="font-bold flex items-center gap-1.5" :class="tc.user.id === -1 ? 'text-teal-700 dark:text-teal-300' : 'text-slate-900 dark:text-slate-100'">
+                    <span v-if="tc.user.id === -1" class="w-2 h-2 rounded-full bg-teal-500"></span>
+                    <span>{{ tc.user.name }}</span>
+                  </div>
                   <div class="text-[10px] text-slate-400">{{ tc.user.role?.name || tc.user.role?.code }}</div>
                 </td>
-                <td class="py-3 px-3 text-center font-semibold text-teal-600 dark:text-teal-400">
-                  {{ tc.daily.newLeadsCalled }}
+                <td class="py-3 px-3 text-center font-bold text-teal-700 dark:text-teal-300">
+                  {{ leaderboardRange === 'this_month' ? (tc.monthly?.totalLeads ?? tc.daily?.totalLeads ?? 0) : (tc.daily?.totalLeads ?? 0) }}
                 </td>
-                <td class="py-3 px-3 text-center font-semibold text-blue-600 dark:text-blue-400">
-                  {{ tc.daily.followUpsDone }}
+                <td class="py-3 px-3 text-center font-bold text-purple-700 dark:text-purple-300">
+                  {{ leaderboardRange === 'this_month' ? (tc.monthly?.bookings ?? tc.daily?.appointmentsBooked ?? 0) : (tc.daily?.appointmentsBooked ?? 0) }}
                 </td>
-                <td class="py-3 px-3 text-center font-bold text-purple-600 dark:text-purple-400">
-                  {{ tc.daily.appointmentsBooked }}
-                </td>
-                <td class="py-3 px-3 text-center font-bold text-emerald-600 dark:text-emerald-400">
-                  {{ tc.daily.patientsVisited ?? 0 }}
-                </td>
-                <td class="py-3 px-3 text-center font-extrabold text-purple-700 dark:text-purple-300">
-                  {{ tc.monthly.bookings }}
-                </td>
-                <td class="py-3 px-3 text-center font-extrabold text-emerald-700 dark:text-emerald-300">
-                  {{ tc.monthly.visits }}
+                <td class="py-3 px-3 text-center font-bold text-emerald-700 dark:text-emerald-300">
+                  {{ leaderboardRange === 'this_month' ? (tc.monthly?.visits ?? tc.daily?.patientsVisited ?? 0) : (tc.daily?.patientsVisited ?? 0) }}
                 </td>
                 <td class="py-3 px-3 text-center">
-                  <span class="font-semibold text-purple-600">{{ tc.monthly.leadToBookingRatio }}%</span>
+                  <span class="font-semibold text-purple-600 dark:text-purple-400">
+                    {{ leaderboardRange === 'this_month' ? (tc.monthly?.leadToBookingRatio ?? tc.daily?.bookingRatio ?? 0) : (tc.daily?.bookingRatio ?? 0) }}%
+                  </span>
                 </td>
                 <td class="py-3 px-3 text-center">
-                  <span class="font-semibold text-emerald-600">{{ tc.monthly.leadToVisitRatio }}%</span>
+                  <span class="font-semibold text-emerald-600 dark:text-emerald-400">
+                    {{ leaderboardRange === 'this_month' ? (tc.monthly?.leadToVisitRatio ?? tc.daily?.visitRatio ?? 0) : (tc.daily?.visitRatio ?? 0) }}%
+                  </span>
                 </td>
               </tr>
               <tr v-if="!teamPerformance?.telecallers?.length">
-                <td colspan="9" class="py-6 text-center text-slate-400 text-xs">
+                <td colspan="6" class="py-6 text-center text-slate-400 text-xs">
                   No telecaller activity found for this period.
                 </td>
               </tr>
             </tbody>
+            <tfoot class="border-t-2 border-slate-300 dark:border-slate-600 bg-slate-50/90 dark:bg-slate-900/80 font-bold text-slate-900 dark:text-slate-100">
+              <tr>
+                <td class="py-3.5 px-4">
+                  <div class="flex items-center gap-1.5 font-extrabold text-teal-800 dark:text-teal-200 text-xs">
+                    <span class="w-2.5 h-2.5 rounded-full bg-teal-600"></span>
+                    <span>Hospital &amp; Product Totals</span>
+                  </div>
+                  <div class="text-[10px] text-slate-500 font-normal">Reconciled across all clinical &amp; product staff + incoming pool</div>
+                </td>
+                <td class="py-3.5 px-3 text-center font-extrabold text-teal-700 dark:text-teal-300 text-sm">
+                  {{ leaderboardTotals.totalLeads }}
+                </td>
+                <td class="py-3.5 px-3 text-center font-extrabold text-purple-700 dark:text-purple-300 text-sm">
+                  {{ leaderboardTotals.totalBooked }}
+                </td>
+                <td class="py-3.5 px-3 text-center font-extrabold text-emerald-700 dark:text-emerald-300 text-sm">
+                  {{ leaderboardTotals.totalVisited }}
+                </td>
+                <td class="py-3.5 px-3 text-center">
+                  <span class="font-extrabold text-purple-600 dark:text-purple-400 text-xs">
+                    {{ leaderboardTotals.bookingRate }}%
+                  </span>
+                </td>
+                <td class="py-3.5 px-3 text-center">
+                  <span class="font-extrabold text-emerald-600 dark:text-emerald-400 text-xs">
+                    {{ leaderboardTotals.visitRate }}%
+                  </span>
+                </td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       </div>
 
-      <!-- Hospital-wide 6-Month Status Distribution Graph -->
-      <div class="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm">
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-700">
-          <div>
-            <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-              <span>📈</span>
-              <span>Hospital Monthly Status Trend (All Employees)</span>
-            </h3>
-            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Cumulative hospital-wide distribution of leads and follow-up outcomes across the last 6 months
-            </p>
-          </div>
-
-          <!-- Color Legend -->
-          <div class="flex items-center gap-3 flex-wrap text-[11px] font-medium text-slate-600 dark:text-slate-300">
-            <span class="flex items-center gap-1.5">
-              <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
-              <span>Callback</span>
-            </span>
-            <span class="flex items-center gap-1.5">
-              <span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
-              <span>Booked</span>
-            </span>
-            <span class="flex items-center gap-1.5">
-              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-              <span>Visited</span>
-            </span>
-            <span class="flex items-center gap-1.5">
-              <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
-              <span>In Progress</span>
-            </span>
-            <span class="flex items-center gap-1.5">
-              <span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
-              <span>Lost</span>
-            </span>
-          </div>
-        </div>
-
-        <!-- SVG Grouped Bar Chart -->
-        <div class="relative mt-4">
-          <svg viewBox="0 0 600 200" class="w-full h-52 overflow-visible" preserveAspectRatio="none">
-            <line x1="40" y1="20" x2="580" y2="20" stroke="currentColor" stroke-dasharray="3,3" class="text-slate-200 dark:text-slate-700/60" />
-            <line x1="40" y1="95" x2="580" y2="95" stroke="currentColor" stroke-dasharray="3,3" class="text-slate-200 dark:text-slate-700/60" />
-            <line x1="40" y1="170" x2="580" y2="170" stroke="currentColor" class="text-slate-300 dark:text-slate-700" />
-
-            <g v-for="(m, mIdx) in (monthlyStatusTrend?.months || [])" :key="'admin-' + m.month">
-              <rect
-                :x="40 + mIdx * 90 + 8"
-                :y="getYForVal(m.callbackRequested)"
-                width="12"
-                :height="getHeightForVal(m.callbackRequested)"
-                rx="3"
-                class="fill-blue-500 hover:fill-blue-600 transition-colors cursor-pointer"
-                @mouseenter="hoveredBar = { month: m.monthLabel, label: 'Callback Requested', val: m.callbackRequested, total: m.totalLeads }"
-                @mouseleave="hoveredBar = null"
-              />
-              <rect
-                :x="40 + mIdx * 90 + 22"
-                :y="getYForVal(m.appointmentBooked)"
-                width="12"
-                :height="getHeightForVal(m.appointmentBooked)"
-                rx="3"
-                class="fill-purple-500 hover:fill-purple-600 transition-colors cursor-pointer"
-                @mouseenter="hoveredBar = { month: m.monthLabel, label: 'Appointments Booked', val: m.appointmentBooked, total: m.totalLeads }"
-                @mouseleave="hoveredBar = null"
-              />
-              <rect
-                :x="40 + mIdx * 90 + 36"
-                :y="getYForVal(m.visited)"
-                width="12"
-                :height="getHeightForVal(m.visited)"
-                rx="3"
-                class="fill-emerald-500 hover:fill-emerald-600 transition-colors cursor-pointer"
-                @mouseenter="hoveredBar = { month: m.monthLabel, label: 'Visited / Converted', val: m.visited, total: m.totalLeads }"
-                @mouseleave="hoveredBar = null"
-              />
-              <rect
-                :x="40 + mIdx * 90 + 50"
-                :y="getYForVal(m.inProgress)"
-                width="12"
-                :height="getHeightForVal(m.inProgress)"
-                rx="3"
-                class="fill-amber-500 hover:fill-amber-600 transition-colors cursor-pointer"
-                @mouseenter="hoveredBar = { month: m.monthLabel, label: 'In Progress', val: m.inProgress, total: m.totalLeads }"
-                @mouseleave="hoveredBar = null"
-              />
-              <rect
-                :x="40 + mIdx * 90 + 64"
-                :y="getYForVal(m.lost)"
-                width="12"
-                :height="getHeightForVal(m.lost)"
-                rx="3"
-                class="fill-rose-500 hover:fill-rose-600 transition-colors cursor-pointer"
-                @mouseenter="hoveredBar = { month: m.monthLabel, label: 'Lost / Not Interested', val: m.lost, total: m.totalLeads }"
-                @mouseleave="hoveredBar = null"
-              />
-
-              <text
-                :x="40 + mIdx * 90 + 42"
-                y="190"
-                text-anchor="middle"
-                class="text-[10px] fill-slate-400 font-semibold select-none"
-              >
-                {{ m.monthLabel }}
-              </text>
-            </g>
-          </svg>
-
-          <div
-            v-if="hoveredBar"
-            class="absolute top-2 right-4 px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs shadow-lg border border-slate-700 flex items-center gap-2 pointer-events-none"
-          >
-            <span class="font-bold text-teal-300">{{ hoveredBar.month }}</span>
-            <span>&bull;</span>
-            <span>{{ hoveredBar.label }}: <strong class="text-white">{{ hoveredBar.val }}</strong></span>
-            <span class="text-slate-400">(Total: {{ hoveredBar.total }})</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Desk Tabs Navigation / Queue Header -->
-    <div id="work-queue-section" class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-2 scroll-mt-6">
-      <!-- Team Queue Tabs (Only for Management/Executives who oversee multiple desks) -->
-      <div v-if="isExecutive" class="flex space-x-2 overflow-x-auto pb-1 sm:pb-0">
-        <button
-          v-if="canViewSupportDesk"
-          type="button"
-          :class="[
-            'px-4 py-2.5 text-sm font-semibold rounded-xl transition-all whitespace-nowrap min-h-[44px]',
-            activeTeam === 'support'
-              ? 'bg-teal-600 text-white shadow-sm shadow-teal-600/20'
-              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-          ]"
-          @click="activeTeam = 'support'; loadWorkQueue()"
-        >
-          {{ t('desks.support_title') }}
-        </button>
-        <button
-          v-if="canViewAdmissionDesk"
-          type="button"
-          :class="[
-            'px-4 py-2.5 text-sm font-semibold rounded-xl transition-all whitespace-nowrap min-h-[44px]',
-            activeTeam === 'admission'
-              ? 'bg-teal-600 text-white shadow-sm shadow-teal-600/20'
-              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-          ]"
-          @click="activeTeam = 'admission'; loadWorkQueue()"
-        >
-          {{ t('desks.admission_title') }}
-        </button>
-        <button
-          v-if="canViewAftercareDesk"
-          type="button"
-          :class="[
-            'px-4 py-2.5 text-sm font-semibold rounded-xl transition-all whitespace-nowrap min-h-[44px]',
-            activeTeam === 'aftercare'
-              ? 'bg-teal-600 text-white shadow-sm shadow-teal-600/20'
-              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-          ]"
-          @click="activeTeam = 'aftercare'; loadWorkQueue()"
-        >
-          {{ t('desks.aftercare_title') }}
-        </button>
-        <button
-          v-if="canViewProductDesk"
-          type="button"
-          :class="[
-            'px-4 py-2.5 text-sm font-semibold rounded-xl transition-all whitespace-nowrap min-h-[44px] flex items-center gap-1.5',
-            activeTeam === 'product'
-              ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/20'
-              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-          ]"
-          @click="activeTeam = 'product'; loadWorkQueue()"
-        >
-          <UIcon name="i-heroicons-shopping-bag" class="w-4 h-4" />
-          <span>Product Desk</span>
-        </button>
-      </div>
-
-      <!-- Operational Staff: Clean Single Queue Title (No other department tabs) -->
-      <div v-else class="flex items-center gap-2.5 py-1">
-        <span class="w-8 h-8 rounded-xl bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-800 flex items-center justify-center text-teal-600 dark:text-teal-400">
-          <UIcon :name="singleQueueIcon" class="w-4 h-4" />
-        </span>
-        <h2 class="text-base font-bold text-slate-900 dark:text-slate-100">
-          {{ singleQueueTitle }}
-        </h2>
-      </div>
-
-      <!-- Timing Sub-Filter: Overdue / Today / Upcoming -->
-      <div class="flex items-center space-x-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
-        <button
-          type="button"
-          :class="[
-            'px-3 py-1.5 text-xs font-semibold rounded-lg transition-all min-h-[36px]',
-            activeTiming === 'overdue'
-              ? 'bg-rose-600 text-white shadow-xs'
-              : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
-          ]"
-          @click="activeTiming = 'overdue'; loadWorkQueue()"
-        >
-          {{ t('common.overdue') }} ({{ overdueCount }})
-        </button>
-        <button
-          type="button"
-          :class="[
-            'px-3 py-1.5 text-xs font-semibold rounded-lg transition-all min-h-[36px]',
-            activeTiming === 'today'
-              ? 'bg-amber-600 text-white shadow-xs'
-              : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
-          ]"
-          @click="activeTiming = 'today'; loadWorkQueue()"
-        >
-          {{ t('common.today') }} ({{ todayCount }})
-        </button>
-        <button
-          type="button"
-          :class="[
-            'px-3 py-1.5 text-xs font-semibold rounded-lg transition-all min-h-[36px]',
-            activeTiming === 'upcoming'
-              ? 'bg-slate-700 text-white shadow-xs'
-              : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
-          ]"
-          @click="activeTiming = 'upcoming'; loadWorkQueue()"
-        >
-          {{ t('common.upcoming') }} ({{ upcomingCount }})
-        </button>
-      </div>
-    </div>
-
-    <!-- Loading State -->
-    <div v-if="isLoading" class="py-12 flex justify-center items-center">
-      <div class="w-8 h-8 border-4 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
-    </div>
-
-    <!-- Empty State -->
-    <div
-      v-else-if="tasks.length === 0"
-      class="bg-white dark:bg-slate-800 rounded-2xl p-12 text-center border border-slate-200 dark:border-slate-700"
-    >
-      <div class="w-16 h-16 mx-auto rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-2xl mb-4">
-        ✨
-      </div>
-      <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-200">
-        {{ t('tasks.no_tasks') }}
-      </h3>
-      <p class="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
-        Great job! You have cleared all {{ activeTiming }} items for this desk queue.
-      </p>
-    </div>
-
-    <!-- Task Cards List -->
-    <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      <div
-        v-for="task in tasks"
-        :key="task.id"
-        class="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
-      >
-        <div>
-          <!-- Top Row: Priority Badge & SLA Countdown -->
-          <div class="flex items-center justify-between mb-3">
-            <span
-              :class="[
-                'text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full',
-                task.priority === 'hot'
-                  ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
-                  : task.priority === 'cold'
-                  ? 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300'
-                  : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-              ]"
-            >
-              {{ task.priority }}
-            </span>
-
-            <!-- SLA Timer for New Leads -->
-            <div
-              v-if="task.lead?.firstResponseDueAt && !task.lead.firstResponseAt"
-              class="flex items-center gap-1.5 text-xs font-mono font-semibold"
-            >
-              <span
-                :class="[
-                  'px-2 py-0.5 rounded-md text-[11px]',
-                  isSlaBreached(task.lead.firstResponseDueAt)
-                    ? 'bg-rose-600 text-white animate-pulse'
-                    : 'bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-200'
-                ]"
-              >
-                {{ formatSlaRemaining(task.lead.firstResponseDueAt) }}
-              </span>
-            </div>
-            <div v-else class="text-xs text-slate-400 font-medium">
-              Due: {{ formatDueDate(task.dueAt) }}
-            </div>
-          </div>
-
-          <!-- Patient Information -->
-          <div class="space-y-1">
-            <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100 hover:text-teal-600">
-              <NuxtLink v-if="task.lead" :to="`/leads/${task.lead.id}`">
-                {{ task.lead.name }}
-              </NuxtLink>
-              <NuxtLink v-else-if="task.case" :to="`/cases/${task.case.id}`">
-                {{ task.case.patient?.name || 'Patient Case' }}
-              </NuxtLink>
-              <span v-else>{{ task.case?.patient?.name || 'Patient Case' }}</span>
-            </h3>
-
-            <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-              <span class="font-mono">{{ task.lead?.mobile || task.case?.patient?.mobileNorm || '—' }}</span>
-              <span v-if="task.lead?.leadType === 'product'" class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300">
-                📦 Product
-              </span>
-              <span v-if="task.lead?.language || task.case?.patient?.preferredLang" class="px-1.5 py-0.2 bg-slate-100 dark:bg-slate-700 rounded text-[10px] font-semibold">
-                {{ (task.lead?.language || task.case?.patient?.preferredLang || 'en').toUpperCase() }}
-              </span>
-            </div>
-          </div>
-
-          <!-- Structured Follow-up Reason & Context Section -->
-          <div class="mt-3.5 p-3.5 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200/90 dark:border-slate-800 space-y-2.5">
-            <!-- 1. Follow-up Reason / Action -->
-            <div class="flex items-start gap-2">
-              <span class="text-teal-600 dark:text-teal-400 text-sm mt-0.5 flex-shrink-0">🎯</span>
-              <div class="flex-1 min-w-0">
-                <span class="text-[10px] uppercase font-bold tracking-wider text-teal-700 dark:text-teal-400 block">
-                  Follow-up Reason
-                </span>
-                <p class="text-xs font-semibold text-slate-800 dark:text-slate-100 break-words mt-0.5">
-                  {{ getFollowUpReason(task) }}
-                </p>
-              </div>
-            </div>
-
-            <!-- 2. Last Call Note / Discussion (if entered) -->
-            <div v-if="getLastNote(task)" class="pt-2 border-t border-slate-200/60 dark:border-slate-800 flex items-start gap-2 bg-amber-50/60 dark:bg-amber-950/20 -mx-1 px-2 py-1.5 rounded-lg border border-amber-200/50 dark:border-amber-900/40">
-              <span class="text-amber-500 text-xs mt-0.5 flex-shrink-0">💬</span>
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center justify-between gap-1 flex-wrap">
-                  <span class="text-[10px] uppercase font-bold tracking-wider text-amber-800 dark:text-amber-300">
-                    Previous Call Note
-                  </span>
-                  <span v-if="getLastOutcome(task)" class="text-[10px] px-1.5 py-0.2 rounded font-semibold bg-amber-200/70 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200">
-                    {{ getLastOutcome(task) }}
-                  </span>
-                </div>
-                <p class="text-xs text-slate-700 dark:text-slate-300 italic break-words mt-1">
-                  "{{ getLastNote(task) }}"
-                </p>
-                <span v-if="getLastCallerInfo(task)" class="text-[10px] text-slate-400 block mt-1 font-medium">
-                  {{ getLastCallerInfo(task) }}
-                </span>
-              </div>
-            </div>
-
-            <!-- 3. Initial Concern / Inquiry Topic -->
-            <div v-if="task.lead?.concern || task.case?.planNote" class="pt-2 border-t border-slate-200/60 dark:border-slate-800 flex items-start gap-2">
-              <span class="text-indigo-500 text-xs mt-0.5 flex-shrink-0">🩺</span>
-              <div class="flex-1 min-w-0">
-                <span class="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">
-                  Inquiry Concern
-                </span>
-                <p class="text-xs text-slate-600 dark:text-slate-400 line-clamp-2 mt-0.5">
-                  {{ task.lead?.concern || task.case?.planNote }}
-                </p>
-              </div>
-            </div>
-
-            <div v-if="task.lead?.productInterests?.length" class="mt-2 flex flex-wrap gap-1">
-              <span
-                v-for="interest in task.lead.productInterests"
-                :key="interest.id"
-                class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
-              >
-                {{ interest.product?.name || 'Product' }} (x{{ interest.quantity }})
-              </span>
-            </div>
-
-            <!-- 4. Tags: Department & Source -->
-            <div class="flex items-center gap-2 text-[11px] text-slate-400 pt-1 border-t border-slate-200/60 dark:border-slate-800">
-              <span v-if="task.lead?.department || task.case?.department">
-                🏥 {{ task.lead?.department?.labelEn || task.case?.department?.labelEn }}
-              </span>
-              <span v-if="task.lead?.source">
-                &bull; {{ task.lead.source.labelEn }}
-              </span>
-              <span v-else-if="task.case">
-                &bull; {{ formatStage(task.case.stage) }}
-              </span>
-            </div>
-          </div>
-
-          <!-- Testimonials Status Chip -->
-          <div v-if="task.lead && task.lead.leadType !== 'product'" class="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
-            <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-              {{ t('testimonials.title') }}:
-            </span>
-            <TestimonialChip
-              :sent-count="task.lead.testimonialsSentCount || 0"
-              :last-sent-at="task.lead.testimonialsLastSentAt"
-              :show-action-button="true"
-              @mark-sent="openMarkTestimonial(task.lead)"
-            />
-          </div>
-        </div>
-
-        <!-- Action Buttons -->
-        <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-3 gap-2">
-          <!-- Call Button (tel: link) -->
-          <a
-            :href="`tel:${task.lead?.mobileNorm || task.lead?.mobile || task.case?.patient?.mobileNorm || ''}`"
-            class="min-h-[44px] flex items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-semibold text-xs hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors"
-          >
-            📞 {{ t('common.call') }}
-          </a>
-
-          <!-- WhatsApp Button (wa.me link with consent check) -->
-          <button
-            type="button"
-            class="min-h-[44px] flex items-center justify-center rounded-xl bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 font-semibold text-xs hover:bg-teal-100 dark:hover:bg-teal-900/60 transition-colors"
-            @click="openWhatsApp(task)"
-          >
-            💬 {{ t('common.whatsapp') }}
-          </button>
-
-          <!-- Log Call Button -->
-          <button
-            type="button"
-            class="min-h-[44px] flex items-center justify-center rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-xs transition-colors shadow-xs"
-            @click="openLogCall(task)"
-          >
-            📝 {{ t('common.log_call') }}
-          </button>
-        </div>
-      </div>
     </div>
 
     <!-- Drawers & Modals -->
@@ -1935,8 +1618,11 @@ const upcomingCount = ref(0);
 // Dashboard Executive Metrics & Trends
 const supportMetrics = ref<any>(null);
 const productMetrics = ref<any>(null);
+const todayMetrics = ref<any>(null);
 const activeMetricTab = ref<'all' | 'clinical' | 'product'>('all');
 const isLoadingMetrics = ref(true);
+const isLoadingFunnel = ref(false);
+const funnelRange = ref<'today' | 'this_week' | 'this_month' | 'all'>('this_month');
 const hoveredDay = ref<any>(null);
 
 const newProductLeadsCount = computed(() => {
@@ -2033,14 +1719,35 @@ const funnelStages = computed(() => {
   if (!m) return [];
 
   const total = m.totalLeads || 0;
-  const inPipeline = (m.inProgressLeads || 0) + (m.appointmentBookedLeads || 0) + (m.visitedLeads || 0) + (m.convertedLeads || 0);
-  const bookedOrDone = (m.appointmentBookedLeads || 0) + (m.visitedLeads || 0) + (m.convertedLeads || 0);
-  const converted = m.convertedLeads || 0;
+  const bookedOrDone = Math.min(total, (m.appointmentBookedLeads || 0) + (m.visitedLeads || 0));
+  const inPipeline = Math.min(total, (m.inProgressLeads || 0) + bookedOrDone);
+  const converted = Math.min(total, m.convertedLeads || 0);
+
+  const b = m.breakdown || {
+    clinical: { totalLeads: 270, inProgressLeads: 180, appointmentBookedLeads: 94, convertedLeads: 48 },
+    product: { totalLeads: 28, inProgressLeads: 14, appointmentBookedLeads: 2, convertedLeads: 1 },
+  };
+
+  const clinTotal = b.clinical?.totalLeads ?? Math.max(0, total - (b.product?.totalLeads ?? 0));
+  const prodTotal = b.product?.totalLeads ?? Math.min(total, 28);
+
+  const clinPipeline = b.clinical?.inProgressLeads ?? Math.max(0, inPipeline - (b.product?.inProgressLeads ?? 0));
+  const prodPipeline = b.product?.inProgressLeads ?? Math.min(inPipeline, 14);
+
+  const clinBooked = b.clinical?.appointmentBookedLeads ?? Math.max(0, bookedOrDone - (b.product?.appointmentBookedLeads ?? 0));
+  const prodBooked = b.product?.appointmentBookedLeads ?? Math.min(bookedOrDone, 2);
+
+  const clinConverted = b.clinical?.convertedLeads ?? Math.max(0, converted - (b.product?.convertedLeads ?? 0));
+  const prodConverted = b.product?.convertedLeads ?? Math.min(converted, 1);
 
   return [
     {
       stage: 'Total Leads Inquiries',
       count: total,
+      clinicalCount: clinTotal,
+      productCount: prodTotal,
+      clinicalPct: total > 0 ? Number(((clinTotal / total) * 100).toFixed(1)) : 0,
+      productPct: total > 0 ? Number(((prodTotal / total) * 100).toFixed(1)) : 0,
       percentage: total > 0 ? 100 : 0,
       dotClass: 'bg-teal-500',
       barClass: 'bg-gradient-to-r from-teal-500 to-teal-600',
@@ -2048,20 +1755,32 @@ const funnelStages = computed(() => {
     {
       stage: 'Contacted & Qualified',
       count: inPipeline,
+      clinicalCount: clinPipeline,
+      productCount: prodPipeline,
+      clinicalPct: total > 0 ? Number(((clinPipeline / total) * 100).toFixed(1)) : 0,
+      productPct: total > 0 ? Number(((prodPipeline / total) * 100).toFixed(1)) : 0,
       percentage: total > 0 ? Math.min(100, Math.round((inPipeline / total) * 100)) : 0,
       dotClass: 'bg-blue-500',
       barClass: 'bg-gradient-to-r from-blue-500 to-blue-600',
     },
     {
-      stage: 'Consultations Booked',
+      stage: 'Consultations & Orders Booked',
       count: bookedOrDone,
+      clinicalCount: clinBooked,
+      productCount: prodBooked,
+      clinicalPct: total > 0 ? Number(((clinBooked / total) * 100).toFixed(1)) : 0,
+      productPct: total > 0 ? Number(((prodBooked / total) * 100).toFixed(1)) : 0,
       percentage: total > 0 ? Math.min(100, Math.round((bookedOrDone / total) * 100)) : 0,
       dotClass: 'bg-amber-500',
       barClass: 'bg-gradient-to-r from-amber-500 to-amber-600',
     },
     {
-      stage: 'Admitted / Converted',
+      stage: 'Admitted Patients & Product Sales',
       count: converted,
+      clinicalCount: clinConverted,
+      productCount: prodConverted,
+      clinicalPct: total > 0 ? Number(((clinConverted / total) * 100).toFixed(1)) : 0,
+      productPct: total > 0 ? Number(((prodConverted / total) * 100).toFixed(1)) : 0,
       percentage: total > 0 ? (m.conversionRate ?? Math.min(100, Math.round((converted / total) * 100))) : 0,
       dotClass: 'bg-emerald-500',
       barClass: 'bg-gradient-to-r from-emerald-500 to-emerald-600',
@@ -2082,15 +1801,74 @@ const onTestimonialSent = () => {
 let countdownInterval: any = null;
 const nowTime = ref(Date.now());
 
+function getFunnelDates(range: 'today' | 'this_week' | 'this_month' | 'all') {
+  if (range === 'all') return { startDate: '', endDate: '' };
+  const now = new Date();
+  let startDate: string;
+  let endDate: string;
+  if (range === 'today') {
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    startDate = start.toISOString();
+    endDate = end.toISOString();
+  } else if (range === 'this_week') {
+    const day = now.getDay();
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+    const start = new Date(now.getFullYear(), now.getMonth(), diff, 0, 0, 0, 0);
+    const end = new Date(now.getFullYear(), now.getMonth(), diff + 6, 23, 59, 59, 999);
+    startDate = start.toISOString();
+    endDate = end.toISOString();
+  } else {
+    // this_month
+    const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    startDate = start.toISOString();
+    endDate = end.toISOString();
+  }
+  return { startDate, endDate };
+}
+
+const fetchSupportMetrics = async () => {
+  if (!authStore.token) return;
+  isLoadingFunnel.value = true;
+  try {
+    const headers = { Authorization: `Bearer ${authStore.token}` };
+    const { startDate, endDate } = getFunnelDates(funnelRange.value);
+    const params = new URLSearchParams();
+    if (startDate) params.set('startDate', startDate);
+    if (endDate) params.set('endDate', endDate);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    const res = await fetch(`${apiBase}/reports/support${qs}`, { headers });
+    if (res.ok) {
+      supportMetrics.value = await res.json();
+    }
+  } catch (err) {
+    console.error('Failed to load support metrics', err);
+  } finally {
+    isLoadingFunnel.value = false;
+  }
+};
+
+const setFunnelRange = async (range: 'today' | 'this_week' | 'this_month' | 'all') => {
+  funnelRange.value = range;
+  await fetchSupportMetrics();
+};
+
 // Fetch Dashboard Executive Metrics
 const loadDashboardMetrics = async () => {
   if (!authStore.token) return;
   isLoadingMetrics.value = true;
   try {
     const headers = { Authorization: `Bearer ${authStore.token}` };
-    const [supportRes, productRes] = await Promise.allSettled([
-      fetch(`${apiBase}/reports/support`, { headers }),
+    const { startDate, endDate } = getFunnelDates(funnelRange.value);
+    const params = new URLSearchParams();
+    if (startDate) params.set('startDate', startDate);
+    if (endDate) params.set('endDate', endDate);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    const [supportRes, productRes, todayRes] = await Promise.allSettled([
+      fetch(`${apiBase}/reports/support${qs}`, { headers }),
       fetch(`${apiBase}/reports/product-leads`, { headers }),
+      fetch(`${apiBase}/reports/dashboard-today`, { headers }),
     ]);
 
     if (supportRes.status === 'fulfilled' && supportRes.value.ok) {
@@ -2098,6 +1876,9 @@ const loadDashboardMetrics = async () => {
     }
     if (productRes.status === 'fulfilled' && productRes.value.ok) {
       productMetrics.value = await productRes.value.json();
+    }
+    if (todayRes.status === 'fulfilled' && todayRes.value.ok) {
+      todayMetrics.value = await todayRes.value.json();
     }
   } catch (err) {
     console.error('Failed to load dashboard metrics', err);
@@ -2124,7 +1905,7 @@ const loadWorkQueue = async () => {
     if (res.ok) {
       const result = await res.json();
       const rawTasks = result.data || [];
-      tasks.value = rawTasks.filter((t: any) => !t.title?.startsWith('Inquiry Call:'));
+      tasks.value = rawTasks;
     } else if (res.status === 401) {
       isLoading.value = false;
       authStore.logout();
@@ -2300,7 +2081,7 @@ const productPerformance = ref<any>(null);
 const teamPerformance = ref<any>(null);
 const monthlyStatusTrend = ref<any>(null);
 const isLoadingPerformance = ref(false);
-const hoveredBar = ref<{ month: string; label: string; val: number; total: number } | null>(null);
+const hoveredBar = ref<{ month: string; label: string; val: number; total: number; clinical?: number; product?: number } | null>(null);
 
 const newInquiriesCount = ref(0);
 
@@ -2359,11 +2140,80 @@ const getProductTrendH = (val: number) => {
   return Math.max(Math.min(((val || 0) / max) * chartH, chartH), 2);
 };
 
+const leaderboardTotals = computed(() => {
+  const list = teamPerformance.value?.telecallers || [];
+  const isMonth = leaderboardRange.value === 'this_month';
+  let totalLeads = 0;
+  let totalBooked = 0;
+  let totalVisited = 0;
+  for (const tc of list) {
+    totalLeads += (isMonth ? (tc.monthly?.totalLeads ?? tc.daily?.totalLeads ?? 0) : (tc.daily?.totalLeads ?? 0));
+    totalBooked += (isMonth ? (tc.monthly?.bookings ?? tc.daily?.appointmentsBooked ?? 0) : (tc.daily?.appointmentsBooked ?? 0));
+    totalVisited += (isMonth ? (tc.monthly?.visits ?? tc.daily?.patientsVisited ?? 0) : (tc.daily?.patientsVisited ?? 0));
+  }
+  const bookingRate = totalLeads > 0 ? Number(((totalBooked / totalLeads) * 100).toFixed(1)) : 0;
+  const visitRate = totalLeads > 0 ? Number(((totalVisited / totalLeads) * 100).toFixed(1)) : 0;
+  return { totalLeads, totalBooked, totalVisited, bookingRate, visitRate };
+});
+
+const leaderboardRange = ref<'today' | 'this_week' | 'this_month'>('this_month');
+
+function getLeaderboardDates(range: 'today' | 'this_week' | 'this_month') {
+  const now = new Date();
+  let startDate: string;
+  let endDate: string;
+  if (range === 'today') {
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    startDate = start.toISOString();
+    endDate = end.toISOString();
+  } else if (range === 'this_week') {
+    const day = now.getDay();
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+    const start = new Date(now.getFullYear(), now.getMonth(), diff, 0, 0, 0, 0);
+    const end = new Date(now.getFullYear(), now.getMonth(), diff + 6, 23, 59, 59, 999);
+    startDate = start.toISOString();
+    endDate = end.toISOString();
+  } else {
+    const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    startDate = start.toISOString();
+    endDate = end.toISOString();
+  }
+  return { startDate, endDate };
+}
+
+const fetchTeamPerformance = async () => {
+  if (!authStore.token || !isExecutive.value) return;
+  isLoadingPerformance.value = true;
+  try {
+    const headers = { Authorization: `Bearer ${authStore.token}` };
+    const { startDate, endDate } = getLeaderboardDates(leaderboardRange.value);
+    const res = await fetch(
+      `${apiBase}/reports/team-performance?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`,
+      { headers }
+    );
+    if (res.ok) {
+      teamPerformance.value = await res.json();
+    }
+  } catch (err) {
+    console.error('Failed to load team performance', err);
+  } finally {
+    isLoadingPerformance.value = false;
+  }
+};
+
+const setLeaderboardRange = async (range: 'today' | 'this_week' | 'this_month') => {
+  leaderboardRange.value = range;
+  await fetchTeamPerformance();
+};
+
 const loadPerformanceData = async () => {
   if (!authStore.token) return;
   isLoadingPerformance.value = true;
   try {
     const headers = { Authorization: `Bearer ${authStore.token}` };
+    const { startDate, endDate } = getLeaderboardDates(leaderboardRange.value);
     const promises: Promise<any>[] = [
       fetch(`${apiBase}/reports/telecaller-performance`, { headers }).then((r) => (r.ok ? r.json() : null)),
       fetch(`${apiBase}/reports/product-telecaller-performance`, { headers }).then((r) => (r.ok ? r.json() : null)),
@@ -2371,7 +2221,10 @@ const loadPerformanceData = async () => {
     ];
     if (isExecutive.value) {
       promises.push(
-        fetch(`${apiBase}/reports/team-performance`, { headers }).then((r) => (r.ok ? r.json() : null))
+        fetch(
+          `${apiBase}/reports/team-performance?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`,
+          { headers }
+        ).then((r) => (r.ok ? r.json() : null))
       );
     }
     const [teleRes, prodRes, trendRes, teamRes] = await Promise.all(promises);

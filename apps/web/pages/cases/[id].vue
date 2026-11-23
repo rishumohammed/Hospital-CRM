@@ -133,7 +133,7 @@
                 <span>•</span>
                 <span class="flex items-center gap-1.5">
                   <UIcon name="i-heroicons-user" class="w-4 h-4 text-slate-400" />
-                  Treating: {{ caseData.treatingDoctor ? `Dr. ${caseData.treatingDoctor.name}` : 'Not assigned' }}
+                  Treating: {{ caseData.treatingDoctor ? formatDoctorDisplay(caseData.treatingDoctor) : 'Not assigned' }}
                 </span>
                 <span v-if="caseData.owner">•</span>
                 <span v-if="caseData.owner" class="flex items-center gap-1.5">
@@ -244,7 +244,7 @@
               {{ t('cases.treating_doctor') }}
             </p>
             <p class="text-sm font-semibold text-slate-800 dark:text-slate-200 mt-1">
-              {{ caseData.treatingDoctor ? `Dr. ${caseData.treatingDoctor.name}` : 'Not assigned' }}
+              {{ caseData.treatingDoctor ? formatDoctorDisplay(caseData.treatingDoctor) : 'Not assigned' }}
             </p>
           </div>
 
@@ -1198,6 +1198,16 @@ function getStageBadgeClass(stage: string) {
     default:
       return 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300';
   }
+}
+
+function formatDoctorDisplay(doc?: any) {
+  if (!doc) return '';
+  const name = (doc.name || '').trim();
+  if (name.startsWith('Dr.') || name.startsWith('Dr ')) return name;
+  const roleCode = (doc.role?.code || '').toLowerCase();
+  const roleName = (doc.role?.name || '').toLowerCase();
+  const isDoc = roleCode === 'doctor' || roleName.includes('doctor');
+  return isDoc ? `Dr. ${name}` : name;
 }
 
 function formatStage(stage: string) {

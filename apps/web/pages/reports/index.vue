@@ -395,14 +395,11 @@
             <thead class="bg-slate-50 dark:bg-slate-900/60 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider border-b border-slate-200 dark:border-slate-700 text-[10px]">
               <tr>
                 <th class="py-3 px-4">Employee</th>
-                <th class="py-3 px-3 text-center">First Calls</th>
-                <th class="py-3 px-3 text-center">Follow-ups</th>
-                <th class="py-3 px-3 text-center">Booked</th>
-                <th class="py-3 px-3 text-center">Visited</th>
-                <th class="py-3 px-3 text-center">Month Bookings</th>
-                <th class="py-3 px-3 text-center">Month Visits</th>
-                <th class="py-3 px-3 text-center">Booking Ratio</th>
-                <th class="py-3 px-3 text-center">Visit Ratio</th>
+                <th class="py-3 px-3 text-center">Total Leads</th>
+                <th class="py-3 px-3 text-center">Total Booked</th>
+                <th class="py-3 px-3 text-center">Total Visited</th>
+                <th class="py-3 px-3 text-center">Leads to Booking %</th>
+                <th class="py-3 px-3 text-center">Leads to Visited %</th>
                 <th v-if="isExecutive" class="py-3 px-3 text-center">Action</th>
               </tr>
             </thead>
@@ -426,14 +423,25 @@
                     </div>
                   </div>
                 </td>
-                <td class="py-3 px-3 text-center font-semibold text-teal-600 dark:text-teal-400">{{ tc.daily.newLeadsCalled }}</td>
-                <td class="py-3 px-3 text-center font-semibold text-blue-600 dark:text-blue-400">{{ tc.daily.followUpsDone }}</td>
-                <td class="py-3 px-3 text-center font-bold text-purple-600 dark:text-purple-400">{{ tc.daily.appointmentsBooked }}</td>
-                <td class="py-3 px-3 text-center font-bold text-emerald-600 dark:text-emerald-400">{{ tc.daily.patientsVisited ?? tc.daily.patientsVisiting }}</td>
-                <td class="py-3 px-3 text-center font-extrabold text-purple-700 dark:text-purple-300">{{ tc.monthly.bookings }}</td>
-                <td class="py-3 px-3 text-center font-extrabold text-emerald-700 dark:text-emerald-300">{{ tc.monthly.visits }}</td>
-                <td class="py-3 px-3 text-center font-semibold text-purple-600">{{ selectedRange === 'this_month' ? tc.monthly.leadToBookingRatio : (tc.daily.bookingRatio ?? tc.monthly.leadToBookingRatio) }}%</td>
-                <td class="py-3 px-3 text-center font-semibold text-emerald-600">{{ selectedRange === 'this_month' ? tc.monthly.leadToVisitRatio : (tc.daily.visitRatio ?? tc.monthly.leadToVisitRatio) }}%</td>
+                <td class="py-3 px-3 text-center font-bold text-teal-700 dark:text-teal-300">
+                  {{ selectedRange === 'this_month' ? (tc.monthly?.totalLeads ?? tc.daily?.totalLeads ?? 0) : (tc.daily?.totalLeads ?? 0) }}
+                </td>
+                <td class="py-3 px-3 text-center font-bold text-purple-700 dark:text-purple-300">
+                  {{ selectedRange === 'this_month' ? (tc.monthly?.bookings ?? tc.daily?.appointmentsBooked ?? 0) : (tc.daily?.appointmentsBooked ?? 0) }}
+                </td>
+                <td class="py-3 px-3 text-center font-bold text-emerald-700 dark:text-emerald-300">
+                  {{ selectedRange === 'this_month' ? (tc.monthly?.visits ?? tc.daily?.patientsVisited ?? 0) : (tc.daily?.patientsVisited ?? 0) }}
+                </td>
+                <td class="py-3 px-3 text-center">
+                  <span class="font-semibold text-purple-600 dark:text-purple-400">
+                    {{ selectedRange === 'this_month' ? (tc.monthly?.leadToBookingRatio ?? tc.daily?.bookingRatio ?? 0) : (tc.daily?.bookingRatio ?? 0) }}%
+                  </span>
+                </td>
+                <td class="py-3 px-3 text-center">
+                  <span class="font-semibold text-emerald-600 dark:text-emerald-400">
+                    {{ selectedRange === 'this_month' ? (tc.monthly?.leadToVisitRatio ?? tc.daily?.visitRatio ?? 0) : (tc.daily?.visitRatio ?? 0) }}%
+                  </span>
+                </td>
                 <td v-if="isExecutive" class="py-3 px-3 text-center">
                   <button
                     type="button"
@@ -1510,7 +1518,7 @@ const currentPerformanceDisplay = computed(() => {
       ? (t.monthly?.leadToBookingRatio ?? (mLeads > 0 ? Math.min(100, Number(((mBookings / Math.max(mLeads, mBookings)) * 100).toFixed(1))) : 0))
       : (t.daily?.bookingRatio ?? t.monthly?.leadToBookingRatio ?? 0);
     const vRatio = isThisMonth
-      ? (t.monthly?.leadToVisitRatio ?? (mLeads > 0 ? Math.min(100, Number(((mVisits / Math.max(mLeads, mVisits)) * 100).toFixed(1))) : 0))
+      ? (t.monthly?.leadToVisitRatio ?? (mBookings > 0 ? Math.min(100, Number(((mVisits / mBookings) * 100).toFixed(1))) : 0))
       : (t.daily?.visitRatio ?? t.monthly?.leadToVisitRatio ?? 0);
     return {
       isIndividual: true,
@@ -1535,7 +1543,7 @@ const currentPerformanceDisplay = computed(() => {
     ? (totals.monthlyBookingRatio ?? (mLeads > 0 ? Math.min(100, Number(((mBookings / Math.max(mLeads, mBookings)) * 100).toFixed(1))) : 0))
     : (totals.bookingRatio ?? totals.monthlyBookingRatio ?? 0);
   const vRatio = isThisMonth
-    ? (totals.monthlyVisitRatio ?? (mLeads > 0 ? Math.min(100, Number(((mVisits / Math.max(mLeads, mVisits)) * 100).toFixed(1))) : 0))
+    ? (totals.monthlyVisitRatio ?? (mBookings > 0 ? Math.min(100, Number(((mVisits / mBookings) * 100).toFixed(1))) : 0))
     : (totals.visitRatio ?? totals.monthlyVisitRatio ?? 0);
   return {
     isIndividual: false,
@@ -1834,11 +1842,14 @@ function exportStaffLeaderboardCsv() {
   if (!list.length) return;
   const period = currentPeriodLabel.value;
   const lines: string[] = [];
-  lines.push(`Employee,Role,First Calls (${period}),Follow-ups (${period}),Booked (${period}),Visited (${period}),Month Bookings,Month Visits,Booking Ratio %,Visit Ratio %`);
+  lines.push(`Employee,Role,Total Leads (${period}),Total Booked (${period}),Total Visited (${period}),Leads to Booking %,Leads to Visited %`);
   for (const tc of list) {
-    const bRatio = selectedRange.value === 'this_month' ? tc.monthly.leadToBookingRatio : (tc.daily.bookingRatio ?? tc.monthly.leadToBookingRatio);
-    const vRatio = selectedRange.value === 'this_month' ? tc.monthly.leadToVisitRatio : (tc.daily.visitRatio ?? tc.monthly.leadToVisitRatio);
-    lines.push(`"${tc.user.name}","${tc.user.role?.name || tc.user.role?.code || 'Telecaller'}",${tc.daily.newLeadsCalled},${tc.daily.followUpsDone},${tc.daily.appointmentsBooked},${tc.daily.patientsVisited ?? tc.daily.patientsVisiting ?? 0},${tc.monthly.bookings},${tc.monthly.visits},${bRatio}%,${vRatio}%`);
+    const leads = selectedRange.value === 'this_month' ? (tc.monthly?.totalLeads ?? tc.daily?.totalLeads ?? 0) : (tc.daily?.totalLeads ?? 0);
+    const booked = selectedRange.value === 'this_month' ? (tc.monthly?.bookings ?? tc.daily?.appointmentsBooked ?? 0) : (tc.daily?.appointmentsBooked ?? 0);
+    const visited = selectedRange.value === 'this_month' ? (tc.monthly?.visits ?? tc.daily?.patientsVisited ?? 0) : (tc.daily?.patientsVisited ?? 0);
+    const bRatio = selectedRange.value === 'this_month' ? tc.monthly?.leadToBookingRatio : (tc.daily?.bookingRatio ?? tc.monthly?.leadToBookingRatio ?? 0);
+    const vRatio = selectedRange.value === 'this_month' ? tc.monthly?.leadToVisitRatio : (tc.daily?.visitRatio ?? tc.monthly?.leadToVisitRatio ?? 0);
+    lines.push(`"${tc.user.name}","${tc.user.role?.name || tc.user.role?.code || 'Telecaller'}",${leads},${booked},${visited},${bRatio}%,${vRatio}%`);
   }
   const blob = new Blob([lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
   const url = window.URL.createObjectURL(blob);

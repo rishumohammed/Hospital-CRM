@@ -596,6 +596,27 @@
       </div>
     </div>
 
+    <!-- Fallback / Not Found / Error State -->
+    <div v-else class="p-16 text-center bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm max-w-xl mx-auto space-y-4">
+      <div class="w-16 h-16 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800 flex items-center justify-center text-2xl mx-auto shadow-inner">
+        🔍
+      </div>
+      <div>
+        <h2 class="text-xl font-bold text-slate-800 dark:text-white">Lead Profile Unavailable</h2>
+        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-md mx-auto">
+          {{ errorMessage || `Lead #${route.params.id} could not be found or loaded in the current database.` }}
+        </p>
+      </div>
+      <div class="pt-2">
+        <NuxtLink
+          to="/leads"
+          class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold text-white bg-teal-600 hover:bg-teal-700 transition shadow-sm"
+        >
+          <span>← Return to All Leads</span>
+        </NuxtLink>
+      </div>
+    </div>
+
     <!-- Modals & Drawers -->
 
     <!-- Close Inquiry Modal -->
@@ -904,6 +925,7 @@ const apiBase = rawApiBase.endsWith('/api/v1') ? rawApiBase : `${rawApiBase}/api
 
 const lead = ref<any | null>(null);
 const isLoading = ref(true);
+const errorMessage = ref('');
 
 const showEditModal = ref(false);
 const showReassignModal = ref(false);
@@ -1078,6 +1100,7 @@ const handleLeadUpdated = (updated: any) => {
 
 const fetchLead = async () => {
   isLoading.value = true;
+  errorMessage.value = '';
   try {
     const headers: Record<string, string> = {};
     if (authStore.token) headers['authorization'] = `Bearer ${authStore.token}`;
@@ -1089,11 +1112,20 @@ const fetchLead = async () => {
     if (res.ok) {
       lead.value = await res.json();
     } else if (res.status === 403) {
+      errorMessage.value = 'Access Restricted: You do not have permission to view this lead (RBAC).';
       alert('Access Restricted: You do not have permission to view this lead (RBAC).');
       router.push('/leads');
+    } else if (res.status === 404) {
+      lead.value = null;
+      errorMessage.value = `Lead #${route.params.id} does not exist in this database. If you recently restored a backup, verify that the lead was included.`;
+    } else {
+      lead.value = null;
+      errorMessage.value = `Failed to load lead #${route.params.id} (HTTP error ${res.status}).`;
     }
   } catch (err) {
     console.error('Failed to load lead', err);
+    lead.value = null;
+    errorMessage.value = 'Could not connect to the backend server. Please verify your local API and database connection.';
   } finally {
     isLoading.value = false;
   }

@@ -44,7 +44,7 @@
           >
             <option :value="null">-- Select Treating Doctor --</option>
             <option v-for="doc in convertDoctors" :key="doc.id" :value="doc.id">
-              {{ doc.name.startsWith('Dr') ? doc.name : `Dr. ${doc.name}` }} ({{ doc.designation || doc.role?.name || 'Doctor' }})
+              {{ (doc.role?.code === 'doctor' || (doc.role?.name || '').toLowerCase().includes('doctor') || doc.name.startsWith('Dr')) ? (doc.name.startsWith('Dr') ? doc.name : `Dr. ${doc.name}`) : doc.name }} ({{ doc.designation || doc.role?.name || 'Doctor' }})
             </option>
           </select>
         </div>
@@ -269,7 +269,7 @@ async function loadConvertPicklists() {
       const doctors = allStaff.filter(
         (u: any) => u.role?.code === 'doctor' || u.roleCode === 'doctor' || u.dutyDoctor || (u.role?.name || '').toLowerCase().includes('doctor')
       );
-      convertDoctors.value = doctors.length > 0 ? doctors : allStaff;
+      convertDoctors.value = doctors;
     }
 
     // Check if lead or task has an appointment with a specific doctor to auto-select
@@ -297,10 +297,12 @@ async function loadConvertPicklists() {
       }
     }
 
-    // Default doctor to current user if doctor, or first doctor in list
+    // Default doctor to current user ONLY if current user is an actual doctor
     if (!convertDoctorId.value && convertDoctors.value.length > 0) {
       const matchMe = convertDoctors.value.find((d: any) => d.id === authStore.user?.id);
-      convertDoctorId.value = matchMe ? matchMe.id : convertDoctors.value[0].id;
+      if (matchMe) {
+        convertDoctorId.value = matchMe.id;
+      }
     }
   } catch (err) {
     console.warn('Failed to load convert picklists', err);

@@ -6,7 +6,7 @@
         <h1 class="text-2xl font-semibold text-slate-900 dark:text-slate-100 flex items-center space-x-2">
           <span>{{ activeLeadType === 'product' ? 'Product Desk: Leads' : 'Support Desk: Leads' }}</span>
           <span class="text-xs px-2.5 py-1 rounded-full bg-teal-100 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 font-semibold">
-            {{ pagination.total }} Total
+            {{ pagination.total }} {{ selectedDateRange === 'today' ? 'Today' : 'Total' }}
           </span>
         </h1>
         <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
@@ -65,6 +65,53 @@
       </button>
     </div>
 
+    <!-- Date Filter Bar -->
+    <div class="p-3.5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+      <!-- Date Range Pills -->
+      <div class="flex items-center space-x-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-thin">
+        <span class="text-xs font-semibold text-slate-400 dark:text-slate-500 mr-1 flex items-center gap-1">
+          <UIcon name="i-heroicons-calendar-days" class="w-4 h-4 text-slate-400" />
+          <span>Period:</span>
+        </span>
+        <button
+          v-for="r in dateRanges"
+          :key="r.key"
+          type="button"
+          @click="selectDateRange(r.key)"
+          :class="[
+            'px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all min-h-[36px] cursor-pointer',
+            selectedDateRange === r.key
+              ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 shadow-sm'
+              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
+          ]"
+        >
+          {{ r.label }}
+        </button>
+      </div>
+
+      <!-- Custom Date Picker Inputs (shown when Custom is active) -->
+      <div v-if="selectedDateRange === 'custom'" class="flex items-center gap-2 flex-wrap">
+        <div class="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
+          <span class="text-slate-400 font-medium">From:</span>
+          <input
+            type="date"
+            v-model="customStartDate"
+            @change="applyCustomDateFilter"
+            class="bg-transparent text-slate-800 dark:text-slate-200 font-semibold focus:outline-none cursor-pointer"
+          />
+        </div>
+        <div class="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
+          <span class="text-slate-400 font-medium">To:</span>
+          <input
+            type="date"
+            v-model="customEndDate"
+            @change="applyCustomDateFilter"
+            class="bg-transparent text-slate-800 dark:text-slate-200 font-semibold focus:outline-none cursor-pointer"
+          />
+        </div>
+      </div>
+    </div>
+
     <!-- Quick Status KPI Cards -->
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
       <!-- 1. Total Leads -->
@@ -80,7 +127,7 @@
       >
         <div class="flex items-center justify-between">
           <span class="text-xs font-semibold uppercase tracking-wider text-teal-800 dark:text-teal-300">
-            Total Inquiries
+            {{ selectedDateRange === 'today' ? "Today's Inquiries" : "Total Inquiries" }}
           </span>
           <span class="text-base">📋</span>
         </div>
@@ -88,7 +135,9 @@
           <span class="text-2xl sm:text-3xl font-bold text-teal-700 dark:text-teal-200">
             {{ stats.active || pagination.total }}
           </span>
-          <span class="text-[11px] text-teal-700/70 dark:text-teal-300/70 font-medium">All active</span>
+          <span class="text-[11px] text-teal-700/70 dark:text-teal-300/70 font-medium">
+            {{ selectedDateRange === 'today' ? "Today's active" : "All active" }}
+          </span>
         </div>
       </button>
 
@@ -105,7 +154,7 @@
       >
         <div class="flex items-center justify-between">
           <span class="text-xs font-semibold uppercase tracking-wider text-rose-700 dark:text-rose-400">
-            New (Uncalled)
+            {{ selectedDateRange === 'today' ? "Today's New" : "New (Uncalled)" }}
           </span>
           <span class="flex h-2.5 w-2.5 relative" v-if="(stats.new || 0) > 0">
             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
@@ -117,7 +166,9 @@
           <span class="text-2xl sm:text-3xl font-bold text-rose-600 dark:text-rose-400">
             {{ stats.new || 0 }}
           </span>
-          <span class="text-[11px] text-rose-600/80 dark:text-rose-400/80 font-medium">Needs 1st call</span>
+          <span class="text-[11px] text-rose-600/80 dark:text-rose-400/80 font-medium">
+            {{ selectedDateRange === 'today' ? "Needs 1st call today" : "Needs 1st call" }}
+          </span>
         </div>
       </button>
 
@@ -134,7 +185,7 @@
       >
         <div class="flex items-center justify-between">
           <span class="text-xs font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400">
-            In Follow-up
+            {{ selectedDateRange === 'today' ? "Today's In Follow-up" : "In Follow-up" }}
           </span>
           <span class="text-base">📞</span>
         </div>
@@ -142,8 +193,21 @@
           <span class="text-2xl sm:text-3xl font-bold text-amber-600 dark:text-amber-400">
             {{ (stats.contacted || 0) + (stats.qualified || 0) }}
           </span>
-          <span class="text-[11px] text-amber-700/80 dark:text-amber-300/80 font-medium">Active talks</span>
+          <span class="text-[11px] text-amber-700/80 dark:text-amber-300/80 font-medium">
+            {{ selectedDateRange === 'today' ? "Created today in talks" : "Active talks" }}
+          </span>
         </div>
+        <!-- Scheduled Callbacks Badge (reconciles with Follow-up Desk) -->
+        <span
+          v-if="selectedDateRange === 'today' && tasksDueTodayCount > 0"
+          @click.stop="navigateTo('/follow-ups')"
+          class="mt-2.5 inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/50 dark:hover:bg-amber-900/80 text-amber-900 dark:text-amber-200 text-[11px] font-semibold transition-colors cursor-pointer"
+          title="Open Follow-up Desk to view today's scheduled callbacks"
+        >
+          <span>📅</span>
+          <span>{{ tasksDueTodayCount }} Callbacks Due Today</span>
+          <span class="text-amber-600 font-bold ml-0.5">→</span>
+        </span>
       </button>
     </div>
 
@@ -531,6 +595,85 @@ const showQuickCreate = ref(false);
 const showEditModal = ref(false);
 const selectedLeadToEdit = ref<any | null>(null);
 
+const selectedDateRange = ref<'today' | 'week' | 'month' | 'all' | 'custom'>('today');
+const customStartDate = ref('');
+const customEndDate = ref('');
+
+const dateRanges = [
+  { key: 'today', label: 'Today' },
+  { key: 'week', label: 'This Week' },
+  { key: 'month', label: 'This Month' },
+  { key: 'all', label: 'All Time' },
+  { key: 'custom', label: 'Custom' },
+];
+
+function initCustomDates() {
+  const end = new Date();
+  const start = new Date();
+  start.setDate(start.getDate() - 7);
+  customEndDate.value = end.toISOString().slice(0, 10);
+  customStartDate.value = start.toISOString().slice(0, 10);
+}
+
+function selectDateRange(rangeKey: any) {
+  selectedDateRange.value = rangeKey;
+  if (rangeKey === 'custom') {
+    if (!customStartDate.value || !customEndDate.value) {
+      initCustomDates();
+    }
+  }
+  pagination.page = 1;
+  fetchLeads();
+}
+
+function applyCustomDateFilter() {
+  if (customStartDate.value && customEndDate.value) {
+    if (customStartDate.value > customEndDate.value) {
+      const temp = customStartDate.value;
+      customStartDate.value = customEndDate.value;
+      customEndDate.value = temp;
+    }
+    pagination.page = 1;
+    fetchLeads();
+  }
+}
+
+function getDateParams() {
+  let startDate: string | undefined;
+  let endDate: string | undefined;
+
+  if (selectedDateRange.value === 'today') {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    startDate = start.toISOString();
+    endDate = end.toISOString();
+  } else if (selectedDateRange.value === 'week') {
+    const d = new Date();
+    const day = d.getDay();
+    const diff = d.getDate() - (day === 0 ? 6 : day - 1);
+    const monday = new Date(d.getFullYear(), d.getMonth(), diff, 0, 0, 0, 0);
+    startDate = monday.toISOString();
+    const end = new Date(d.getFullYear(), d.getMonth(), diff + 6, 23, 59, 59, 999);
+    endDate = end.toISOString();
+  } else if (selectedDateRange.value === 'month') {
+    const now = new Date();
+    const d = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    startDate = d.toISOString();
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    endDate = end.toISOString();
+  } else if (selectedDateRange.value === 'custom') {
+    if (customStartDate.value) {
+      startDate = new Date(`${customStartDate.value}T00:00:00`).toISOString();
+    }
+    if (customEndDate.value) {
+      endDate = new Date(`${customEndDate.value}T23:59:59.999`).toISOString();
+    }
+  }
+
+  return { startDate, endDate };
+}
+
 const stats = reactive({
   all: 0,
   active: 0,
@@ -736,11 +879,32 @@ const canCreateLead = computed(() => {
 });
 
 const activeLeadType = ref<'treatment' | 'product'>('treatment');
+const tasksDueTodayCount = ref(0);
+
+const fetchTasksDueToday = async () => {
+  try {
+    const token = authStore.token || authStore.accessToken || (typeof window !== 'undefined' ? localStorage.getItem('hospital_crm_token') : null);
+    if (!token) return;
+    const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+    const team = (activeLeadType.value === 'product' || isProductStaff.value) ? 'product' : 'support';
+    const res = await fetch(`${apiBase}/tasks?due=today&status=open&pageSize=1&nextStepOnly=true&team=${team}`, {
+      headers,
+      credentials: 'include',
+    });
+    if (res.ok) {
+      const data = await res.json();
+      tasksDueTodayCount.value = data.meta?.total || 0;
+    }
+  } catch (err) {
+    console.error('Failed to fetch tasks due today', err);
+  }
+};
 
 const setLeadType = (type: 'treatment' | 'product') => {
   activeLeadType.value = type;
   pagination.page = 1;
   fetchLeads();
+  fetchTasksDueToday();
 };
 
 const setScope = (scope: 'my' | 'all' | 'unassigned') => {
@@ -785,6 +949,10 @@ const fetchLeads = async () => {
       params.append('sortOrder', 'asc');
     }
 
+    const { startDate, endDate } = getDateParams();
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+
     const token = authStore.token || authStore.accessToken || (typeof window !== 'undefined' ? localStorage.getItem('hospital_crm_token') : null);
     const headers: Record<string, string> = {};
     if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -803,6 +971,7 @@ const fetchLeads = async () => {
         Object.assign(stats, data.stats);
       }
     }
+    fetchTasksDueToday();
   } catch (err) {
     console.error('Failed to load leads', err);
   } finally {

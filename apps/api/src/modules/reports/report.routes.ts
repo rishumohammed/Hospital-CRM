@@ -13,6 +13,7 @@ import {
   getProductTelecallerPerformance,
   getTeamPerformance,
   getMonthlyStatusTrend,
+  getDashboardTodayStats,
 } from './report.service';
 import { authenticate, requirePermission } from '../auth/auth.middleware';
 
@@ -38,6 +39,38 @@ export const reportRoutes: FastifyPluginAsync = async (fastify: FastifyInstance)
             startDate: query.startDate,
             endDate: query.endDate,
           },
+          req.user!
+        );
+
+        return reply.send(result);
+      }
+    );
+
+    // Dashboard Today Operations Report (IST Live Counts)
+    authGroup.get(
+      '/reports/dashboard-today',
+      {
+        preHandler: [
+          requirePermission(
+            [
+              Permissions.REPORT_VIEW,
+              Permissions.INTERACTION_CREATE,
+              Permissions.LEAD_VIEW,
+              Permissions.PRODUCT_LEAD_VIEW,
+              Permissions.TASK_VIEW,
+            ],
+            'report'
+          ),
+        ],
+      },
+      async (req, reply) => {
+        const query = req.query as {
+          branchId?: string;
+        };
+
+        const branchId = query.branchId ? parseInt(query.branchId, 10) : undefined;
+        const result = await getDashboardTodayStats(
+          { branchId },
           req.user!
         );
 
